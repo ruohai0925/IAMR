@@ -1,4 +1,4 @@
-# IAMR 
+# IAMR-multiphase
 
 A parallel, adaptive mesh refinement (AMR) code that solves the variable-density 
 incompressible Navier-Stokes equations.
