@@ -200,6 +200,11 @@ int NavierStokesBase::do_phi   = 0;
 int NavierStokesBase::phicomp  = 0;
 int NavierStokesBase::epsilon  = 2;
 
+Real NavierStokesBase::mu_a      = 0.00018;
+Real NavierStokesBase::mu_w      = 0.01;
+Real NavierStokesBase::rho_a     = 0.0012;
+Real NavierStokesBase::rho_w     = 1.0;
+
 namespace
 {
     bool initialized = false;
@@ -606,7 +611,13 @@ NavierStokesBase::Initialize ()
     // ls related
     //
     pp.query("do_phi", do_phi);
-    pp.query("epsilon", epsilon);
+    if (do_phi) {
+        pp.query("epsilon", epsilon);
+        pp.query("mu_a", mu_a);
+        pp.query("mu_w", mu_w);
+        pp.query("rho_a", rho_a);
+        pp.query("rho_w", rho_w);
+    }
 
     amrex::ExecOnFinalize(NavierStokesBase::Finalize);
 
@@ -748,15 +759,20 @@ NavierStokesBase::advance_setup (Real /*time*/,
 
     //
     // ls related
-    // fill the gts of old state data
+    // update the rho_ptime
     // 
     if (do_phi && do_mom_diff==0) {
         amrex::Print() << "2 " << std::endl;
         MultiFab&  S_old    = get_old_data(State_Type);
         MultiFab::Copy(phi_ptime, S_old, phicomp, 0, 1, S_old.nGrow()); 
-        phi_to_heavianddelta(phi_ptime);
-        // heavi_to_rhomu(&rho_ptime, rho_w, rho_a);
+        phi_to_heavi(phi_ptime);
+        heavi_to_rhoormu(rho_ptime, rho_w, rho_a);
         MultiFab::Copy(S_old, rho_ptime, 0, Density, 1, rho_ptime.nGrow());
+
+        MultiFab outmf_mu_ptime(grids, dmap, 1, 1);
+        heavi_to_rhoormu(outmf_mu_ptime, mu_w, mu_a);
+        MultiFab::Copy(*viscn_cc,   outmf_mu_ptime, 0, 0, 1, 1);
+        MultiFab::Copy(*viscnp1_cc, outmf_mu_ptime, 0, 0, 1, 1);
     }
 
     // refRatio==4 is not currently supported
@@ -5300,10 +5316,10 @@ void NavierStokesBase::fill_allgts (MultiFab& mf, int type, int scomp, int ncomp
     MultiFab::Copy(mf, mf_temp, scomp, scomp, ncomp, ngrow);
 }
 
-void NavierStokesBase::phi_to_heavianddelta (MultiFab& phi)
+void NavierStokesBase::phi_to_heavi (MultiFab& phi)
 {
 
-    if (verbose) amrex::Print() << "In the NavierStokesBase::phi_to_heavianddelta " << std::endl;
+    if (verbose) amrex::Print() << "In the NavierStokesBase::phi_to_heavi " << std::endl;
     const Real* dx    = geom.CellSize();
     const Real pi     = 3.141592653589793238462643383279502884197;
     const int eps_in  = epsilon;
@@ -5321,23 +5337,82 @@ void NavierStokesBase::phi_to_heavianddelta (MultiFab& phi)
         const Box& bx = mfi.growntilebox();
         auto const& phifab   = phi.array(mfi);
         auto const& heavifab = heaviside.array(mfi);
-        auto const& deltafab = deltafunc.array(mfi);
-        amrex::ParallelFor(bx, [phifab, heavifab, deltafab, pi, eps]
+        amrex::ParallelFor(bx, [phifab, heavifab, pi, eps]
         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
 
             if (phifab(i,j,k) > eps) {
                 heavifab(i,j,k) = 1.0;
-                deltafab(i,j,k) = 0.0;
             } else if (phifab(i,j,k) > -eps) {
                 heavifab(i,j,k) = 0.5 * (1.0 + phifab(i,j,k) / eps + 1.0 / pi * std::sin(phifab(i,j,k) * pi / eps));
-                deltafab(i,j,k) = 0.5 * (1.0 + std::cos(phifab(i,j,k) * pi / eps)) / eps;
             } else {
                 heavifab(i,j,k) = 0.0;
+            }
+
+        });
+    }
+}
+
+void NavierStokesBase::phi_to_delta (MultiFab& phi)
+{
+
+    if (verbose) amrex::Print() << "In the NavierStokesBase::phi_to_delta " << std::endl;
+    const Real* dx    = geom.CellSize();
+    const Real pi     = 3.141592653589793238462643383279502884197;
+    const int eps_in  = epsilon;
+    Real dxmin        = dx[0];
+    for (int d=1; d<AMREX_SPACEDIM; ++d) {
+        dxmin = std::min(dxmin,dx[d]);
+    }
+    Real eps = eps_in * dxmin;
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(phi,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.growntilebox();
+        auto const& phifab   = phi.array(mfi);
+        auto const& deltafab = deltafunc.array(mfi);
+        amrex::ParallelFor(bx, [phifab, deltafab, pi, eps]
+        AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        {
+
+            if (phifab(i,j,k) > eps) {
+                deltafab(i,j,k) = 0.0;
+            } else if (phifab(i,j,k) > -eps) {
+                deltafab(i,j,k) = 0.5 * (1.0 + std::cos(phifab(i,j,k) * pi / eps)) / eps;
+            } else {
                 deltafab(i,j,k) = 0.0;
             }
 
         });
     }
+}
+
+void NavierStokesBase::heavi_to_rhoormu (MultiFab& outmf, Real var1, Real var2)
+{
+
+    if(verbose) amrex::Print() << "In the NavierStokesBase::heavi_to_rhomu " << std::endl;
+    BL_ASSERT(heaviside.nComp() == outmf.nComp());
+
+    int ncomp = outmf.nComp();
+    int ngrow = outmf.nGrow();
+
+    // build heaviside_temp because we might need to smooth the heaviside function
+    MultiFab heaviside_temp(heaviside.boxArray(), heaviside.DistributionMap(), ncomp, ngrow, MFInfo(), Factory());
+    MultiFab::Copy(heaviside_temp, heaviside, 0, 0, ncomp, ngrow);
+
+    // if( smoothforrhomu==1 && (parent->levelSteps(0)%lev0step_of_smoothforrhomu == 0) ){
+    // smooth_sf(heaviside_temp);
+    // }
+
+    heaviside_temp.mult(var1-var2, 0, ncomp,ngrow);
+
+    MultiFab rtmp(heaviside.boxArray(), heaviside.DistributionMap(), ncomp, ngrow, MFInfo(), Factory());
+    rtmp.setVal(var2, 0, ncomp, ngrow);
+
+    MultiFab::Add(heaviside_temp, rtmp, 0, 0, ncomp, ngrow);
+    MultiFab::Copy(outmf, heaviside_temp, 0, 0, ncomp, ngrow);
 
 }

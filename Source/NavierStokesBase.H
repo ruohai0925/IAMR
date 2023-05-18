@@ -192,7 +192,9 @@ public:
     // ls related
     //
     void fill_allgts (amrex::MultiFab& mf, int type, int scomp, int ncomp, amrex::Real time);
-    void phi_to_heavianddelta(amrex::MultiFab& phi);
+    void phi_to_heavi(amrex::MultiFab& phi);
+    void phi_to_delta(amrex::MultiFab& phi);
+    void heavi_to_rhoormu(amrex::MultiFab& outmf, amrex::Real var1, amrex::Real var2);
 
     amrex::Vector<amrex::BCRec> const& get_bcrec_velocity () const noexcept { return m_bcrec_velocity; }
     amrex::Vector<amrex::BCRec> const& get_bcrec_scalars () const noexcept { return m_bcrec_scalars; }
@@ -808,6 +810,11 @@ public:
     amrex::MultiFab phi_ctime;
     amrex::MultiFab heaviside;
     amrex::MultiFab deltafunc;
+
+    static amrex::Real mu_a;
+    static amrex::Real rho_a;
+    static amrex::Real mu_w;
+    static amrex::Real rho_w;
 
     //
     // static integer constants
