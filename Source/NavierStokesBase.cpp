@@ -193,6 +193,13 @@ int NavierStokesBase::gradp_in_checkpoint = -1;
 // is Average in checkpoint file
 int NavierStokesBase::average_in_checkpoint = -1;
 
+//
+// ls related
+//
+int NavierStokesBase::do_phi   = 0;
+int NavierStokesBase::phicomp  = 0;
+int NavierStokesBase::epsilon  = 2;
+
 namespace
 {
     bool initialized = false;
@@ -307,6 +314,17 @@ NavierStokesBase::NavierStokesBase (Amr&            papa,
     //
     buildMetrics();
 
+    //
+    // ls related
+    // 2 ghost cells
+    //
+    if (do_phi) {
+        phi_half.define(grids,dmap,1,2,MFInfo(),Factory());
+        phi_ptime.define(grids,dmap,1,2,MFInfo(),Factory());
+        phi_ctime.define(grids,dmap,1,2,MFInfo(),Factory());
+        heaviside.define(grids,dmap,1,2,MFInfo(),Factory());
+        deltafunc.define(grids,dmap,1,2,MFInfo(),Factory());
+    }
 
 #ifdef AMREX_USE_EB
     init_eb(level_geom, bl, dm);
@@ -584,6 +602,11 @@ NavierStokesBase::Initialize ()
         amrex::Abort("redistribution type must be NoRedist, FluxRedist, or StateRedist");
     }
 #endif
+    //
+    // ls related
+    //
+    pp.query("do_phi", do_phi);
+    pp.query("epsilon", epsilon);
 
     amrex::ExecOnFinalize(NavierStokesBase::Finalize);
 
@@ -709,7 +732,32 @@ NavierStokesBase::advance_setup (Real /*time*/,
         state[k].swapTimeLevels(dt);
     }
 
+    //
+    // ls related
+    // fill the gts of old state data
+    // 
+    if (do_phi && do_mom_diff==0) {
+        amrex::Print() << "1 " << std::endl;
+        const Real prev_time = state[State_Type].prevTime();
+        MultiFab&  S_old    = get_old_data(State_Type);
+        int nScomp = S_old.nComp();
+        fill_allgts(S_old,State_Type,0,nScomp,prev_time);
+    }
+
     make_rho_prev_time();
+
+    //
+    // ls related
+    // fill the gts of old state data
+    // 
+    if (do_phi && do_mom_diff==0) {
+        amrex::Print() << "2 " << std::endl;
+        MultiFab&  S_old    = get_old_data(State_Type);
+        MultiFab::Copy(phi_ptime, S_old, phicomp, 0, 1, S_old.nGrow()); 
+        phi_to_heavianddelta(phi_ptime);
+        // heavi_to_rhomu(&rho_ptime, rho_w, rho_a);
+        MultiFab::Copy(S_old, rho_ptime, 0, Density, 1, rho_ptime.nGrow());
+    }
 
     // refRatio==4 is not currently supported
     //
@@ -2813,6 +2861,18 @@ NavierStokesBase::restart (Amr&          papa,
     rho_ctime.define(grids,dmap,1,1,MFInfo(),Factory());
     rho_qtime  = 0;
     rho_tqtime = 0;
+
+    //
+    // ls related
+    // 2 ghost cells
+    //
+    if (do_phi) {
+        phi_half.define(grids,dmap,1,2,MFInfo(),Factory());
+        phi_ptime.define(grids,dmap,1,2,MFInfo(),Factory());
+        phi_ctime.define(grids,dmap,1,2,MFInfo(),Factory());
+        heaviside.define(grids,dmap,1,2,MFInfo(),Factory());
+        deltafunc.define(grids,dmap,1,2,MFInfo(),Factory());
+    }
 
     AMREX_ASSERT(sync_reg == 0);
     if (level > 0 && do_sync_proj)
@@ -5227,3 +5287,57 @@ NavierStokesBase::InitialRedistribution ()
     MultiFab::Copy(S_new, Smf, 0, 0, NUM_STATE, 0);
 }
 #endif
+
+//
+// ls related
+//
+void NavierStokesBase::fill_allgts (MultiFab& mf, int type, int scomp, int ncomp, Real time)
+{
+    // Fill phys bc ,ff bc, cf bc
+    int ngrow = mf.nGrow();
+    FillPatchIterator mf_fpi(*this, mf, ngrow, time, type, scomp, ncomp);
+    MultiFab& mf_temp = mf_fpi.get_mf();
+    MultiFab::Copy(mf, mf_temp, scomp, scomp, ncomp, ngrow);
+}
+
+void NavierStokesBase::phi_to_heavianddelta (MultiFab& phi)
+{
+
+    if (verbose) amrex::Print() << "In the NavierStokesBase::phi_to_heavianddelta " << std::endl;
+    const Real* dx    = geom.CellSize();
+    const Real pi     = 3.141592653589793238462643383279502884197;
+    const int eps_in  = epsilon;
+    Real dxmin        = dx[0];
+    for (int d=1; d<AMREX_SPACEDIM; ++d) {
+        dxmin = std::min(dxmin,dx[d]);
+    }
+    Real eps = eps_in * dxmin;
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(phi,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.growntilebox();
+        auto const& phifab   = phi.array(mfi);
+        auto const& heavifab = heaviside.array(mfi);
+        auto const& deltafab = deltafunc.array(mfi);
+        amrex::ParallelFor(bx, [phifab, heavifab, deltafab, pi, eps]
+        AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        {
+
+            if (phifab(i,j,k) > eps) {
+                heavifab(i,j,k) = 1.0;
+                deltafab(i,j,k) = 0.0;
+            } else if (phifab(i,j,k) > -eps) {
+                heavifab(i,j,k) = 0.5 * (1.0 + phifab(i,j,k) / eps + 1.0 / pi * std::sin(phifab(i,j,k) * pi / eps));
+                deltafab(i,j,k) = 0.5 * (1.0 + std::cos(phifab(i,j,k) * pi / eps)) / eps;
+            } else {
+                heavifab(i,j,k) = 0.0;
+                deltafab(i,j,k) = 0.0;
+            }
+
+        });
+    }
+
+}

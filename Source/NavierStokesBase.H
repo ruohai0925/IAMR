@@ -188,6 +188,12 @@ public:
 
     amrex::Vector<amrex::BCRec> fetchBCArray (int State_Type, int scomp, int ncomp);
 
+    //
+    // ls related
+    //
+    void fill_allgts (amrex::MultiFab& mf, int type, int scomp, int ncomp, amrex::Real time);
+    void phi_to_heavianddelta(amrex::MultiFab& phi);
+
     amrex::Vector<amrex::BCRec> const& get_bcrec_velocity () const noexcept { return m_bcrec_velocity; }
     amrex::Vector<amrex::BCRec> const& get_bcrec_scalars () const noexcept { return m_bcrec_scalars; }
 
@@ -791,6 +797,17 @@ public:
     int nghost_state ();
     int nghost_force ();
 
+    //
+    // ls related
+    //
+    static int  do_phi;
+    static int  phicomp;
+    static int  epsilon;
+    amrex::MultiFab phi_half;
+    amrex::MultiFab phi_ptime;
+    amrex::MultiFab phi_ctime;
+    amrex::MultiFab heaviside;
+    amrex::MultiFab deltafunc;
 
     //
     // static integer constants
