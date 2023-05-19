@@ -772,7 +772,6 @@ NavierStokesBase::advance_setup (Real /*time*/,
         MultiFab outmf_mu_ptime(grids, dmap, 1, 1);
         heavi_to_rhoormu(outmf_mu_ptime, mu_w, mu_a);
         MultiFab::Copy(*viscn_cc,   outmf_mu_ptime, 0, 0, 1, 1);
-        MultiFab::Copy(*viscnp1_cc, outmf_mu_ptime, 0, 0, 1, 1);
     }
 
     // refRatio==4 is not currently supported
@@ -3657,6 +3656,10 @@ NavierStokesBase::velocity_advection (Real dt)
     else
         visc_terms.setVal(0.0);
 
+    //
+    // ls related
+    // may add some surface tension subroutines later
+    //
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -3672,6 +3675,10 @@ NavierStokesBase::velocity_advection (Real dt)
                            << "B - velocity advection:" << '\n'
                            << "Calling getForce..." << '\n';
         }
+        //
+        // ls related
+        // may consider the surface tension in a new getForce later
+        //
         getForce(forcing_term[U_mfi],force_bx,Xvel,AMREX_SPACEDIM,
                  prev_time,Umf[U_mfi],Smf[U_mfi],0,U_mfi);
 
@@ -4671,6 +4678,11 @@ NavierStokesBase::predict_velocity (Real  dt)
            visc_terms.setVal(0.0);
        }
 
+       //
+       // ls related
+       // may add some surface tension subroutines later
+       //
+
        FillPatchIterator S_fpi(*this,visc_terms,nghost_state(),prev_time,State_Type,Density,NUM_SCALARS);
        MultiFab& Smf=S_fpi.get_mf();
 
@@ -4692,6 +4704,10 @@ NavierStokesBase::predict_velocity (Real  dt)
                    Print() << "---\nA - Predict velocity:\n Calling getForce...\n";
                }
 
+               //
+               // ls related
+               // may consider the surface tension in a new getForce later
+               //
                getForce(forcing_term[U_mfi],gbx,Xvel,AMREX_SPACEDIM,prev_time,Ufab,Smf[U_mfi],0,U_mfi);
 
                //
