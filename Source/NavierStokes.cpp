@@ -639,6 +639,37 @@ NavierStokes::advance (Real time,
     const int last_scalar  = first_scalar + NUM_SCALARS - 1;
     scalar_advection(dt,first_scalar,last_scalar);
     //
+    // ls related
+    // note: in the above scalar_advection function, we still advect rho even if 
+    // we do not use it later. This can be simplified later.
+    // 
+    if (do_phi && do_mom_diff==0) {
+        amrex::Print() << "After scalar_advection " << std::endl;
+        const Real  prev_time = state[State_Type].prevTime();
+        MultiFab& S_old = get_old_data(State_Type);
+        int nScomp = S_old.nComp();
+        fill_allgts(S_old,State_Type,phicomp,1,prev_time);
+        MultiFab::Copy(phi_ptime, S_old, phicomp, 0, 1, S_old.nGrow());
+
+        amrex::Print()<< "scalar_update phi " << std::endl;
+        amrex::Print()<< "phicomp " << phicomp << std::endl;
+        scalar_update(dt,phicomp,phicomp);
+
+        const Real cur_time = state[State_Type].curTime();
+        MultiFab& S_new = get_new_data(State_Type);
+        fill_allgts(S_new,State_Type,phicomp,1,cur_time);
+        MultiFab::Copy(phi_ctime, S_new, phicomp, 0, 1, S_new.nGrow());
+
+        // reinitialization
+        if (do_reinit == 1 && (parent->levelSteps(0)% lev0step_of_reinit == 0) ){
+            amrex::Print() << "parent->levelSteps(0) " << parent->levelSteps(0) << std::endl;
+            reinit();
+        }
+        //
+    }
+
+
+    //
     // Update Rho.
     //
     scalar_update(dt,first_scalar,first_scalar);

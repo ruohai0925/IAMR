@@ -195,6 +195,9 @@ public:
     void phi_to_heavi(amrex::MultiFab& phi);
     void phi_to_delta(amrex::MultiFab& phi);
     void heavi_to_rhoormu(amrex::MultiFab& outmf, amrex::Real var1, amrex::Real var2);
+    void reinit ();
+    void reinitialization_sussman (amrex::Real dt, int loop_iter);
+    void reinitialization_bhalla (amrex::Real dt, int loop_iter);
 
     amrex::Vector<amrex::BCRec> const& get_bcrec_velocity () const noexcept { return m_bcrec_velocity; }
     amrex::Vector<amrex::BCRec> const& get_bcrec_scalars () const noexcept { return m_bcrec_scalars; }
@@ -815,6 +818,29 @@ public:
     static amrex::Real rho_a;
     static amrex::Real mu_w;
     static amrex::Real rho_w;
+
+    static int do_reinit;
+    static int lev0step_of_reinit;
+    static int number_of_reinit;
+    static int reinit_sussman;
+    static int reinit_bhalla;
+
+    amrex::MultiFab phi1;
+    amrex::MultiFab phi2;
+    amrex::MultiFab phi3;
+    amrex::MultiFab G0;
+    amrex::MultiFab sgn0;
+
+    // for mass conservation in reinit_sussman
+    static int fix_mass;  
+    amrex::MultiFab phi_original;
+    amrex::MultiFab ld;
+    amrex::MultiFab lambdad;
+    amrex::MultiFab dmin;
+
+    // for reinit_bhalla
+    static int do_subcell_fix;
+    static int do_sign_fix;
 
     //
     // static integer constants
