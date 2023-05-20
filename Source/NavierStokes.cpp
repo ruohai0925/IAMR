@@ -645,11 +645,11 @@ NavierStokes::advance (Real time,
     // 
     if (do_phi && do_mom_diff==0) {
         amrex::Print() << "After scalar_advection " << std::endl;
-        const Real  prev_time = state[State_Type].prevTime();
-        MultiFab& S_old = get_old_data(State_Type);
-        int nScomp = S_old.nComp();
-        fill_allgts(S_old,State_Type,phicomp,1,prev_time);
-        MultiFab::Copy(phi_ptime, S_old, phicomp, 0, 1, S_old.nGrow());
+        // const Real  prev_time = state[State_Type].prevTime();
+        // MultiFab& S_old = get_old_data(State_Type);
+        // int nScomp = S_old.nComp();
+        // fill_allgts(S_old,State_Type,phicomp,1,prev_time);
+        // MultiFab::Copy(phi_ptime, S_old, phicomp, 0, 1, S_old.nGrow());
 
         amrex::Print()<< "scalar_update phi " << std::endl;
         amrex::Print()<< "phicomp " << phicomp << std::endl;
@@ -665,24 +665,48 @@ NavierStokes::advance (Real time,
             amrex::Print() << "parent->levelSteps(0) " << parent->levelSteps(0) << std::endl;
             reinit();
         }
-        //
+        // update the rho_ctime and density in S_new
+        phi_to_heavi(phi_ctime);
+        heavi_to_rhoormu(rho_ctime, rho_w, rho_a);
+        MultiFab::Copy(S_new, rho_ctime, 0, Density, 1, rho_ctime.nGrow());
+        // update phi_half
+        MultiFab& phi_half_temp = get_phi_half_time();
+        // update rho_half
+        phi_to_heavi(phi_half_temp);
+        heavi_to_rhoormu(rho_half, rho_w, rho_a);
+        // update mu_half
+        MultiFab outmf_mu_half(grids, dmap, 1, 1, MFInfo(), Factory());
+        heavi_to_rhoormu(outmf_mu_half, mu_w, mu_a);
+        MultiFab::Copy(*viscn_cc,   outmf_mu_half, 0, 0, 1, 1);
+        MultiFab::Copy(*viscnp1_cc, outmf_mu_half, 0, 0, 1, 1);
     }
-
-
-    //
-    // Update Rho.
-    //
-    scalar_update(dt,first_scalar,first_scalar);
-    make_rho_curr_time();
+    else {
+        //
+        // Update Rho.
+        //
+        scalar_update(dt,first_scalar,first_scalar);
+        make_rho_curr_time();
+    }
     //
     // Advect momenta after rho^(n+1) has been created.
     //
     if (do_mom_diff == 1)
         velocity_advection(dt);
     //
-    // Add the advective and other terms to get scalars at t^{n+1}.
-    //
-    scalar_update(dt,first_scalar+1,last_scalar);
+    // ls related
+    // 
+    if (do_phi) {
+        //
+        // Add the advective and other terms to get scalars at t^{n+1} except 
+        // the last scalar level set function.
+        scalar_update(dt,first_scalar+1,last_scalar-1);
+    }
+    else {
+        //
+        // Add the advective and other terms to get scalars at t^{n+1}.
+        //
+        scalar_update(dt,first_scalar+1,last_scalar);
+    }
     //
     // S appears in rhs of the velocity update, so we better do it now.
     //

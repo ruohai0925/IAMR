@@ -198,6 +198,8 @@ public:
     void reinit ();
     void reinitialization_sussman (amrex::Real dt, int loop_iter);
     void reinitialization_bhalla (amrex::Real dt, int loop_iter);
+    void phi_to_sgn0 (amrex::MultiFab& phi);
+    amrex::MultiFab& get_phi_half_time ();
 
     amrex::Vector<amrex::BCRec> const& get_bcrec_velocity () const noexcept { return m_bcrec_velocity; }
     amrex::Vector<amrex::BCRec> const& get_bcrec_scalars () const noexcept { return m_bcrec_scalars; }
