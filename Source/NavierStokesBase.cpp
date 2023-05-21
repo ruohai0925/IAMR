@@ -5522,14 +5522,11 @@ NavierStokesBase::reinitialization_sussman (Real dt,
     }
 
     // Step 2: RK2
-    // phi1, phi2, phi3, 2 ghost cells, G0 has 2 ghost cell, initialize them as 0,
-    // and they only influence the minmod function at the boundary;
-    phi1.setVal(0.0);
-    phi2.setVal(0.0);
-    phi3.setVal(0.0);
-    G0.setVal(0.0);
+    // phi1, phi2, phi3, and G0 have 2 ghost cells, initialize them as 0,
+    // and these multifabs only influence the minmod function at the boundary;
     // phi_original and do_subcell_fix are used for subcell fixing
-    // rk_first_reinit(phi_ctime, phi1, phi2, phi3, sgn0, G0, dt, phi_original, dmin, do_subcell_fix);
+    phi1.setVal(0.0); phi2.setVal(0.0); phi3.setVal(0.0); G0.setVal(0.0);
+    rk_first_reinit(phi_ctime, phi1, phi2, phi3, sgn0, G0, dt, phi_original, dmin, do_subcell_fix);
 
     // Step 3: copy phi_ctime back to phi in S_new, fill phi's bc data in S_new, then
     // copy it to phi_ctime
@@ -5540,7 +5537,7 @@ NavierStokesBase::reinitialization_sussman (Real dt,
     MultiFab::Copy(phi_ctime, S_new, phicomp, 0, 1, phi_ctime.nGrow());
 
     // Step 4: RK2
-    // rk_second_reinit(phi_ctime, phi1, phi2, phi3, sgn0, G0, dt, phi_original, dmin, do_subcell_fix);
+    rk_second_reinit(phi_ctime, phi1, phi2, phi3, sgn0, G0, dt, phi_original, dmin, do_subcell_fix);
 
     // Step 5: same as the Step 3
     MultiFab::Copy(S_new, phi_ctime, 0, phicomp, 1, phi_ctime.nGrow());
@@ -5553,17 +5550,13 @@ NavierStokesBase::reinitialization_sussman (Real dt,
         if (verbose) amrex::Print() << "Doing the fix_mass " << std::endl;
 
         // Step 6-1: copy phi_original to phi1
-        MultiFab::Copy(phi1, phi_original, 0, 0, 1, phi_ctime.nGrow());
+        MultiFab::Copy(phi1, phi_original, 0, 0, 1, phi_original.nGrow());
 
         // Step 6-2: set inputs variables as 0.0
-        phi2.setVal(0.0);
-        phi3.setVal(0.0);
-        ld.setVal(0.0);
-        lambdad.setVal(0.0);
-        deltafunc.setVal(0.0);
+        phi2.setVal(0.0); phi3.setVal(0.0); ld.setVal(0.0); lambdad.setVal(0.0); deltafunc.setVal(0.0);
 
         // Step 6-3: mass_fix
-        // mass_fix(phi_ctime, phi1, phi2, phi3, ld, lambdad, deltafunc, dt, loop_iter);
+        mass_fix(phi_ctime, phi1, phi2, phi3, ld, lambdad, deltafunc, dt, loop_iter);
 
         // Step 6-4: same as Step 5
         MultiFab::Copy(S_new, phi_ctime, 0, phicomp, 1, phi_ctime.nGrow());
@@ -5572,7 +5565,8 @@ NavierStokesBase::reinitialization_sussman (Real dt,
      }
 }
 
-void NavierStokesBase::phi_to_sgn0 (MultiFab& phi)
+void
+NavierStokesBase::phi_to_sgn0 (MultiFab& phi)
 {
 
     if(verbose) amrex::Print() << "In the NavierStokesBase::phi_to_sgn0 " << std::endl;
@@ -5610,6 +5604,79 @@ void NavierStokesBase::phi_to_sgn0 (MultiFab& phi)
 
         });
     }
+
+}
+
+void
+NavierStokesBase::rk_first_reinit (MultiFab& phi_ctime,
+                          MultiFab& phi1,
+                          MultiFab& phi2,
+                          MultiFab& phi3,
+                          MultiFab& sgn0,
+                          MultiFab& G0,
+                          Real delta_t, 
+                          MultiFab& phi_ori,
+                          MultiFab& dmin,
+                          int do_subcell)
+{
+
+    if(verbose) amrex::Print() << "In the NavierStokesBase::rk_first_reinit " << std::endl;
+
+    const Real* dx    = geom.CellSize();
+    const int eps_in  = epsilon;
+    Real dxmin        = dx[0];
+    for (int d=1; d<AMREX_SPACEDIM; ++d) {
+        dxmin = std::min(dxmin,dx[d]);
+    }
+    Real eps = eps_in * dxmin;
+
+}
+
+void
+NavierStokesBase::rk_second_reinit (MultiFab& phi_ctime,
+                          MultiFab& phi1,
+                          MultiFab& phi2,
+                          MultiFab& phi3,
+                          MultiFab& sgn0,
+                          MultiFab& G0,
+                          Real delta_t,
+                          MultiFab& phi_ori,
+                          MultiFab& dmin,
+                          int do_subcell)
+{
+
+    if(verbose) amrex::Print() << "NavierStokesBase::rk_second_reinit, do_subcell = " << do_subcell << std::endl;
+    
+    const Real* dx    = geom.CellSize();
+    const int eps_in  = epsilon;
+    Real dxmin        = dx[0];
+    for (int d=1; d<AMREX_SPACEDIM; ++d) {
+        dxmin = std::min(dxmin,dx[d]);
+    }
+    Real eps = eps_in * dxmin;
+
+}
+
+void
+NavierStokesBase::mass_fix (MultiFab& phi_ctime,
+                          MultiFab& phi1,
+                          MultiFab& phi2,
+                          MultiFab& phi3,
+                          MultiFab& ld,
+                          MultiFab& lambdad,
+                          MultiFab& deltafunc_alias,
+                          Real delta_t,
+                          int loop_iter)
+{
+    if(verbose) amrex::Print() << "NavierStokesBase::mass_fix " << std::endl;
+    
+    const Real* dx    = geom.CellSize();
+    const int eps_in  = epsilon;
+    Real dxmin        = dx[0];
+    for (int d=1; d<AMREX_SPACEDIM; ++d) {
+        dxmin = std::min(dxmin,dx[d]);
+    }
+    Real eps = eps_in * dxmin;
 
 }
 

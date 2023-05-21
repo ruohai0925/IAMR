@@ -200,6 +200,35 @@ public:
     void reinitialization_bhalla (amrex::Real dt, int loop_iter);
     void phi_to_sgn0 (amrex::MultiFab& phi);
     amrex::MultiFab& get_phi_half_time ();
+    void rk_first_reinit (amrex::MultiFab& phi_ctime,
+                          amrex::MultiFab& phi1,
+                          amrex::MultiFab& phi2,
+                          amrex::MultiFab& phi3,
+                          amrex::MultiFab& sgn0,
+                          amrex::MultiFab& G0,
+                          amrex::Real dt, 
+                          amrex::MultiFab& phi_ori,
+                          amrex::MultiFab& dmin,
+                          int do_subcell);
+    void rk_second_reinit (amrex::MultiFab& phi_ctime,
+                          amrex::MultiFab& phi1,
+                          amrex::MultiFab& phi2,
+                          amrex::MultiFab& phi3,
+                          amrex::MultiFab& sgn0,
+                          amrex::MultiFab& G0,
+                          amrex::Real dt,
+                          amrex::MultiFab& phi_ori,
+                          amrex::MultiFab& dmin,
+                          int do_subcell);
+    void mass_fix (amrex::MultiFab& phi_ctime,
+                          amrex::MultiFab& phi1,
+                          amrex::MultiFab& phi2,
+                          amrex::MultiFab& phi3,
+                          amrex::MultiFab& ld,
+                          amrex::MultiFab& lambdad,
+                          amrex::MultiFab& deltafunc_alias,
+                          amrex::Real delta_t,
+                          int  loop_iter);
 
     amrex::Vector<amrex::BCRec> const& get_bcrec_velocity () const noexcept { return m_bcrec_velocity; }
     amrex::Vector<amrex::BCRec> const& get_bcrec_scalars () const noexcept { return m_bcrec_scalars; }
