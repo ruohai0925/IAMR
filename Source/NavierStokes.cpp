@@ -52,6 +52,14 @@ NavierStokes::Initialize ()
         Tracer2 = NUM_STATE++;
     if (do_temp)
         Temp = NUM_STATE++;
+    //
+    // ls related
+    //
+    if (do_phi)
+        phicomp = NUM_STATE++;
+    if (verbose) 
+        amrex::Print() << "phicomp, NUM_STATE " << phicomp << " " << NUM_STATE << std::endl;
+
     NUM_SCALARS = NUM_STATE - Density;
 
     NavierStokes::Initialize_bcs();
@@ -81,6 +89,11 @@ NavierStokes::Initialize_bcs ()
 	m_bc_values[ori][Tracer+nc] = 0.0;
       if (do_temp)
 	m_bc_values[ori][Temp] = 1.0;
+    //
+    // ls related
+    //
+      if (do_phi)
+    m_bc_values[ori][phicomp] = 0.0;
     }
 
     ParmParse pp("ns");
@@ -294,9 +307,13 @@ NavierStokes::Initialize_diffusivities ()
     if (do_temp && n_temp_cond_coef != 1)
         amrex::Abort("NavierStokesBase::Initialize(): Only one temp_cond_coef allowed");
 
-    if (n_scal_diff_coefs+n_temp_cond_coef != NUM_SCALARS-1)
-        amrex::Abort("NavierStokesBase::Initialize(): One scal_diff_coef required for each tracer");
-
+    //
+    // ls related
+    //
+    if (do_phi==0) {
+        if (n_scal_diff_coefs+n_temp_cond_coef != NUM_SCALARS-1)
+            amrex::Abort("NavierStokesBase::Initialize(): One scal_diff_coef required for each tracer");
+    }
 
     visc_coef.resize(NUM_STATE);
     is_diffusive.resize(NUM_STATE);
@@ -328,6 +345,13 @@ NavierStokes::Initialize_diffusivities ()
     {
         pp.get("temp_cond_coef",visc_coef[++scalId]);
     }
+    //
+    // ls related
+    //
+    if (do_phi)
+    {
+        visc_coef[phicomp] = -1;
+    }    
 }
 
 void

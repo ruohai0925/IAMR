@@ -281,6 +281,13 @@ NavierStokes::variableSetUp ()
         set_temp_bc(bc,phys_bc);
         desc_lst.setComponent(State_Type,Temp,"temp",bc,state_bf);
     }
+    //
+    // ls related
+    //
+    if (do_phi) {
+       set_scalar_bc(bc,phys_bc);
+       desc_lst.setComponent(State_Type,phicomp,"phi",bc,state_bf);       
+    }
 
     is_diffusive.resize(NUM_STATE);
     advectionType.resize(NUM_STATE);
@@ -322,6 +329,23 @@ NavierStokes::variableSetUp ()
     if (is_diffusive[Density])
     {
         amrex::Error("Density cannot diffuse, bad visc_coef");
+    }
+    //
+    // ls related
+    //
+    if (do_phi) {
+        advectionType[phicomp] = NonConservative;
+        diffusionType[phicomp] = Laplacian_S;
+        if (do_cons_phi) {
+          advectionType[phicomp] = Conservative;
+          diffusionType[phicomp] = Laplacian_SoverRho;
+          amrex::Print() << "Using conservative advection update for phi.\n";
+        }
+    }
+
+    if (is_diffusive[phicomp])
+    {
+        amrex::Error("phi cannot diffuse");
     }
     //
     // ---- pressure

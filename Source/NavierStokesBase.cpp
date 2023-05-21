@@ -214,6 +214,8 @@ int NavierStokesBase::fix_mass           = 1;
 int NavierStokesBase::do_subcell_fix     = 0;
 int NavierStokesBase::do_sign_fix        = 0;
 
+int NavierStokesBase::do_cons_phi        = 0;
+
 namespace
 {
     bool initialized = false;
@@ -643,6 +645,9 @@ NavierStokesBase::Initialize ()
         pp.query("number_of_reinit", number_of_reinit);
         pp.query("reinit_sussman", reinit_sussman);
         pp.query("reinit_bhalla", reinit_bhalla);
+
+        pp.query("do_cons_phi", do_cons_phi);
+
     }
 
     amrex::ExecOnFinalize(NavierStokesBase::Finalize);

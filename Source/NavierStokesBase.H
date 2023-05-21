@@ -873,6 +873,8 @@ public:
     static int do_subcell_fix;
     static int do_sign_fix;
 
+    static int  do_cons_phi;
+
     //
     // static integer constants
     //
