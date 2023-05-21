@@ -762,7 +762,11 @@ public:
     static const int    NUM_GROW=4;       // number of ghost cells
     static int          refine_cutcells;
 #else
-    static const int    NUM_GROW=1;       // number of ghost cells
+    //
+    // ls related
+    // change to two gts
+    // 
+    static const int    NUM_GROW=2;       // number of ghost cells
 #endif
     //
     // Controls over how the convective and diffusive terms are calculated
