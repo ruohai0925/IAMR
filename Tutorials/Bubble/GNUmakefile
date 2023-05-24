@@ -16,7 +16,7 @@ COMP        = gnu
 
 DEBUG       = FALSE
 USE_MPI     = FALSE 
-USE_OMP     = TRUE 
+USE_OMP     = FALSE
 PROFILE     = FALSE
 
 USE_CUDA = FALSE

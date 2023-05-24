@@ -5635,6 +5635,69 @@ NavierStokesBase::rk_first_reinit (MultiFab& phi_ctime,
     }
     Real eps = eps_in * dxmin;
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(phi_ctime,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        Box bx = mfi.validbox();
+        amrex::Print() << "bx before " << bx << std::endl;
+        bx.growLo(0,1).growHi(0,2);
+        amrex::Print() << "bx after " << bx << std::endl;
+        auto const& phifab   = phi_ctime.array(mfi);
+        auto const& phi1fab  = phi1.array(mfi);
+        amrex::ParallelFor(bx, [phifab, phi1fab, dx]
+        AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        {
+            phi1fab(i,j,k) = ( phifab(i,j,k) - phifab(i-1,j,k) )/dx[0];
+        });
+    }
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(phi1,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        Box bx = mfi.validbox();
+        bx.growLo(0,1).growHi(0,1);
+        auto const& phi1fab  = phi1.array(mfi);
+        auto const& phi2fab  = phi2.array(mfi);
+        amrex::ParallelFor(bx, [phi1fab, phi2fab, dx]
+        AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        {
+            phi2fab(i,j,k) = ( phi1fab(i+1,j,k) - phi1fab(i,j,k) )/dx[0];
+        });
+    }
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(phi1,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& vbx = mfi.validbox();
+        auto const& phi1fab = phi1.array(mfi);
+        auto const& phi2fab = phi2.array(mfi);
+        auto const& phi3fab = phi3.array(mfi);
+        auto const& sgn0fab = sgn0.array(mfi);
+        amrex::ParallelFor(vbx, [phi1fab, phi2fab, phi3fab, sgn0fab, dx, this]
+        AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        {
+            Real dxm = phi1fab(i, j, k) + 
+                this->minmod(phi2fab(i - 1, j, k), phi2fab(i, j, k)) * dx[0] / 2.0;
+            Real dxp = phi1fab(i + 1, j, k) -
+                this->minmod(phi2fab(i, j, k), phi2fab(i + 1, j, k)) * dx[0] / 2.0;
+            Real ddx = 0.0;
+            if (dxp * sgn0fab(i, j, k) < 0.0 && dxm * sgn0fab(i, j, k) < -dxp * sgn0fab(i, j, k)) {
+                ddx = dxp;
+            } else if (dxm * sgn0fab(i, j, k) > 0.0 && dxp * sgn0fab(i, j, k) > -dxm * sgn0fab(i, j, k)) {
+                ddx = dxm;
+            } else {
+                ddx = (dxp + dxm) / 2.0;
+            }
+            phi3fab(i, j, k) = pow(ddx, 2);
+        });
+    }
+
 }
 
 void
@@ -5707,4 +5770,18 @@ NavierStokesBase::get_phi_half_time ()
         });
     }
     return phi_half;
+}
+
+Real 
+NavierStokesBase::minmod(Real alpha_1, Real beta_1)
+{
+    if (alpha_1 * beta_1 <= 0.0) {
+        return 0.0;
+    }
+    else if (std::abs(alpha_1) <= std::abs(beta_1)) {
+        return alpha_1;
+    }
+    else {
+        return beta_1;
+    }
 }
