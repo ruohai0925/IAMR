@@ -208,8 +208,7 @@ public:
                           amrex::MultiFab& G0,
                           amrex::Real dt, 
                           amrex::MultiFab& phi_ori,
-                          amrex::MultiFab& dmin,
-                          int do_subcell);
+                          amrex::MultiFab& dmin);
     void rk_second_reinit (amrex::MultiFab& phi_ctime,
                           amrex::MultiFab& phi1,
                           amrex::MultiFab& phi2,
@@ -218,8 +217,7 @@ public:
                           amrex::MultiFab& G0,
                           amrex::Real dt,
                           amrex::MultiFab& phi_ori,
-                          amrex::MultiFab& dmin,
-                          int do_subcell);
+                          amrex::MultiFab& dmin);
     void mass_fix (amrex::MultiFab& phi_ctime,
                           amrex::MultiFab& phi1,
                           amrex::MultiFab& phi2,
