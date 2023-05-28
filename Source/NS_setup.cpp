@@ -341,12 +341,12 @@ NavierStokes::variableSetUp ()
           diffusionType[phicomp] = Laplacian_SoverRho;
           amrex::Print() << "Using conservative advection update for phi.\n";
         }
+        if (is_diffusive[phicomp])
+        {
+            amrex::Error("phi cannot diffuse");
+        }
     }
 
-    if (is_diffusive[phicomp])
-    {
-        amrex::Error("phi cannot diffuse");
-    }
     //
     // ---- pressure
     //
