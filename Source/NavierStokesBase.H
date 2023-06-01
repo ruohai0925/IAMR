@@ -837,6 +837,11 @@ public:
     int nghost_force ();
 
     //
+    // skip_level_projector
+    //
+    static int  skip_level_projector;
+
+    //
     // ls related
     //
     static int  do_phi;

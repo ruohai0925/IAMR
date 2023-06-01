@@ -194,6 +194,11 @@ int NavierStokesBase::gradp_in_checkpoint = -1;
 int NavierStokesBase::average_in_checkpoint = -1;
 
 //
+// skip_level_projector
+//
+int NavierStokesBase::skip_level_projector = 0;
+
+//
 // ls related
 //
 int NavierStokesBase::do_phi   = 0;
@@ -629,6 +634,12 @@ NavierStokesBase::Initialize ()
         amrex::Abort("redistribution type must be NoRedist, FluxRedist, or StateRedist");
     }
 #endif
+
+    //
+    // composite time advancement
+    //
+    pp.query("skip_level_projector", skip_level_projector);
+
     //
     // ls related
     //

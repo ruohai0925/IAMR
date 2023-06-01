@@ -769,8 +769,17 @@ NavierStokes::advance (Real time,
         //
         // Do a level project to update the pressure and velocity fields.
         //
-        if (projector)
-            level_projector(dt,time,iteration);
+        if (projector) {
+            const int finest_level = parent->finestLevel();
+            int solve_coarse_level = iteration % 2; 
+            if (verbose)
+            {
+                Print() << "solve_coarse_level " << solve_coarse_level << std::endl;
+            }
+            if (skip_level_projector==0 || level==finest_level || solve_coarse_level) {
+                level_projector(dt,time,iteration);
+            }
+        }
         if (level > 0 && iteration == 1)
            p_avg.setVal(0);
     }
