@@ -779,6 +779,12 @@ NavierStokes::advance (Real time,
             if (skip_level_projector==0 || level==finest_level || solve_coarse_level) {
                 level_projector(dt,time,iteration);
             }
+            else {
+                MultiFab& P_old = get_old_data(Press_Type);
+                MultiFab& P_new = get_new_data(Press_Type);
+                // Set P_new to be P_old
+                MultiFab::Copy(P_new,P_old,0,0,1,P_old.nGrow());
+            }
         }
         if (level > 0 && iteration == 1)
            p_avg.setVal(0);
