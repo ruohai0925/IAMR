@@ -10,7 +10,7 @@
 max_step 		= 200
 
 # Time at which calculation stops, if max_step is not reached first.
-stop_time 		= 0.1
+stop_time 		= 0.2
 
 # Refinement criterion, use vorticity and presence of tracer
 amr.refinement_indicators = tracer vorticity
@@ -26,18 +26,18 @@ amr.vorticity.vorticity_greater = 1.0
 #*******************************************************************************
 
 # Number of cells in each coordinate direction at the coarsest level
-amr.n_cell 		= 64 64
-amr.max_grid_size	= 16 
+amr.n_cell 		= 128 128 # n_cell
+amr.max_grid_size	= 16 # max_grid_size
 
 #*******************************************************************************
 
 # Maximum level (defaults to 0 for single level calculation)
-amr.max_level		= 0 # maximum number of levels of refinement
+amr.max_level		= 0 # max_level
 
 #*******************************************************************************
 
 # Interval (in number of level l timesteps) between regridding
-amr.regrid_int		= 2 # regrid_int 
+amr.regrid_int		= 4 # regrid_int 
 
 #*******************************************************************************
 
@@ -92,12 +92,12 @@ ns.gravity              = -9.8
 #*******************************************************************************
 
 # skip level_projector 
-ns.skip_level_projector = 0
+ns.skip_level_projector = 0 # skip_level_projector
 
 #*******************************************************************************
 
 # subcycling vs. non-subcycling 
-amr.subcycling_mode     = Auto 
+amr.subcycling_mode     = Auto # subcycling_mode
 
 #*******************************************************************************
 

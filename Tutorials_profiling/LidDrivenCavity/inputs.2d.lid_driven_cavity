@@ -1,68 +1,53 @@
-
 #*******************************************************************************
-# INPUTS.2D.BUBBLE
+# INPUTS.2D.LID_DRIVEN_CAVITY
 #*******************************************************************************
 
 #NOTE: You may set *either* max_step or stop_time, or you may set them both.
 
 # Maximum number of coarse grid timesteps to be taken, if stop_time is
 #  not reached first.
-max_step 		= 200
+max_step 				= 100000
 
 # Time at which calculation stops, if max_step is not reached first.
-stop_time 		= 0.1
+stop_time 				= -1
 
-# Refinement criterion, use vorticity and presence of tracer
-amr.refinement_indicators = tracer vorticity
+# Stop simulation when we reach steady-state
+ns.stop_when_steady 	= 1
+ns.steady_tol 		= 1.0e-5
 
-amr.tracer.value_greater = 0.1
-amr.tracer.field_name = tracer
-
-amr.vorticity.vorticity_greater = 1.0
-#amr.vorticity.start_time = 0.001
-#amr.vorticity.end_name = 0.002
-
+# Specify initial dt to get going
+ns.init_dt              = 0.0140625  
 
 #*******************************************************************************
 
 # Number of cells in each coordinate direction at the coarsest level
-amr.n_cell 		= 64 64
-amr.max_grid_size	= 16 
+amr.n_cell			= 64 64
+#amr.max_grid_size		= 32
 
 #*******************************************************************************
 
 # Maximum level (defaults to 0 for single level calculation)
-amr.max_level		= 0 # maximum number of levels of refinement
+amr.max_level			= 0 # maximum number of levels of refinement
 
 #*******************************************************************************
 
-# Interval (in number of level l timesteps) between regridding
-amr.regrid_int		= 2 # regrid_int 
-
-#*******************************************************************************
-
-# Refinement ratio as a function of level
-amr.ref_ratio		= 2 2 2 2
-
-#*******************************************************************************
-
-# Sets the "NavierStokes" code to be verbose
+# Sets the "NavierStokes" code to not be verbose
 ns.v                    = 0
 
 #*******************************************************************************
 
 # Sets the "amr" code to be verbose
-amr.v                   = 0
+amr.v                   = 1
 
 #*******************************************************************************
 
 # Interval (in number of coarse timesteps) between checkpoint(restart) files
-amr.check_int		= 10 
+amr.check_int		= 1000
 
 #*******************************************************************************
 
 # Interval (in number of coarse timesteps) between plot files
-amr.plot_int		= 10
+amr.plot_int		= 100
 
 #*******************************************************************************
 
@@ -81,69 +66,60 @@ ns.vel_visc_coef        = 0.001
 
 #*******************************************************************************
 
-# Diffusion coefficient for first scalar
-ns.scal_diff_coefs      = 0.001
+# Diffusion coefficient for tracer
+ns.scal_diff_coefs      = 0.0
 
 #*******************************************************************************
 
 # Forcing term defaults to  rho * abs(gravity) "down"
-ns.gravity              = -9.8
-
-#*******************************************************************************
-
-# skip level_projector 
-ns.skip_level_projector = 0
-
-#*******************************************************************************
-
-# subcycling vs. non-subcycling 
-amr.subcycling_mode     = Auto 
+ns.gravity              = 0.0  
 
 #*******************************************************************************
 
 # Set to 0 if x-y coordinate system, set to 1 if r-z.
-geometry.coord_sys   =  0
+geometry.coord_sys   	=  0
 
 #*******************************************************************************
 
 # Physical dimensions of the low end of the domain.
-geometry.prob_lo     =  -1. 0. 
+geometry.prob_lo     	=  0. 0. 
 
 # Physical dimensions of the high end of the domain.
-geometry.prob_hi     =  1. 2. 
+geometry.prob_hi     	=  1. 1. 
 
 #*******************************************************************************
 
 #Set to 1 if periodic in that direction
-geometry.is_periodic =  0 0
+geometry.is_periodic 	=  0 0
 
 #*******************************************************************************
 
 # Boundary conditions on the low end of the domain.
-ns.lo_bc             = 4 4  
+ns.lo_bc             	= 5 5  
 
 # Boundary conditions on the high end of the domain.
-ns.hi_bc             = 4 4  
+ns.hi_bc             	= 5 5  
 
 # 0 = Interior/Periodic  3 = Symmetry
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 
+# Boundary condition
+yhi.velocity            =   1.  0.  0.
+
 #*******************************************************************************
 
-# Problem parameters
-prob.probtype = 2
-prob.blob_center = 0.0 1.5 
-prob.blob_radius = 0.2
-# Background density is 1. Density is incresed by a factor of density_ic inside
-# the bubble
-prob.density_ic = 2.0
-# Can also set up a flow, defaults to zero
-#prob.velocity_ic = 0. 0. 0.
+# Initialize from rest with constant density = 1
+prob.probtype = 1
+
+#*******************************************************************************
+
+# Continue from checkpoint 
+# amr.restart 			= chk02607
 
 #*******************************************************************************
 
 # Add vorticity to the variables in the plot files.
-amr.derive_plot_vars    = mag_vort   diveru   avg_pressure
+amr.derive_plot_vars    = ALL
 
 #*******************************************************************************

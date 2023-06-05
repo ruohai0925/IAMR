@@ -2006,7 +2006,7 @@ NavierStokesBase::initialTimeStep ()
 {
     Real returnDt = init_shrink*estTimeStep();
 
-    amrex::Print() << "Multiplying dt by init_shrink: dt = "
+    if (verbose) amrex::Print() << "Multiplying dt by init_shrink: dt = "
                    << returnDt << '\n';
     return returnDt;
 }

@@ -10,3 +10,8 @@ o/
 chk?????.old*
 plt?????.old*
 Tutorials/*/*
+Tutorials_profling/*/*
+log*
+bl_prof*
+case_results*/
+tmp_build_dir/
