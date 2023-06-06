@@ -11,16 +11,17 @@ TOP = ../..
 
 PRECISION = DOUBLE
 
-DEBUG	  = TRUE
 DEBUG	  = FALSE
 
-DIM       = 2
+USE_MPI     = TRUE
+USE_OMP     = TRUE
+PROFILE     = TRUE
+
+DIM       = 2 # DIM
 
 COMP	  = g++
 
 USE_PARTICLES   = TRUE
-
-USE_MPI   = TRUE
 
 EBASE     = amr
 

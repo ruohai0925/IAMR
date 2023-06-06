@@ -11,12 +11,12 @@ TOP = ../..
 
 PRECISION   = DOUBLE
 
-DIM         = 2
+DIM         = 2 # DIM
 COMP        = gnu
 
 DEBUG       = FALSE
-USE_MPI     = FALSE 
-USE_OMP     = FALSE
+USE_MPI     = TRUE 
+USE_OMP     = TRUE
 PROFILE     = TRUE
 
 USE_CUDA = FALSE

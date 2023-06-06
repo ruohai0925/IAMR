@@ -15,7 +15,7 @@ stop_time 		= 6.0
 #*******************************************************************************
 
 # Number of cells in each coordinate direction at the coarsest level
-amr.n_cell 		= 64 64 64
+amr.n_cell 		= 64 64
 
 amr.max_grid_size	= 8 # max_grid_size
 amr.max_level		= 0 # max_level
@@ -80,23 +80,23 @@ geometry.coord_sys   =  0
 #*******************************************************************************
 
 # Physical dimensions of the low end of the domain.
-geometry.prob_lo     =  0.0 0.0 0.0
+geometry.prob_lo     =  0.0 0.0
 
 # Physical dimensions of the high end of the domain.
-geometry.prob_hi     =  1.0 1.0 1.0
+geometry.prob_hi     =  1.0 1.0
 
 #*******************************************************************************
 
 #Set to 1 if periodic in that direction
-geometry.is_periodic =  1 1 1
+geometry.is_periodic =  1 1
 
 #*******************************************************************************
 
 # Boundary conditions on the low end of the domain.
-ns.lo_bc             = 0 0 0
+ns.lo_bc             = 0 0
 
 # Boundary conditions on the high end of the domain.
-ns.hi_bc             = 0 0 0
+ns.hi_bc             = 0 0
 
 # 0 = Interior/Periodic  3 = Symmetry
 # 1 = Inflow             4 = SlipWall
