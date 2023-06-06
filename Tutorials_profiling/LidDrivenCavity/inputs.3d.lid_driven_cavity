@@ -11,10 +11,14 @@ ns.steady_tol 		=  1.0e-4
 
 amr.n_cell              =  64 64 64
 
-amr.max_level           =  0
+amr.max_grid_size	= 8 # max_grid_size
+amr.max_level		= 0 # max_level
+amr.regrid_int		= 4 # regrid_int
+ns.skip_level_projector = 0 # skip_level_projector
+amr.subcycling_mode     = Auto # subcycling_mode
 
-ns.v                    =  1
-amr.v                   =  1
+ns.v                    =  0
+amr.v                   =  0
 
 amr.check_int		=  50
 

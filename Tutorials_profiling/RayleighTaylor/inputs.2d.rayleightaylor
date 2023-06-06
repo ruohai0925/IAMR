@@ -23,19 +23,17 @@ amr.vorticity.vorticity_greater =  0.1
 
 # Number of cells in each coordinate direction at the coarsest level
 amr.n_cell 		= 64  128
-amr.max_grid_size	= 32
+
 
 amr.grid_eff = 0.95
 
 #*******************************************************************************
 
-# Maximum level (defaults to 0 for single level calculation)
-amr.max_level		= 2 # maximum number of levels of refinement
-
-#*******************************************************************************
-
-# Interval (in number of level l timesteps) between regridding
-amr.regrid_int		= 2 
+amr.max_grid_size	= 8 # max_grid_size
+amr.max_level		= 0 # max_level
+amr.regrid_int		= 4 # regrid_int
+ns.skip_level_projector = 0 # skip_level_projector
+amr.subcycling_mode     = Auto # subcycling_mode
 
 #*******************************************************************************
 
@@ -45,12 +43,12 @@ amr.ref_ratio		= 2 2
 #*******************************************************************************
 
 # Sets the "NavierStokes" code to be verbose
-ns.v                    = 1
+ns.v                    = 0
 
 #*******************************************************************************
 
 # Sets the "amr" code to be verbose
-amr.v                   = 1
+amr.v                   = 0
 
 #*******************************************************************************
 

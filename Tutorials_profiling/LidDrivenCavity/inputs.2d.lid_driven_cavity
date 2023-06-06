@@ -22,12 +22,15 @@ ns.init_dt              = 0.0140625
 
 # Number of cells in each coordinate direction at the coarsest level
 amr.n_cell			= 64 64
-#amr.max_grid_size		= 32
+#amr.max_grid_size		= 8 # max_grid_size
 
 #*******************************************************************************
 
 # Maximum level (defaults to 0 for single level calculation)
-amr.max_level			= 0 # maximum number of levels of refinement
+amr.max_level			= 0 # max_level
+amr.regrid_int		= 4 # regrid_int
+ns.skip_level_projector = 0 # skip_level_projector
+amr.subcycling_mode     = Auto # subcycling_mode
 
 #*******************************************************************************
 
@@ -37,7 +40,7 @@ ns.v                    = 0
 #*******************************************************************************
 
 # Sets the "amr" code to be verbose
-amr.v                   = 1
+amr.v                   = 0
 
 #*******************************************************************************
 
@@ -120,6 +123,6 @@ prob.probtype = 1
 #*******************************************************************************
 
 # Add vorticity to the variables in the plot files.
-amr.derive_plot_vars    = ALL
+amr.derive_plot_vars    = mag_vort   diveru   avg_pressure
 
 #*******************************************************************************

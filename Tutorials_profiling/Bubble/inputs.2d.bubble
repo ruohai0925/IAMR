@@ -7,10 +7,10 @@
 
 # Maximum number of coarse grid timesteps to be taken, if stop_time is
 #  not reached first.
-max_step 		= 200
+max_step 		= 100
 
 # Time at which calculation stops, if max_step is not reached first.
-stop_time 		= 0.2
+stop_time 		= 0.1
 
 # Refinement criterion, use vorticity and presence of tracer
 amr.refinement_indicators = tracer vorticity
@@ -27,7 +27,7 @@ amr.vorticity.vorticity_greater = 1.0
 
 # Number of cells in each coordinate direction at the coarsest level
 amr.n_cell 		= 128 128 # n_cell
-amr.max_grid_size	= 16 # max_grid_size
+amr.max_grid_size	= 8 # max_grid_size
 
 #*******************************************************************************
 

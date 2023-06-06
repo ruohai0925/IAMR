@@ -42,7 +42,12 @@ ns.scal_diff_coefs   	= 0.0
 
 # Number of cells in each coordinate direction at the coarsest level
 amr.n_cell 			= 64 64
-amr.max_grid_size		= 64
+
+amr.max_grid_size	= 8 # max_grid_size
+amr.max_level		= 0 # max_level
+amr.regrid_int		= 4 # regrid_int
+ns.skip_level_projector = 0 # skip_level_projector
+amr.subcycling_mode     = Auto # subcycling_mode
 
 # Set to 0 if x-y coordinate system, set to 1 if r-z.
 geometry.coord_sys   	=  0
@@ -95,8 +100,7 @@ amr.max_level		 	= 0
 amr.refinement_indicators = tracer
 amr.tracer.value_greater  = 0.5
 amr.tracer.field_name     = tracer
-# Interval (in number of level l timesteps) between regridding
-amr.regrid_int			= 1 
+
 # Refinement ratio as a function of level
 amr.ref_ratio		 	= 2 2 2 2
 # Factor by which grids must be coarsenable.
@@ -127,8 +131,8 @@ amr.check_int			= 10
 # VERBOSITY
 #*******************************************************************************
 
-amr.v 	            	= 1 	# AMR (top-level)
-ns.v  	            	= 1 	# NavierStokes
+amr.v 	            	= 0 	# AMR (top-level)
+ns.v  	            	= 0 	# NavierStokes
 diffuse.v 	       	= 0 	# Diffusion
 nodal_proj.verbose     	= 0 	# Projection
 

@@ -39,8 +39,13 @@ ns.scal_diff_coefs       = 1.0
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #        ADAPTIVE MESH REFINEMENT       #
 #.......................................#
-amr.n_cell              =   64 64 16    # Grid cells at coarsest AMRlevel
-amr.max_level           =   1           # Max AMR level in hierarchy
+amr.n_cell              =   128 128 32    # Grid cells at coarsest AMRlevel
+
+amr.max_grid_size	= 8 # max_grid_size
+amr.max_level		= 0 # max_level
+amr.regrid_int		= 4 # regrid_int
+ns.skip_level_projector = 0 # skip_level_projector
+amr.subcycling_mode     = Auto # subcycling_mode
 
 # Refinement criterion, use vorticity
 amr.refinement_indicators = vorticity
@@ -86,7 +91,7 @@ prob.velocity_ic = 1. 0. 0.
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #              VERBOSITY                #
 #.......................................#
-ns.v                    = 1 # NS solver 
+ns.v                    = 0 # NS solver 
 nodal_proj.verbose      = 0 # Nodal projection
 mac_proj.verbose        = 0 # MacProjector
 diffuse.v               = 0 # Diffusion solver
