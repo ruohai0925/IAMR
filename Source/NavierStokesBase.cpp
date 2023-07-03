@@ -6371,6 +6371,22 @@ NavierStokesBase::get_phi_half_time ()
     return phi_half;
 }
 
+// quick fix, not sure if it the best way
+#ifdef AMREX_USE_GPU
+__device__ Real 
+NavierStokesBase::minmod(Real alpha_1, Real beta_1)
+{
+    if (alpha_1 * beta_1 <= 0.0) {
+        return 0.0;
+    }
+    else if (fabs(alpha_1) <= fabs(beta_1)) {
+        return alpha_1;
+    }
+    else {
+        return beta_1;
+    }
+}
+#else
 Real 
 NavierStokesBase::minmod(Real alpha_1, Real beta_1)
 {
@@ -6384,3 +6400,4 @@ NavierStokesBase::minmod(Real alpha_1, Real beta_1)
         return beta_1;
     }
 }
+#endif

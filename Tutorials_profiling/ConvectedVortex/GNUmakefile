@@ -15,11 +15,11 @@ DIM         = 2 # DIM
 COMP        = gnu
 
 DEBUG       = FALSE
-USE_MPI     = TRUE
-USE_OMP     = TRUE
+USE_MPI     = FALSE # MPI
+USE_OMP     = FALSE # OMP
 PROFILE     = TRUE
 
-USE_CUDA = FALSE
+USE_CUDA = TRUE # CUDA
 
 USE_SENSEI_INSITU = FALSE
 

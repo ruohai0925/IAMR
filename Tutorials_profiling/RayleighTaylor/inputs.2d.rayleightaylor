@@ -10,7 +10,7 @@
 max_step 		= 5000
 
 # Time at which calculation stops, if max_step is not reached first.
-stop_time 		= 5.0
+stop_time 		= 4.0
 
 # Refinement criterion, use vorticity
 amr.refinement_indicators = vorticity
@@ -22,7 +22,7 @@ amr.vorticity.vorticity_greater =  0.1
 #*******************************************************************************
 
 # Number of cells in each coordinate direction at the coarsest level
-amr.n_cell 		= 64  128
+amr.n_cell 		= 64 128
 
 
 amr.grid_eff = 0.95
@@ -38,7 +38,7 @@ amr.subcycling_mode     = Auto # subcycling_mode
 #*******************************************************************************
 
 # Refinement ratio as a function of level
-amr.ref_ratio		= 2 2
+amr.ref_ratio		= 2 2 2 2
 
 #*******************************************************************************
 
@@ -53,12 +53,12 @@ amr.v                   = 0
 #*******************************************************************************
 
 # Interval (in number of coarse timesteps) between checkpoint(restart) files
-amr.check_int		= 1
+amr.check_int		= 40
 
 #*******************************************************************************
 
 # Interval (in number of coarse timesteps) between plot files
-amr.plot_int		= 1
+amr.plot_int		= 20
 
 #*******************************************************************************
 

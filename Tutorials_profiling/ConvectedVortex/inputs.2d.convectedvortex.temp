@@ -1,22 +1,26 @@
 
 #*******************************************************************************
-# inputs.3d.convectedVortex
-# Convecting an isentropic vortex aligned in Z in a periodic 3D box
+# INPUTS
 #*******************************************************************************
 
 #NOTE: You may set *either* max_step or stop_time, or you may set them both.
+#NOTE: this input file can be used in combination with the Util/multiRuns.py
+#and Util/pprocConvOrder.py in order to compute the convergence order of the velocity 
+# advection schemes in IAMR.
 
 # Maximum number of coarse grid timesteps to be taken, if stop_time is
 #  not reached first.
-max_step 		= 10000
+max_step 		= 25000
 
 # Time at which calculation stops, if max_step is not reached first.
-stop_time 		= 0.06
+stop_time 		= 0.2
 
 #*******************************************************************************
 
 # Number of cells in each coordinate direction at the coarsest level
-amr.n_cell 		= 64 64 16
+amr.n_cell 		= 64 64 64
+
+#*******************************************************************************
 
 amr.max_grid_size	= 8 # max_grid_size
 amr.max_level		= 0 # max_level
@@ -89,7 +93,7 @@ geometry.prob_lo     =  0.0 0.0 0.0
 
 # Physical dimensions of the high end of the domain.
 #geometry.prob_hi     =  6.28318530717959 6.28318530717959A
-geometry.prob_hi     =  1.0 1.0 0.25
+geometry.prob_hi     =  1.0 1.0 1.0
 
 #*******************************************************************************
 
