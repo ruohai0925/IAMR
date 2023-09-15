@@ -2,13 +2,13 @@
 
 # break the cases into different key-value pairs
 declare -A Cases
-Cases[Bubble]=inputs.2d.bubble
-Cases[ConvectedVortex]=inputs.2d.convectedvortex
+# Cases[Bubble]=inputs.2d.bubble
+# Cases[ConvectedVortex]=inputs.2d.convectedvortex
 Cases[DoubleShearLayer]=inputs.2d.double_shear_layer-rotate
-Cases[FlowPastCylinder]=inputs.2d.flow_past_cylinder-x
-Cases[LidDrivenCavity]=inputs.2d.lid_driven_cavity
-Cases[RayleighTaylor]=inputs.2d.rayleightaylor
-Cases[TaylorGreen]=inputs.2d.taylorgreen
+# Cases[FlowPastCylinder]=inputs.2d.flow_past_cylinder-x
+# Cases[LidDrivenCavity]=inputs.2d.lid_driven_cavity
+# Cases[RayleighTaylor]=inputs.2d.rayleightaylor
+# Cases[TaylorGreen]=inputs.2d.taylorgreen
 
 for i in "${!Cases[@]}"
 do
@@ -35,7 +35,7 @@ do
     do
     for max_grid_size in 8 16 # 8 16
     do
-    for regrid_int in 2 4 8 # 2 4 8
+    for regrid_int in 4 8 # 2 4 8
     do
 
     cd $new_case_dir

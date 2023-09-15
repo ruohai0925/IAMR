@@ -35,7 +35,7 @@ do
     do
     for max_grid_size in 16 # 8 16
     do
-    for regrid_int in 4 # 2 4 8
+    for regrid_int in 4 # s4 8
     do
 
     cd $new_case_dir

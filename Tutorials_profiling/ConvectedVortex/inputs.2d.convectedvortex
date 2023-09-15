@@ -23,10 +23,10 @@ amr.n_cell 		= 64 64 64
 #*******************************************************************************
 
 amr.max_grid_size	= 8 # max_grid_size
-amr.max_level		= 1 # max_level
-amr.regrid_int		= 2 # regrid_int
+amr.max_level		= 0 # max_level
+amr.regrid_int		= 4 # regrid_int
 ns.skip_level_projector = 0 # skip_level_projector
-amr.subcycling_mode     = None # subcycling_mode
+amr.subcycling_mode     = Auto # subcycling_mode
 
 # Refinement criterion, use vorticity
 amr.refinement_indicators = vorticity
