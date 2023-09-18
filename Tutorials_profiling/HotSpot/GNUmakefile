@@ -1,5 +1,5 @@
-#AMREX_HOME defines the directory in which we will find the AMReX directory
-AMREX_HOME       ?= ../../../amrex
+#AMREX_HOME defines the directory in which we will find the BoxLib directory
+AMREX_HOME ?= ../../../amrex
 AMREX_HYDRO_HOME ?= ../../../AMReX-Hydro
 
 #TOP defines the directory in which we will find Source, Exec, etc.
@@ -16,12 +16,12 @@ COMP        = gnu
 
 DEBUG       = FALSE
 USE_MPI     = FALSE
-USE_OMP     = TRUE
+USE_OMP     = FALSE
 PROFILE     = FALSE
 
-USE_EB = TRUE
+USE_CUDA = FALSE
 
-USE_VELOCITY = FALSE
+USE_SENSEI_INSITU = FALSE
 
 EBASE = amr
 

@@ -47,6 +47,14 @@ NavierStokes::Initialize ()
     if (do_temp)
         Temp = NUM_STATE++;
 
+    //
+    // ls related
+    //
+    if (do_phi)
+        phicomp = NUM_STATE++;
+    if (verbose) 
+        amrex::Print() << "phicomp, NUM_STATE " << phicomp << " " << NUM_STATE << std::endl;
+
     // NUM_STATE_MAX is defined in NavierStokes.H
     // to be AMREX_SPACEDIM + 4 (for Density, 2 scalars, Temp)
     AMREX_ALWAYS_ASSERT(NUM_STATE <= NUM_STATE_MAX);
@@ -79,7 +87,12 @@ NavierStokes::Initialize_bcs ()
       for ( int nc = 0; nc < ntrac; nc++ )
     m_bc_values[ori][Tracer+nc] = 0.0;
       if (do_temp)
-    m_bc_values[ori][Temp] = 1.0;
+	  m_bc_values[ori][Temp] = 1.0;
+    //
+    // ls related
+    //
+      if (do_phi)
+    m_bc_values[ori][phicomp] = 0.0;
     }
 
     ParmParse pp("ns");
@@ -274,9 +287,13 @@ NavierStokes::Initialize_diffusivities ()
     if (do_temp && n_temp_cond_coef != 1)
         amrex::Abort("NavierStokesBase::Initialize(): Only one temp_cond_coef allowed");
 
-    if (n_scal_diff_coefs+n_temp_cond_coef != NUM_SCALARS-1)
-        amrex::Abort("NavierStokesBase::Initialize(): One scal_diff_coef required for each tracer");
-
+    //
+    // ls related
+    //
+    if (do_phi==0) {
+        if (n_scal_diff_coefs+n_temp_cond_coef != NUM_SCALARS-1)
+            amrex::Abort("NavierStokesBase::Initialize(): One scal_diff_coef required for each tracer");
+    }
 
     visc_coef.resize(NUM_STATE);
     is_diffusive.resize(NUM_STATE);
@@ -308,6 +325,13 @@ NavierStokes::Initialize_diffusivities ()
     {
         pp.get("temp_cond_coef",visc_coef[++scalId]);
     }
+    //
+    // ls related
+    //
+    if (do_phi)
+    {
+        visc_coef[phicomp] = -1;
+    }    
 }
 
 void
@@ -610,19 +634,74 @@ NavierStokes::advance (Real time,
     const int last_scalar  = first_scalar + NUM_SCALARS - 1;
     scalar_advection(dt,first_scalar,last_scalar);
     //
-    // Update Rho.
-    //
-    scalar_update(dt,first_scalar,first_scalar);
-    make_rho_curr_time();
+    // ls related
+    // note: in the above scalar_advection function, we still advect rho even if 
+    // we do not use it later. This can be simplified later.
+    // 
+    if (do_phi && do_mom_diff==0) {
+        amrex::Print() << "After scalar_advection " << std::endl;
+        // const Real  prev_time = state[State_Type].prevTime();
+        // MultiFab& S_old = get_old_data(State_Type);
+        // int nScomp = S_old.nComp();
+        // fill_allgts(S_old,State_Type,phicomp,1,prev_time);
+        // MultiFab::Copy(phi_ptime, S_old, phicomp, 0, 1, S_old.nGrow());
+
+        amrex::Print()<< "scalar_update phi " << std::endl;
+        amrex::Print()<< "phicomp " << phicomp << std::endl;
+        scalar_update(dt,phicomp,phicomp);
+
+        const Real cur_time = state[State_Type].curTime();
+        MultiFab& S_new = get_new_data(State_Type);
+        fill_allgts(S_new,State_Type,phicomp,1,cur_time);
+        MultiFab::Copy(phi_ctime, S_new, phicomp, 0, 1, S_new.nGrow());
+
+        // reinitialization
+        if (do_reinit == 1 && (parent->levelSteps(0)% lev0step_of_reinit == 0) ){
+            amrex::Print() << "parent->levelSteps(0) " << parent->levelSteps(0) << std::endl;
+            reinit();
+        }
+        // update the rho_ctime and density in S_new
+        phi_to_heavi(phi_ctime);
+        heavi_to_rhoormu(rho_ctime, rho_w, rho_a);
+        MultiFab::Copy(S_new, rho_ctime, 0, Density, 1, rho_ctime.nGrow());
+        // update phi_half
+        MultiFab& phi_half_temp = get_phi_half_time();
+        // update rho_half
+        phi_to_heavi(phi_half_temp);
+        heavi_to_rhoormu(rho_half, rho_w, rho_a);
+        // update mu_half
+        MultiFab outmf_mu_half(grids, dmap, 1, 1, MFInfo(), Factory());
+        heavi_to_rhoormu(outmf_mu_half, mu_w, mu_a);
+        MultiFab::Copy(*viscn_cc,   outmf_mu_half, 0, 0, 1, 1);
+        MultiFab::Copy(*viscnp1_cc, outmf_mu_half, 0, 0, 1, 1);
+    }
+    else {
+        //
+        // Update Rho.
+        //
+        scalar_update(dt,first_scalar,first_scalar);
+        make_rho_curr_time();
+    }
     //
     // Advect momenta after rho^(n+1) has been created.
     //
     if (do_mom_diff == 1)
         velocity_advection(dt);
     //
-    // Add the advective and other terms to get scalars at t^{n+1}.
-    //
-    scalar_update(dt,first_scalar+1,last_scalar);
+    // ls related
+    // 
+    if (do_phi) {
+        //
+        // Add the advective and other terms to get scalars at t^{n+1} except 
+        // the last scalar level set function.
+        scalar_update(dt,first_scalar+1,last_scalar-1);
+    }
+    else {
+        //
+        // Add the advective and other terms to get scalars at t^{n+1}.
+        //
+        scalar_update(dt,first_scalar+1,last_scalar);
+    }
     //
     // S appears in rhs of the velocity update, so we better do it now.
     //
@@ -661,8 +740,23 @@ NavierStokes::advance (Real time,
         //
         // Do a level project to update the pressure and velocity fields.
         //
-        if (projector)
-            level_projector(dt,time,iteration);
+        if (projector) {
+            const int finest_level = parent->finestLevel();
+            int solve_coarse_level = iteration % 2; 
+            if (verbose)
+            {
+                Print() << "solve_coarse_level " << solve_coarse_level << std::endl;
+            }
+            if (skip_level_projector==0 || level==finest_level || solve_coarse_level) {
+                level_projector(dt,time,iteration);
+            }
+            else {
+                MultiFab& P_old = get_old_data(Press_Type);
+                MultiFab& P_new = get_new_data(Press_Type);
+                // Set P_new to be P_old
+                MultiFab::Copy(P_new,P_old,0,0,1,P_old.nGrow());
+            }
+        }
         if (level > 0 && iteration == 1)
            p_avg.setVal(0);
     }

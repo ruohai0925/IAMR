@@ -208,6 +208,47 @@ public:
 
     amrex::Vector<amrex::BCRec> fetchBCArray (int State_Type, int scomp, int ncomp);
 
+    //
+    // ls related
+    //
+    void fill_allgts (amrex::MultiFab& mf, int type, int scomp, int ncomp, amrex::Real time);
+    void phi_to_heavi(amrex::MultiFab& phi);
+    void phi_to_delta(amrex::MultiFab& phi);
+    void heavi_to_rhoormu(amrex::MultiFab& outmf, amrex::Real var1, amrex::Real var2);
+    void reinit ();
+    void reinitialization_sussman (amrex::Real dt, int loop_iter);
+    void reinitialization_bhalla (amrex::Real dt, int loop_iter);
+    void phi_to_sgn0 (amrex::MultiFab& phi);
+    amrex::MultiFab& get_phi_half_time ();
+    void rk_first_reinit (amrex::MultiFab& phi_ctime,
+                          amrex::MultiFab& phi1,
+                          amrex::MultiFab& phi2,
+                          amrex::MultiFab& phi3,
+                          amrex::MultiFab& sgn0,
+                          amrex::MultiFab& G0,
+                          amrex::Real dt, 
+                          amrex::MultiFab& phi_ori,
+                          amrex::MultiFab& dmin);
+    void rk_second_reinit (amrex::MultiFab& phi_ctime,
+                          amrex::MultiFab& phi1,
+                          amrex::MultiFab& phi2,
+                          amrex::MultiFab& phi3,
+                          amrex::MultiFab& sgn0,
+                          amrex::MultiFab& G0,
+                          amrex::Real dt,
+                          amrex::MultiFab& phi_ori,
+                          amrex::MultiFab& dmin);
+    void mass_fix (amrex::MultiFab& phi_ctime,
+                          amrex::MultiFab& phi1,
+                          amrex::MultiFab& phi2,
+                          amrex::MultiFab& phi3,
+                          amrex::MultiFab& ld,
+                          amrex::MultiFab& lambdad,
+                          amrex::MultiFab& deltafunc_alias,
+                          amrex::Real delta_t,
+                          int  loop_iter);
+    amrex::Real minmod (amrex::Real alpha_1, amrex::Real beta_1);
+
     amrex::Vector<amrex::BCRec> const& get_bcrec_velocity () const noexcept { return m_bcrec_velocity; }
     amrex::Vector<amrex::BCRec> const& get_bcrec_scalars () const noexcept { return m_bcrec_scalars; }
 
@@ -738,7 +779,11 @@ public:
     static const int    NUM_GROW=4;       // number of ghost cells
     static int          refine_cutcells;
 #else
-    static const int    NUM_GROW=1;       // number of ghost cells
+    //
+    // ls related
+    // change to two gts
+    // 
+    static const int    NUM_GROW=2;       // number of ghost cells
 #endif
     //
     // Controls over how the convective and diffusive terms are calculated
@@ -805,6 +850,53 @@ public:
     // Control velocity vs momentum update
     //
     static int  do_mom_diff;
+
+    //
+    // skip_level_projector
+    //
+    static int  skip_level_projector;
+
+    //
+    // ls related
+    //
+    static int  do_phi;
+    static int  phicomp;
+    static int  epsilon;
+    amrex::MultiFab phi_half;
+    amrex::MultiFab phi_ptime;
+    amrex::MultiFab phi_ctime;
+    amrex::MultiFab heaviside;
+    amrex::MultiFab deltafunc;
+
+    static amrex::Real mu_a;
+    static amrex::Real rho_a;
+    static amrex::Real mu_w;
+    static amrex::Real rho_w;
+
+    static int do_reinit;
+    static int lev0step_of_reinit;
+    static int number_of_reinit;
+    static int reinit_sussman;
+    static int reinit_bhalla;
+
+    amrex::MultiFab phi1;
+    amrex::MultiFab phi2;
+    amrex::MultiFab phi3;
+    amrex::MultiFab G0;
+    amrex::MultiFab sgn0;
+
+    // for mass conservation in reinit_sussman
+    static int fix_mass;  
+    amrex::MultiFab phi_original;
+    amrex::MultiFab ld;
+    amrex::MultiFab lambdad;
+    amrex::MultiFab dmin;
+
+    // for reinit_bhalla
+    static int do_subcell_fix;
+    static int do_sign_fix;
+
+    static int  do_cons_phi;
 
     int nghost_state () const;
     static constexpr int nghost_force () { return 1; }

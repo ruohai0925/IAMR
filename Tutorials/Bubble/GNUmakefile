@@ -15,9 +15,9 @@ DIM         = 2
 COMP        = gnu
 
 DEBUG       = FALSE
-USE_MPI     = FALSE
+USE_MPI     = FALSE 
 USE_OMP     = FALSE
-PROFILE     = FALSE
+PROFILE     = TRUE
 
 USE_CUDA = FALSE
 
