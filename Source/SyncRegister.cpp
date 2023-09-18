@@ -11,13 +11,18 @@
 
 using namespace amrex;
 
+SyncRegister::SyncRegister ()
+{
+    ratio = IntVect::TheUnitVector();
+}
+
 SyncRegister::SyncRegister (const BoxArray& fine_boxes,
                             const DistributionMapping& dmap,
                             const IntVect&  ref_ratio)
     : ratio(ref_ratio)
 {
-    BL_ASSERT(grids.size() == 0);
-    BL_ASSERT(fine_boxes.isDisjoint());
+    AMREX_ASSERT(grids.empty());
+    AMREX_ASSERT(fine_boxes.isDisjoint());
 
     grids = fine_boxes;
     grids.coarsen(ratio);
@@ -40,15 +45,13 @@ SyncRegister::SyncRegister (const BoxArray& fine_boxes,
     }
 }
 
-SyncRegister::~SyncRegister () {}
-
 void /* note that rhs is on a different BoxArray */
 SyncRegister::InitRHS (MultiFab& rhs, const Geometry& geom, const BCRec& phys_bc)
 {
     BL_PROFILE("SyncRegister::InitRHS()");
 
-    BL_ASSERT(rhs.nComp() == 1);
- 
+    AMREX_ASSERT(rhs.nComp() == 1);
+
     int ngrow = rhs.nGrow();
 
     rhs.setVal(0);
@@ -75,7 +78,7 @@ SyncRegister::InitRHS (MultiFab& rhs, const Geometry& geom, const BCRec& phys_bc
     const Box& node_domain = amrex::surroundingNodes(geom.Domain());
 
     if (nOutflow > 0)
-    {      
+    {
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -100,7 +103,7 @@ SyncRegister::InitRHS (MultiFab& rhs, const Geometry& geom, const BCRec& phys_bc
                {
                   rhs_arr(i,j,k) = 0.0;
                });
-             }  
+             }
            }
            if (phys_hi[dir] == Outflow)
            {
@@ -113,7 +116,7 @@ SyncRegister::InitRHS (MultiFab& rhs, const Geometry& geom, const BCRec& phys_bc
                {
                   rhs_arr(i,j,k) = 0.0;
                });
-             }  
+             }
            }
          }
       }
@@ -126,7 +129,7 @@ SyncRegister::InitRHS (MultiFab& rhs, const Geometry& geom, const BCRec& phys_bc
     {
         bndry_mask[face()].setVal(0);
     }
-    
+
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -136,7 +139,7 @@ SyncRegister::InitRHS (MultiFab& rhs, const Geometry& geom, const BCRec& phys_bc
           FabSet& fs = bndry_mask[face_it()];
 
           FArrayBox tmpfab;
-          std::vector< std::pair<int,Box> > isects;	    
+          std::vector< std::pair<int,Box> > isects;
           Vector<IntVect> pshifts(26);
 
           for (FabSetIter fsi(fs); fsi.isValid(); ++fsi)
@@ -154,8 +157,8 @@ SyncRegister::InitRHS (MultiFab& rhs, const Geometry& geom, const BCRec& phys_bc
              });
 
              grids.intersections(mask_cells,isects);
-	     
-	     for (const auto& is : isects)
+
+         for (const auto& is : isects)
              {
                 amrex::ParallelFor(is.second, [tmp_arr]
                 AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -168,15 +171,12 @@ SyncRegister::InitRHS (MultiFab& rhs, const Geometry& geom, const BCRec& phys_bc
              {
                 geom.periodicShift(geom.Domain(),mask_cells,pshifts);
 
-                for (Vector<IntVect>::const_iterator it = pshifts.begin(), End = pshifts.end(); it != End; ++it)
+                for (auto const& iv : pshifts)
                 {
-                   const IntVect& iv = *it;
-
                    grids.intersections(mask_cells+iv,isects);
 
-                   for (int is = 0, N = isects.size(); is < N; is++)
+                   for (auto& [foo, isect] : isects)
                    {
-                      Box& isect = isects[is].second;
                       isect     -= iv;
                       amrex::ParallelFor(isect, [tmp_arr]
                       AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -187,7 +187,7 @@ SyncRegister::InitRHS (MultiFab& rhs, const Geometry& geom, const BCRec& phys_bc
                 }
              }
              const Box& bx = fab.box();
-             auto const& mask = fab.array();  
+             auto const& mask = fab.array();
              amrex::ParallelFor(bx, [mask,tmp_arr]
              AMREX_GPU_DEVICE (int i, int j, int k) noexcept
              {
@@ -261,7 +261,7 @@ SyncRegister::InitRHS (MultiFab& rhs, const Geometry& geom, const BCRec& phys_bc
         {
             FArrayBox& fab   = fs[fsi];
             const Box& bx    = fab.box();
-            auto const& mask = fab.array();   
+            auto const& mask = fab.array();
             const Real maxcount = D_TERM(AMREX_SPACEDIM,*AMREX_SPACEDIM,*AMREX_SPACEDIM) - 0.5;
             amrex::ParallelFor(bx, [mask,maxcount]
             AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -277,7 +277,7 @@ SyncRegister::InitRHS (MultiFab& rhs, const Geometry& geom, const BCRec& phys_bc
 
     for (OrientationIter face; face; ++face)
     {
-        BL_ASSERT(bndry_mask[face()].nComp() == 1);
+        AMREX_ASSERT(bndry_mask[face()].nComp() == 1);
         tmp.setVal(1.0);
         bndry_mask[face()].copyTo(tmp, ngrow, 0, 0, 1);
         MultiFab::Multiply(rhs, tmp, 0, 0, 1, ngrow);
@@ -330,9 +330,9 @@ SyncRegister::CompAdd (MultiFab& Sync_resid_fine,
              });
              fine_geom.periodicShift(sync_box, pbx, pshifts);
 
-             for (Vector<IntVect>::const_iterator it = pshifts.begin(), End = pshifts.end(); it != End; ++it)
+             for (auto const& iv : pshifts)
              {
-                Box isect = pbx + *it;
+                Box isect = pbx + iv;
                 isect    &= sync_box;
                 amrex::ParallelFor(isect, [sync_arr]
                 AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -362,8 +362,8 @@ SyncRegister::FineAdd (MultiFab& Sync_resid_fine, const Geometry& crse_geom, Rea
     MultiFab Sync_resid_crse(cba, Sync_resid_fine.DistributionMap(), 1, 0);
     Sync_resid_crse.setVal(0.0);
 
-    constexpr Real twoThirds   = 2._rt / 3._rt;
 #if (AMREX_SPACEDIM == 3)
+    constexpr Real twoThirds   = 2._rt / 3._rt;
     constexpr Real threeHalves = 3._rt / 2._rt;
 #endif
 
@@ -377,7 +377,7 @@ SyncRegister::FineAdd (MultiFab& Sync_resid_fine, const Geometry& crse_geom, Rea
         const Box& finebox  = mfi.validbox();
         GpuArray<int,3> flo = finebox.loVect3d();
         GpuArray<int,3> fhi = finebox.hiVect3d();
-        ParallelFor(mfi.tilebox(), [finefab_a,flo,fhi,twoThirds]
+        ParallelFor(mfi.tilebox(), [=]
         AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
 #if AMREX_SPACEDIM == 2
@@ -424,7 +424,7 @@ SyncRegister::FineAdd (MultiFab& Sync_resid_fine, const Geometry& crse_geom, Rea
     {
        FArrayBox cbndfab;
        for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
-       { 
+       {
            int dim1 = ( dir != 0 ) ? 0 : 1;
 #if ( AMREX_SPACEDIM == 3 )
            int dim2 = ( dir != 0 ) ? ( ( dir == 2 ) ? 1 : 2 ) : 2;
@@ -606,3 +606,13 @@ SyncRegister::FineAdd (MultiFab& Sync_resid_fine, const Geometry& crse_geom, Rea
     }
 }
 
+void
+SyncRegister::clear ()
+{
+    BndryRegister::clear();
+
+    for (auto & i : bndry_mask) {
+        i.clear();
+    }
+
+}

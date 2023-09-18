@@ -1,6 +1,6 @@
 
-#ifndef _SYNCREGISTER_H_
-#define _SYNCREGISTER_H_
+#ifndef IAMR_SYNCREGISTER_H_
+#define IAMR_SYNCREGISTER_H_
 
 #include <AMReX_BoxArray.H>
 #include <AMReX_FArrayBox.H>
@@ -15,11 +15,27 @@ class SyncRegister
 {
 public:
 
-    SyncRegister (const amrex::BoxArray& fine_boxes, 
+    /**
+    * \brief The default constructor.
+    */
+    SyncRegister ();
+
+    /**
+    * \brief The constructor. This version allows setting the DistributionMapping.
+    *
+    *
+    * \param fine_boxes
+    * \param dmap
+    * \param ref_ratio
+    */
+    SyncRegister (const amrex::BoxArray& fine_boxes,
                   const amrex::DistributionMapping& dmap,
                   const amrex::IntVect& ref_ratio);
 
-    ~SyncRegister ();
+    /**
+    * \brief The destructor.
+    */
+    ~SyncRegister () = default;
 
     void CrseInit (amrex::MultiFab& Sync_resid_crse, const amrex::Geometry& crse_geom, amrex::Real mult);
 
@@ -28,9 +44,17 @@ public:
     void CompAdd (amrex::MultiFab& Sync_resid_fine,
                   const amrex::Geometry& fine_geom,
                   const amrex::Geometry& crse_geom,
-		  const amrex::BoxArray& Pgrids, amrex::Real mult);
+                  const amrex::BoxArray& Pgrids, amrex::Real mult);
 
     void InitRHS (amrex::MultiFab& rhs, const amrex::Geometry& geom, const amrex::BCRec& phys_bc);
+
+    SyncRegister (SyncRegister&& rhs) noexcept = default;
+
+    SyncRegister            (const SyncRegister& rhs) = delete;
+    SyncRegister& operator= (const SyncRegister& rhs) = delete;
+    SyncRegister& operator= (     SyncRegister&& rhs) = delete;
+
+    void clear ();
 
 private:
 

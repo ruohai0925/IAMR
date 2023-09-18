@@ -1,4 +1,5 @@
 AMREX_NO_PROBINIT=TRUE
+BL_NO_FORT = TRUE
 
 include $(AMREX_HOME)/Tools/GNUMake/Make.defs
 
@@ -11,7 +12,6 @@ Bdirs += Source/Utilities
 Bpack	+= $(foreach dir, $(Bdirs), $(TOP)/$(dir)/Make.package)
 Blocs	+= $(foreach dir, $(Bdirs), $(TOP)/$(dir))
 
-Hdirs := $(AMREX_HYDRO_HOME)/Slopes
 Hdirs += $(AMREX_HYDRO_HOME)/Utils
 Hdirs += $(AMREX_HYDRO_HOME)/MOL
 Hdirs += $(AMREX_HYDRO_HOME)/Godunov
@@ -19,7 +19,6 @@ Hdirs += $(AMREX_HYDRO_HOME)/BDS
 Hdirs += $(AMREX_HYDRO_HOME)/Projections
 
 ifeq ($(USE_EB), TRUE)
-Hdirs += $(AMREX_HYDRO_HOME)/Redistribution
 Hdirs += $(AMREX_HYDRO_HOME)/EBMOL
 Hdirs += $(AMREX_HYDRO_HOME)/EBGodunov
 endif
@@ -32,7 +31,7 @@ include $(Bpack)
 VPATH_LOCATIONS   += $(Blocs)
 INCLUDE_LOCATIONS += $(Blocs)
 
-#These are the directories in BoxLib
+#These are the directories in AMReX
 
 Pdirs   := Base AmrCore Amr Boundary
 Pdirs   += LinearSolvers/MLMG
@@ -75,7 +74,9 @@ CEXE_headers += $(AMREX_HOME)/Tools/C_scripts/AMReX_buildInfo.H
 INCLUDE_LOCATIONS +=  $(AMREX_HOME)/Tools/C_scripts
 
 all: $(executable)
+ifneq ($(KEEP_BUILDINFO_CPP),TRUE)
 	$(SILENT) $(RM) AMReX_buildInfo.cpp
+endif
 	@echo SUCCESS
 
 AMReX_buildInfo.cpp:

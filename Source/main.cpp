@@ -18,8 +18,7 @@ using namespace amrex;
 
 #ifdef AMREX_USE_EB
 //skipping header file and just declaring eb2 init fn here as in CNS for now
-void initialize_EB2 (const Geometry& geom, const int required_level,
-		     const int max_level);
+void initialize_EB2 (const Geometry& geom, int required_level, int max_level);
 #endif
 
 amrex::LevelBld* getLevelBld ();
@@ -68,24 +67,17 @@ main (int   argc,
     Amr* amrptr = new Amr(getLevelBld());
     //    Amr amr;
 #ifdef AMREX_USE_EB
-    // fixme? not sure what level of support should be default
-    // levels explianed in user guide
-    // Ann suggested we need vol and area frac, and face and area centroid => full
+    // EB should calculate centroids as well as volume and area fractions
     AmrLevel::SetEBSupportLevel(EBSupport::full);
-    // set grow cells for basic, volume, full
-    // fixme? not sure what these numbers should be
-    // AmrLevel.cpp defaults 5, 4, 2
-    // CNS::numGrow()= 5
-    //AmrLevel::SetEBMaxGrowCells(CNS::numGrow(),4,2);
-    // NavierStokesBase GEOM_GROW=1 currently. Change it? Make new var?
-    // 6 ghost nodes are necessary for EB-godunov with StateRedist so we use 6.
-    AmrLevel::SetEBMaxGrowCells(6,6,6);
 
-    //decide who should own max_coasening_level later
+    // Set grow cells for basic, volume, full
+    // Look in weighted SRSD paper for explanation for why this is 5
+    AmrLevel::SetEBMaxGrowCells(5,5,5);
+
     int max_coarsening_level = 100;
     pp.query("max_coarsening_level", max_coarsening_level);
     initialize_EB2(amrptr->Geom(amrptr->maxLevel()), amrptr->maxLevel(),
-		   max_coarsening_level);
+           max_coarsening_level);
 #endif
 
     amrptr->init(strt_time,stop_time);
@@ -105,13 +97,13 @@ main (int   argc,
             max_step = std::min(max_step, num_steps + amrptr->levelSteps(0));
         }
 
-	amrex::Print() << "Using effective max_step = " << max_step << '\n';
+    amrex::Print() << "Using effective max_step = " << max_step << '\n';
     }
     //
     // If we set the regrid_on_restart flag and if we are *not* going to take
     // a time step then we want to go ahead and regrid here.
     //
-    if (amrptr->RegridOnRestart())
+    if (Amr::RegridOnRestart())
     {
         if (    (amrptr->levelSteps(0) >= max_step ) ||
                 ( (stop_time >= 0.0) &&

@@ -24,9 +24,9 @@ NavierStokes::error_setup()
         ParmParse ppr(ref_prefix);
         RealBox realbox;
         if (ppr.countval("in_box_lo")) {
-            std::vector<Real> box_lo(BL_SPACEDIM), box_hi(BL_SPACEDIM);
-            ppr.getarr("in_box_lo",box_lo,0,box_lo.size());
-            ppr.getarr("in_box_hi",box_hi,0,box_hi.size());
+            std::vector<Real> box_lo(AMREX_SPACEDIM), box_hi(AMREX_SPACEDIM);
+            ppr.getarr("in_box_lo",box_lo,0,AMREX_SPACEDIM);
+            ppr.getarr("in_box_hi",box_hi,0,AMREX_SPACEDIM);
             realbox = RealBox(&(box_lo[0]),&(box_hi[0]));
         }
 
@@ -49,30 +49,30 @@ NavierStokes::error_setup()
         }
 
         if (ppr.countval("value_greater")) {
-	    int num_val = ppr.countval("value_greater");
-	    Vector<Real> value(num_val);
-	    ppr.getarr("value_greater",value,0,num_val);
+        int num_val = ppr.countval("value_greater");
+        Vector<Real> value(num_val);
+        ppr.getarr("value_greater",value,0,num_val);
             std::string field; ppr.get("field_name",field);
             errtags.push_back(AMRErrorTag(value,AMRErrorTag::GREATER,field,info));
         }
         else if (ppr.countval("value_less")) {
-	    int num_val = ppr.countval("value_less");
-	    Vector<Real> value(num_val);
-	    ppr.getarr("value_less",value,0,num_val);
+        int num_val = ppr.countval("value_less");
+        Vector<Real> value(num_val);
+        ppr.getarr("value_less",value,0,num_val);
             std::string field; ppr.get("field_name",field);
             errtags.push_back(AMRErrorTag(value,AMRErrorTag::LESS,field,info));
         }
         else if (ppr.countval("vorticity_greater")) {
-	    int num_val = ppr.countval("vorticity_greater");
-	    Vector<Real> value(num_val);
-	    ppr.getarr("vorticity_greater",value,0,num_val);
+        int num_val = ppr.countval("vorticity_greater");
+        Vector<Real> value(num_val);
+        ppr.getarr("vorticity_greater",value,0,num_val);
             const std::string field="mag_vort";
             errtags.push_back(AMRErrorTag(value,AMRErrorTag::VORT,field,info));
         }
         else if (ppr.countval("adjacent_difference_greater")) {
-	    int num_val = ppr.countval("adjacent_difference_greater");
-	    Vector<Real> value(num_val);
-	    ppr.getarr("adjacent_difference_greater",value,0,num_val);
+        int num_val = ppr.countval("adjacent_difference_greater");
+        Vector<Real> value(num_val);
+        ppr.getarr("adjacent_difference_greater",value,0,num_val);
             std::string field; ppr.get("field_name",field);
             errtags.push_back(AMRErrorTag(value,AMRErrorTag::GRAD,field,info));
         }
@@ -80,28 +80,28 @@ NavierStokes::error_setup()
         {
             errtags.push_back(AMRErrorTag(info));
         }
-	// //
-	// // User defined error function:
-	// // Could create an AMRErrorTag::UserFunc as outlined below.
-	// // However, this only allows you to use one "field", i.e. one
-	// // component of State or a derived value (as defined in NS_setup.cpp).
-	// // For all cases I can think of, a better option is to create a
-	// // derived value in NS_setup.cpp and use one of the comparisons
-	// // defined above (eg. value_greater will tag based on
-	// // derived_value > value).
-	// //
+    // //
+    // // User defined error function:
+    // // Could create an AMRErrorTag::UserFunc as outlined below.
+    // // However, this only allows you to use one "field", i.e. one
+    // // component of State or a derived value (as defined in NS_setup.cpp).
+    // // For all cases I can think of, a better option is to create a
+    // // derived value in NS_setup.cpp and use one of the comparisons
+    // // defined above (eg. value_greater will tag based on
+    // // derived_value > value).
+    // //
         // else if (ppr.countval("value")) {
         //     Real value; ppr.get("value",value);
         //     std::string field; ppr.get("field_name",field);
 
-	//     // set ngrow for "field" based on what errFunc needs
-	//     int ngrow = ;
-	//     AMRErrorTag::UserFunc* errFunc;
-	//     //
-	//     // define error estimation function
-	//     //
-	    
-	//     errtags.push_back(AMRErrorTag(errFunc,field,ngrow,info));
+    //     // set ngrow for "field" based on what errFunc needs
+    //     int ngrow = ;
+    //     AMRErrorTag::UserFunc* errFunc;
+    //     //
+    //     // define error estimation function
+    //     //
+
+    //     errtags.push_back(AMRErrorTag(errFunc,field,ngrow,info));
         // }
         else {
             Abort(std::string("Unrecognized refinement indicator for " + refinement_indicators[i]).c_str());
@@ -128,7 +128,7 @@ NavierStokes::errorEst (TagBoxArray& tags,
 
   for (int j=0; j<errtags.size(); ++j) {
     std::unique_ptr<MultiFab> mf;
-    if (errtags[j].Field() != std::string()) {
+    if (! errtags[j].Field().empty()) {
       mf = derive(errtags[j].Field(), time, errtags[j].NGrow());
     }
     //
@@ -136,7 +136,7 @@ NavierStokes::errorEst (TagBoxArray& tags,
     // take level max here
     // add into errtags info for relative threshold ...
     //
-    errtags[j](tags,mf.get(),clearval,tagval,time,level,geom);
+    errtags[j](tags,mf.get(),char(clearval),char(tagval),time,level,geom);
   }
 
   //

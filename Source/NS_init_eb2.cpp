@@ -22,6 +22,7 @@ bool NavierStokesBase::ebInitialized()
     return eb_initialized;
 }
 
+#if (AMREX_SPACEDIM == 3)
 static
 void reentrant_profile(std::vector<amrex::RealVect> &points) {
   amrex::RealVect p;
@@ -63,11 +64,12 @@ void reentrant_profile(std::vector<amrex::RealVect> &points) {
   p = amrex::RealVect(D_DECL(22.358*0.1, -7.6902*0.1, 0.0));
   points.push_back(p);
 }
+#endif
 
 // called in main before Amr->init(start,stop)
 void
-initialize_EB2 (const Geometry& geom, const int required_coarsening_level,
-                const int max_coarsening_level)
+initialize_EB2 (const Geometry& geom, int required_coarsening_level,
+                int max_coarsening_level)
 {
     // read in EB parameters
     ParmParse ppeb2("eb2");
@@ -292,7 +294,7 @@ initialize_EB2 (const Geometry& geom, const int required_coarsening_level,
     int direction = 1;
     Real radius = 0.018;
     Real height = 0.01;
-    bool internal_flow = true; 
+    bool internal_flow = true;
     Vector<Real> centervec(3);
 
     // Get information from inputs file.
@@ -365,8 +367,8 @@ initialize_EB2 (const Geometry& geom, const int required_coarsening_level,
 
 
         // Build the implicit function as a union of two cylinders
-    EB2::BoxIF big_square(big_square_lo, big_square_hi,   0);
-    EB2::BoxIF small_square(small_square_lo, small_square_hi, 0);
+    EB2::BoxIF big_square(big_square_lo, big_square_hi,   false);
+    EB2::BoxIF small_square(small_square_lo, small_square_hi, false);
     auto square_grid = EB2::makeDifference(big_square, small_square);
 
 
@@ -386,7 +388,7 @@ initialize_EB2 (const Geometry& geom, const int required_coarsening_level,
 }
 
 void
-NavierStokesBase::init_eb (const Geometry& level_geom, const BoxArray& ba, const DistributionMapping& dm)
+NavierStokesBase::init_eb (const Geometry& /*level_geom*/, const BoxArray& /*ba*/, const DistributionMapping& /*dm*/)
 {
   // Build the geometry information; this is done for each new set of grids
   initialize_eb2_structs();
@@ -398,22 +400,21 @@ NavierStokesBase::initialize_eb2_structs() {
 
   amrex::Print() << "Initializing EB2 structs" << std::endl;
 
-  // NOTE: THIS NEEDS TO BE REPLACED WITH A FLAGFAB 
-  
+  // NOTE: THIS NEEDS TO BE REPLACED WITH A FLAGFAB
+
   // n.b., could set this to 1 if geometry is all_regular as an optimization
-  no_eb_in_domain = 0;
+  no_eb_in_domain = false;
 
   //  1->regular, 0->irregular, -1->covered, 2->outside
   ebmask.define(grids, dmap,  1, 0);
-  
+
   const auto& ebfactory = dynamic_cast<EBFArrayBoxFactory const&>(Factory());
 
   // These are the data sources
   volfrac = &(ebfactory.getVolFrac());
-  bndrycent = &(ebfactory.getBndryCent());
   areafrac = ebfactory.getAreaFrac();
   facecent = ebfactory.getFaceCent();
-  
+
   auto const& flags = ebfactory.getMultiEBCellFlagFab();
 
 #ifdef _OPENMP
@@ -425,7 +426,7 @@ NavierStokesBase::initialize_eb2_structs() {
     const Box tbox = mfi.growntilebox();
     const Box bx = mfi.tilebox();
     const EBCellFlagFab& flagfab = flags[mfi];
-    
+
     FabType typ = flagfab.getType(tbox);
 
     if (typ == FabType::regular) {
@@ -445,18 +446,9 @@ NavierStokesBase::initialize_eb2_structs() {
       });
     }
     else if (typ == FabType::singlevalued) {
-      int Ncut = 0;
       for (BoxIterator bit(tbox); bit.ok(); ++bit) {
         const EBCellFlag& flag = flagfab(bit(), 0);
-    
-        if (!(flag.isRegular() || flag.isCovered())) {
-          Ncut++;
-        }
-      }
-    
-      for (BoxIterator bit(tbox); bit.ok(); ++bit) {
-        const EBCellFlag& flag = flagfab(bit(), 0);
-    
+
         if (!(flag.isRegular() || flag.isCovered())) {
           if (mfab.box().contains(bit())) mfab(bit()) = 0;
         } else {
@@ -473,7 +465,7 @@ NavierStokesBase::initialize_eb2_structs() {
     else {
       amrex::Print() << "unknown (or multivalued) fab type" << std::endl;
       amrex::Abort();
-    }   
+    }
   }
 }
 
@@ -481,25 +473,25 @@ void
 NavierStokesBase::define_body_state()
 {
   if (no_eb_in_domain) return;
-  
-  // Scan over data and find a point in the fluid to use to 
+
+  // Scan over data and find a point in the fluid to use to
   // set computable values in cells outside the domain
   if (!body_state_set)
   {
     bool foundPt = false;
     const MultiFab& S = get_new_data(State_Type);
-    BL_ASSERT(S.boxArray() == ebmask.boxArray());
-    BL_ASSERT(S.DistributionMap() == ebmask.DistributionMap());
-  
+    AMREX_ASSERT(S.boxArray() == ebmask.boxArray());
+    AMREX_ASSERT(S.DistributionMap() == ebmask.DistributionMap());
+
     body_state.resize(S.nComp(),0);
     for (MFIter mfi(S,false); mfi.isValid() && !foundPt; ++mfi)
     {
       const Box vbox = mfi.validbox();
       const BaseFab<int>& m = ebmask[mfi];
       const FArrayBox& fab = S[mfi];
-      BL_ASSERT(m.box().contains(vbox));
-  
-      // TODO: Remove this dog and do this work in fortran 
+      AMREX_ASSERT(m.box().contains(vbox));
+
+      // TODO: Remove this dog and do this work in fortran
       for (BoxIterator bit(vbox); bit.ok() && !foundPt; ++bit)
       {
         const IntVect& iv = bit();
@@ -512,18 +504,19 @@ NavierStokesBase::define_body_state()
         }
       }
     }
-  
+
     // Find proc with lowest rank to find valid point, use that for all
     std::vector<int> found(ParallelDescriptor::NProcs(),0);
     found[ParallelDescriptor::MyProc()] = (int)foundPt;
-    ParallelDescriptor::ReduceIntSum(&(found[0]),found.size());
+    ParallelDescriptor::ReduceIntSum(&(found[0]),int(found.size()));
     int body_rank = -1;
-    for (int i=0; i<found.size(); ++i) {
+    int found_size = static_cast<int>(found.size());
+    for (int i=0; i < found_size; ++i) {
       if (found[i]==1) {
         body_rank = i;
       }
     }
-    BL_ASSERT(body_rank>=0);
+    AMREX_ASSERT(body_rank>=0);
     ParallelDescriptor::Bcast(&(body_state[0]),body_state.size(),body_rank);
     body_state_set = true;
   }
@@ -539,9 +532,9 @@ NavierStokesBase::set_body_state(MultiFab& S)
     define_body_state();
   }
 
-  BL_ASSERT(S.nComp() == body_state.size());
+  AMREX_ASSERT(S.nComp() == static_cast<int>(body_state.size()));
   int nc = S.nComp();
-  int covered_val = -1;
+  int l_covered_val = -1;
 
   // Need a GPU copy of body_state that's not a static attribute of the NSB class
   AsyncArray<amrex::Real> body_state_lcl(body_state.data(),nc);
@@ -552,13 +545,13 @@ NavierStokesBase::set_body_state(MultiFab& S)
   for (MFIter mfi(S,TilingIfNotGPU()); mfi.isValid(); ++mfi)
   {
     const Box& bx = mfi.tilebox();
-    auto const& state = S.array(mfi);
+    auto const& state_arr = S.array(mfi);
     auto const& mask = ebmask.array(mfi);
     Real* state_lcl = body_state_lcl.data();
-    amrex::ParallelFor(bx, [state,mask,nc,covered_val,state_lcl]
+    amrex::ParallelFor(bx, [state_arr,mask,nc,l_covered_val,state_lcl]
     AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
-        set_body_state_k(i,j,k,nc,state_lcl,covered_val,mask,state);
+        set_body_state_k(i,j,k,nc,state_lcl,l_covered_val,mask,state_arr);
     });
   }
 }
