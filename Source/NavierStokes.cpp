@@ -55,8 +55,11 @@ NavierStokes::Initialize ()
     if (verbose) 
         amrex::Print() << "phicomp, NUM_STATE " << phicomp << " " << NUM_STATE << std::endl;
 
+    //
+    // ls related
+    //
     // NUM_STATE_MAX is defined in NavierStokes.H
-    // to be AMREX_SPACEDIM + 4 (for Density, 2 scalars, Temp)
+    // to be AMREX_SPACEDIM + 5 (for Density, 2 scalars, Temp, ls)
     AMREX_ALWAYS_ASSERT(NUM_STATE <= NUM_STATE_MAX);
 
     NUM_SCALARS = NUM_STATE - Density;

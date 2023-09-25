@@ -283,7 +283,8 @@ NavierStokes::variableSetUp ()
     }
     //
     // ls related
-    //
+    // I still use the set_scalar_bc here. May need improvement.
+    // 
     if (do_phi) {
        set_scalar_bc(bc,phys_bc);
        desc_lst.setComponent(State_Type,phicomp,"phi",bc,state_bf);       

@@ -131,8 +131,11 @@ public:
     //
     static void variableSetUp ();
 
-    // Max possible number of scalars is 4: Density, 2 Tracers, Temperature
-    static constexpr int NUM_STATE_MAX = AMREX_SPACEDIM+4;
+    //
+    // ls related
+    //
+    // Max possible number of scalars is 5: Density, 2 Tracers, Temperature, ls
+    static constexpr int NUM_STATE_MAX = AMREX_SPACEDIM+5;
     static amrex::GpuArray<amrex::GpuArray<amrex::Real, NUM_STATE_MAX>, AMREX_SPACEDIM*2>
     //static auto
     get_bc_values () { return m_bc_values; }

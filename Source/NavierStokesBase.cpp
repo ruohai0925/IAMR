@@ -5302,7 +5302,8 @@ NavierStokesBase::InitialRedistribution ()
 
 //
 // ls related
-//
+// all related subroutines are defined below
+// 
 void
 NavierStokesBase::fill_allgts(MultiFab& mf, int type, int scomp, int ncomp, Real time)
 {
