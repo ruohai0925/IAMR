@@ -897,6 +897,7 @@ public:
     static int do_sign_fix;
 
     static int  do_cons_phi;
+    static int  prescribed_vel;
 
     int nghost_state () const;
     static constexpr int nghost_force () { return 1; }

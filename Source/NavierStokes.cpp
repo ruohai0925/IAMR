@@ -653,10 +653,15 @@ NavierStokes::advance (Real time,
         amrex::Print()<< "phicomp " << phicomp << std::endl;
         scalar_update(dt,phicomp,phicomp);
 
+        // amrex::Print()<< std::endl;
+        // amrex::Print()<< "6 " << std::endl;
+
         const Real cur_time = state[State_Type].curTime();
         MultiFab& S_new = get_new_data(State_Type);
         fill_allgts(S_new,State_Type,phicomp,1,cur_time);
         MultiFab::Copy(phi_ctime, S_new, phicomp, 0, 1, S_new.nGrow());
+
+        // amrex::Print()<< "7 " << std::endl;
 
         // reinitialization
         if (do_reinit == 1 && (parent->levelSteps(0)% lev0step_of_reinit == 0) ){
@@ -685,91 +690,134 @@ NavierStokes::advance (Real time,
         scalar_update(dt,first_scalar,first_scalar);
         make_rho_curr_time();
     }
-    //
-    // Advect momenta after rho^(n+1) has been created.
-    //
-    if (do_mom_diff == 1)
-        velocity_advection(dt);
-    //
-    // ls related
-    // 
-    if (do_phi) {
+
+    if (prescribed_vel)
+    {
+        BL_ASSERT(do_phi==1);
+        dt_test = dt;
+
         //
-        // Add the advective and other terms to get scalars at t^{n+1} except 
-        // the last scalar level set function.
-        scalar_update(dt,first_scalar+1,last_scalar-1);
+        // Create struct to hold initial conditions parameters
+        //
+        InitialConditions IC;
+        // Integer indices of the lower left and upper right corners of the
+        // valid region of the entire domain.
+        Box const&  domain = geom.Domain();
+        auto const&     dx = geom.CellSizeArray();
+        // Physical coordinates of the lower left corner of the domain
+        auto const& problo = geom.ProbLoArray();
+        // Physical coordinates of the upper right corner of the domain
+        auto const& probhi = geom.ProbHiArray();
+
+        // Step 1: do the reinitialization
+        // which has been done before
+
+        // Step 2: set vel of internal cells in S_new and fill the gts
+        MultiFab&  S_new    = get_new_data(State_Type);
+
+        int ncomp = S_new.nComp();
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const Box& vbx = mfi.tilebox();
+            set_rsv_vel(vbx, S_new.array(mfi, Xvel), domain, dx, problo, probhi, IC, time);
+        }
+
+        // Step 3: copy vel in S_new back to S_old
+        MultiFab&  S_old    = get_old_data(State_Type);
+        MultiFab::Copy(S_old, S_new, 0, 0, ncomp, S_new.nGrow());
+
     }
     else {
         //
-        // Add the advective and other terms to get scalars at t^{n+1}.
+        // Advect momenta after rho^(n+1) has been created.
         //
-        scalar_update(dt,first_scalar+1,last_scalar);
-    }
-    //
-    // S appears in rhs of the velocity update, so we better do it now.
-    //
-    if (have_divu)
-    {
-        calc_divu(time+dt,dt,get_new_data(Divu_Type));
-        if (have_dsdt)
-        {
-            calc_dsdt(time,dt,get_new_data(Dsdt_Type));
-            if (initial_step)
-                MultiFab::Copy(get_old_data(Dsdt_Type),
-                               get_new_data(Dsdt_Type),0,0,1,0);
+        if (do_mom_diff == 1)
+            velocity_advection(dt);
+        //
+        // ls related
+        // 
+        if (do_phi) {
+            //
+            // Add the advective and other terms to get scalars at t^{n+1} except 
+            // the last scalar level set function.
+            scalar_update(dt,first_scalar+1,last_scalar-1);
         }
-    }
-    //
-    // Add the advective and other terms to get velocity at t^{n+1}.
-    //
-    velocity_update(dt);
-
-    //
-    // Increment rho average.
-    //
-    if (!initial_step)
-    {
-        if (level > 0)
-            incrRhoAvg((iteration==ncycle ? 0.5 : 1.0) / Real(ncycle));
-
-        if (verbose)
-        {
-            Print() << "NavierStokes::advance(): before nodal projection " << std::endl;
-            printMaxVel();
-        // New P, Gp get updated in the projector (below). Check old here.
-        printMaxGp(false);
+        else {
+            //
+            // Add the advective and other terms to get scalars at t^{n+1}.
+            //
+            scalar_update(dt,first_scalar+1,last_scalar);
         }
+        //
+        // S appears in rhs of the velocity update, so we better do it now.
+        //
+        if (have_divu)
+        {
+            calc_divu(time+dt,dt,get_new_data(Divu_Type));
+            if (have_dsdt)
+            {
+                calc_dsdt(time,dt,get_new_data(Dsdt_Type));
+                if (initial_step)
+                    MultiFab::Copy(get_old_data(Dsdt_Type),
+                                get_new_data(Dsdt_Type),0,0,1,0);
+            }
+        }
+        //
+        // Add the advective and other terms to get velocity at t^{n+1}.
+        //
+        velocity_update(dt);
 
         //
-        // Do a level project to update the pressure and velocity fields.
+        // Increment rho average.
         //
-        if (projector) {
-            const int finest_level = parent->finestLevel();
-            int solve_coarse_level = iteration % 2; 
+        if (!initial_step)
+        {
+            if (level > 0)
+                incrRhoAvg((iteration==ncycle ? 0.5 : 1.0) / Real(ncycle));
+
             if (verbose)
             {
-                Print() << "solve_coarse_level " << solve_coarse_level << std::endl;
+                Print() << "NavierStokes::advance(): before nodal projection " << std::endl;
+                printMaxVel();
+            // New P, Gp get updated in the projector (below). Check old here.
+            printMaxGp(false);
             }
-            if (skip_level_projector==0 || level==finest_level || solve_coarse_level) {
-                level_projector(dt,time,iteration);
+
+            //
+            // Do a level project to update the pressure and velocity fields.
+            //
+            if (projector) {
+                const int finest_level = parent->finestLevel();
+                int solve_coarse_level = iteration % 2; 
+                if (verbose)
+                {
+                    Print() << "solve_coarse_level " << solve_coarse_level << std::endl;
+                }
+                if (skip_level_projector==0 || level==finest_level || solve_coarse_level) {
+                    level_projector(dt,time,iteration);
+                }
+                else {
+                    MultiFab& P_old = get_old_data(Press_Type);
+                    MultiFab& P_new = get_new_data(Press_Type);
+                    // Set P_new to be P_old
+                    MultiFab::Copy(P_new,P_old,0,0,1,P_old.nGrow());
+                }
             }
-            else {
-                MultiFab& P_old = get_old_data(Press_Type);
-                MultiFab& P_new = get_new_data(Press_Type);
-                // Set P_new to be P_old
-                MultiFab::Copy(P_new,P_old,0,0,1,P_old.nGrow());
-            }
+            if (level > 0 && iteration == 1)
+            p_avg.setVal(0);
         }
-        if (level > 0 && iteration == 1)
-           p_avg.setVal(0);
-    }
 
 #ifdef AMREX_PARTICLES
-    if (theNSPC() != 0 and NavierStokes::initial_step != true)
-    {
-        theNSPC()->AdvectWithUmac(u_mac, level, dt);
-    }
+        if (theNSPC() != 0 and NavierStokes::initial_step != true)
+        {
+            theNSPC()->AdvectWithUmac(u_mac, level, dt);
+        }
 #endif
+    } // end prescribed_vel
+
     //
     // Clean up after the predicted value at t^n+1.
     // Estimate new timestep from umac cfl.

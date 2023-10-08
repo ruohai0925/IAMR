@@ -41,6 +41,11 @@ struct InitialConditions
   int meanFlowDir = 0;
   amrex::Real meanFlowMag = 0.0;
   amrex::Real forcevort = 6.0;
+
+  //
+  // ls related
+  // total time for rsv problem
+  amrex::Real totalTimeRsv = 4.0;
 };
 
 //
@@ -49,6 +54,20 @@ struct InitialConditions
 void prob_initData();
 
 static void init_bubble (amrex::Box const& vbx,
+          amrex::Array4<amrex::Real> const& press,
+          amrex::Array4<amrex::Real> const& vel,
+          amrex::Array4<amrex::Real> const& scal,
+          int nscal,
+          amrex::Box const& domain,
+          amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dx,
+          amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& problo,
+          amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& probhi,
+          InitialConditions IC);
+
+//
+// ls related
+// initialize velocity for the rsv problem
+static void init_rsv (amrex::Box const& vbx,
           amrex::Array4<amrex::Real> const& press,
           amrex::Array4<amrex::Real> const& vel,
           amrex::Array4<amrex::Real> const& scal,
@@ -140,5 +159,17 @@ static void init_ConvectedVortex (amrex::Box const& vbx,
 // Problems parameters, to be read from inputs file
 //
 static int probtype;
+
+//
+// ls related
+// perform prescribed velocity
+static void set_rsv_vel (amrex::Box const& vbx,
+          amrex::Array4<amrex::Real> const& vel,
+          amrex::Box const& domain,
+          amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dx,
+          amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& problo,
+          amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& probhi,
+          InitialConditions IC,
+          amrex::Real time);
 
 #endif

@@ -214,6 +214,7 @@ int NavierStokesBase::do_subcell_fix     = 0;
 int NavierStokesBase::do_sign_fix        = 0;
 
 int NavierStokesBase::do_cons_phi        = 0;
+int NavierStokesBase::prescribed_vel     = 0;
 
 namespace
 {
@@ -658,6 +659,7 @@ NavierStokesBase::Initialize ()
         pp.query("reinit_bhalla", reinit_bhalla);
 
         pp.query("do_cons_phi", do_cons_phi);
+        pp.query("prescribed_vel", prescribed_vel);
 
     }
 
@@ -788,7 +790,7 @@ NavierStokesBase::advance_setup (Real /*time*/,
     // fill the gts of old state data in the beginning
     // 
     if (do_phi && do_mom_diff==0) {
-        amrex::Print() << "1 " << std::endl;
+        // amrex::Print() << "1 " << std::endl;
         const Real prev_time = state[State_Type].prevTime();
         MultiFab&  S_old    = get_old_data(State_Type);
         int nScomp = S_old.nComp();
@@ -802,7 +804,7 @@ NavierStokesBase::advance_setup (Real /*time*/,
     // update the rho_ptime
     // 
     if (do_phi && do_mom_diff==0) {
-        amrex::Print() << "2 " << std::endl;
+        // amrex::Print() << "2 " << std::endl;
         MultiFab&  S_old    = get_old_data(State_Type);
         MultiFab::Copy(phi_ptime, S_old, phicomp, 0, 1, S_old.nGrow()); 
         phi_to_heavi(phi_ptime);
@@ -5311,7 +5313,8 @@ NavierStokesBase::fill_allgts(MultiFab& mf, int type, int scomp, int ncomp, Real
     int ngrow = mf.nGrow();
     FillPatchIterator mf_fpi(*this, mf, ngrow, time, type, scomp, ncomp);
     MultiFab& mf_temp = mf_fpi.get_mf();
-    MultiFab::Copy(mf, mf_temp, scomp, scomp, ncomp, ngrow);
+    // MultiFab::Copy(mfdst, mfsrc, sc, dc, nc, ng); // Copy from mfsrc to mfdst
+    MultiFab::Copy(mf, mf_temp, 0, scomp, ncomp, ngrow);
 }
 
 void
@@ -5432,7 +5435,7 @@ NavierStokesBase::reinit()
     }
     const Real coeff = 0.5;
     Real dtlevel = coeff * dxmin;
-    amrex::Print() << "level " << level << "dtlevel " << dtlevel << std::endl;
+    amrex::Print() << "level " << level << " dtlevel " << dtlevel << std::endl;
 
     // Step 2: copy phi_ctime to phi_original
     MultiFab::Copy(phi_original, phi_ctime, 0, 0, 1, phi_ctime.nGrow());
@@ -5580,9 +5583,9 @@ NavierStokesBase::rk_first_reinit (MultiFab& phi_ctime,
     for (MFIter mfi(phi_ctime,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         Box bx = mfi.validbox();
-        amrex::Print() << "bx before " << bx << std::endl;
+        // amrex::Print() << "bx before " << bx << std::endl;
         bx.growLo(0,1).growHi(0,2);
-        amrex::Print() << "bx after " << bx << std::endl;
+        // amrex::Print() << "bx after " << bx << std::endl;
         auto const& phifab   = phi_ctime.array(mfi);
         auto const& phi1fab  = phi1.array(mfi);
         amrex::ParallelFor(bx, [phifab, phi1fab, dx]

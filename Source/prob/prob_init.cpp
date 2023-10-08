@@ -155,6 +155,12 @@ void NavierStokes::prob_initData ()
                              S_new.array(mfi, Density), nscal,
                              domain, dx, problo, probhi, IC);
         }
+        else if ( 99 == probtype ) // ls related
+        {
+            init_rsv(vbx, P_new.array(mfi), S_new.array(mfi, Xvel),
+                        S_new.array(mfi, Density), nscal,
+                        domain, dx, problo, probhi, IC);
+        }
         else
         {
             amrex::Abort("NavierStokes::prob_init: unknown probtype");
@@ -225,6 +231,84 @@ void NavierStokes::init_bubble (Box const& vbx,
       scal(i,j,k,0) = 1.0 + 0.5*(IC.density-1.0)*(1.0-std::tanh(30.*(dist-IC.blob_radius)/IC.interface_width));
       // No Temperature field
     }
+
+  });
+}
+
+//
+// ls related
+// 
+void NavierStokes::init_rsv (Box const& vbx,
+                Array4<Real> const& /*press*/,
+                Array4<Real> const& vel,
+                Array4<Real> const& scal,
+                const int nscal,
+                Box const& domain,
+                GpuArray<Real, AMREX_SPACEDIM> const& dx,
+                GpuArray<Real, AMREX_SPACEDIM> const& problo,
+                GpuArray<Real, AMREX_SPACEDIM> const& /*probhi*/,
+                InitialConditions IC)
+{
+  const auto domlo = amrex::lbound(domain);
+
+  amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+    Real x = problo[0] + (i - domlo.x + 0.5)*dx[0];
+    Real y = problo[1] + (j - domlo.y + 0.5)*dx[1];
+
+    //
+    // Fill Velocity
+    //
+    vel(i,j,k,0) = - std::sin(Pi*x)*std::sin(Pi*x)*std::sin(2*Pi*y);
+    vel(i,j,k,1) =   std::sin(2*Pi*x)*std::sin(Pi*y)*std::sin(Pi*y);
+
+#if (AMREX_SPACEDIM == 3)
+    vel(i,j,k,2) = 0.0;
+#endif
+
+    //
+    // Scalars, ordered as Density, Tracer(s), Temp (if using), ls
+    //
+
+    // All Tracers are set here
+    for ( int nt=0; nt<nscal; nt++)
+    {
+      scal(i,j,k,nt) = 1.0;
+    }
+
+    scal(i,j,k,nscal-1) = IC.blob_radius - std::sqrt( (x-IC.blob_x)*(x-IC.blob_x)
+              + (y-IC.blob_y)*(y-IC.blob_y));
+
+  });
+}
+
+//
+// ls related
+// 
+void NavierStokes::set_rsv_vel (Box const& vbx,
+                Array4<Real> const& vel,
+                Box const& domain,
+                GpuArray<Real, AMREX_SPACEDIM> const& dx,
+                GpuArray<Real, AMREX_SPACEDIM> const& problo,
+                GpuArray<Real, AMREX_SPACEDIM> const& /*probhi*/,
+                InitialConditions IC,
+                Real time)
+{
+  const auto domlo = amrex::lbound(domain);
+  amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+    Real x = problo[0] + (i - domlo.x + 0.5)*dx[0];
+    Real y = problo[1] + (j - domlo.y + 0.5)*dx[1];
+
+    //
+    // Fill Velocity
+    //
+    vel(i,j,k,0) = - std::sin(Pi*x)*std::sin(Pi*x)*std::sin(2*Pi*y)*std::cos(Pi*time/IC.totalTimeRsv);
+    vel(i,j,k,1) =   std::sin(2*Pi*x)*std::sin(Pi*y)*std::sin(Pi*y)*std::cos(Pi*time/IC.totalTimeRsv);
+
+#if (AMREX_SPACEDIM == 3)
+    vel(i,j,k,2) = 0.0;
+#endif
 
   });
 }
