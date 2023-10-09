@@ -659,9 +659,10 @@ NavierStokesBase::Initialize ()
         pp.query("reinit_bhalla", reinit_bhalla);
 
         pp.query("do_cons_phi", do_cons_phi);
-        pp.query("prescribed_vel", prescribed_vel);
 
     }
+
+    pp.query("prescribed_vel", prescribed_vel);
 
     amrex::ExecOnFinalize(NavierStokesBase::Finalize);
 
@@ -789,7 +790,7 @@ NavierStokesBase::advance_setup (Real /*time*/,
     // ls related
     // fill the gts of old state data in the beginning
     // 
-    if (do_phi && do_mom_diff==0) {
+    if (do_phi) {
         // amrex::Print() << "1 " << std::endl;
         const Real prev_time = state[State_Type].prevTime();
         MultiFab&  S_old    = get_old_data(State_Type);
@@ -803,7 +804,7 @@ NavierStokesBase::advance_setup (Real /*time*/,
     // ls related
     // update the rho_ptime
     // 
-    if (do_phi && do_mom_diff==0) {
+    if (do_phi) {
         // amrex::Print() << "2 " << std::endl;
         MultiFab&  S_old    = get_old_data(State_Type);
         MultiFab::Copy(phi_ptime, S_old, phicomp, 0, 1, S_old.nGrow()); 

@@ -641,7 +641,7 @@ NavierStokes::advance (Real time,
     // note: in the above scalar_advection function, we still advect rho even if 
     // we do not use it later. This can be simplified later.
     // 
-    if (do_phi && do_mom_diff==0) {
+    if (do_phi) {
         amrex::Print() << "After scalar_advection " << std::endl;
         // const Real  prev_time = state[State_Type].prevTime();
         // MultiFab& S_old = get_old_data(State_Type);
@@ -795,6 +795,9 @@ NavierStokes::advance (Real time,
                 if (verbose)
                 {
                     Print() << "solve_coarse_level " << solve_coarse_level << std::endl;
+                    // Print() << "skip_level_projector " << skip_level_projector << std::endl;
+                    // Print() << "level " << level << std::endl;
+                    // Print() << "finest_level " << finest_level << std::endl;
                 }
                 if (skip_level_projector==0 || level==finest_level || solve_coarse_level) {
                     level_projector(dt,time,iteration);
@@ -1219,6 +1222,23 @@ NavierStokes::sum_integrated_quantities ()
     Print().SetPrecision(12) << "TIME= " << time << " MASS= " << mass << '\n';
     Print().SetPrecision(12) << "TIME= " << time << " TRAC= " << trac << '\n';
     Print().SetPrecision(12) << "TIME= " << time << " KINETIC ENERGY= " << energy << '\n';
+
+    //
+    // ls related
+    //
+    if (ParallelDescriptor::IOProcessor()) {
+        std::ofstream ofs("mass.txt", std::ios::app); // append mode
+        // std::ofstream ofs("mass.txt", std::ios::out); // override mode
+        if (ofs.is_open())
+        {
+            amrex::Print(ofs).SetPrecision(12) << time << " " << mass << '\n';
+            ofs.close();
+        }
+        else
+        {
+            amrex::Abort("Failed to open mass.txt for writing");
+        }        
+    }
 }
 
 void

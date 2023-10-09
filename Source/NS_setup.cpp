@@ -302,6 +302,14 @@ NavierStokes::variableSetUp ()
             is_diffusive[i] = true;
     }
 
+    if (do_mom_diff == 1) {
+        amrex::Print() << "Using conservative scheme with do_mom_diff = " << do_mom_diff << "\n";
+    }
+    else {
+        amrex::Print() << "Using non-conservative scheme with do_mom_diff = " << do_mom_diff << "\n";
+    }
+        
+
     if (do_mom_diff == 1)
       for (int d = 0; d < AMREX_SPACEDIM; d++)
         advectionType[Xvel+d] = Conservative;
