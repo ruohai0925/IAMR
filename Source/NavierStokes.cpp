@@ -638,8 +638,7 @@ NavierStokes::advance (Real time,
     scalar_advection(dt,first_scalar,last_scalar);
     //
     // ls related
-    // note: in the above scalar_advection function, we still advect rho even if 
-    // we do not use it later. This can be simplified later.
+    // note: in the above scalar_advection function, we still advect rho.
     // 
     if (do_phi) {
         amrex::Print() << "After scalar_advection " << std::endl;
@@ -668,15 +667,26 @@ NavierStokes::advance (Real time,
             amrex::Print() << "parent->levelSteps(0) " << parent->levelSteps(0) << std::endl;
             reinit();
         }
-        // update the rho_ctime and density in S_new
-        phi_to_heavi(phi_ctime);
-        heavi_to_rhoormu(rho_ctime, rho_w, rho_a);
-        MultiFab::Copy(S_new, rho_ctime, 0, Density, 1, rho_ctime.nGrow());
-        // update phi_half
-        MultiFab& phi_half_temp = get_phi_half_time();
-        // update rho_half
-        phi_to_heavi(phi_half_temp);
-        heavi_to_rhoormu(rho_half, rho_w, rho_a);
+
+        if (do_mom_diff == 0) {
+            // update the rho_ctime and density in S_new
+            phi_to_heavi(phi_ctime);
+            heavi_to_rhoormu(rho_ctime, rho_w, rho_a);
+            MultiFab::Copy(S_new, rho_ctime, 0, Density, 1, rho_ctime.nGrow());
+            // update phi_half
+            MultiFab& phi_half_temp = get_phi_half_time();
+            // update rho_half
+            phi_to_heavi(phi_half_temp);
+            heavi_to_rhoormu(rho_half, rho_w, rho_a);
+        }
+        else {
+            //
+            // Update Rho.
+            //
+            scalar_update(dt,first_scalar,first_scalar);
+            make_rho_curr_time();            
+        }
+        
         // update mu_half
         MultiFab outmf_mu_half(grids, dmap, 1, 1, MFInfo(), Factory());
         heavi_to_rhoormu(outmf_mu_half, mu_w, mu_a);
@@ -742,8 +752,8 @@ NavierStokes::advance (Real time,
         if (do_phi) {
             //
             // Add the advective and other terms to get scalars at t^{n+1} except 
-            // the last scalar level set function.
-            scalar_update(dt,first_scalar+1,last_scalar-1);
+            // the level set function.
+            scalar_update(dt,first_scalar+1,phicomp-1);
         }
         else {
             //
@@ -1231,7 +1241,7 @@ NavierStokes::sum_integrated_quantities ()
         // std::ofstream ofs("mass.txt", std::ios::out); // override mode
         if (ofs.is_open())
         {
-            amrex::Print(ofs).SetPrecision(12) << time << " " << mass << '\n';
+            amrex::Print(ofs).SetPrecision(12) << time << " " << mass << " " << trac << " " << energy << '\n';
             ofs.close();
         }
         else

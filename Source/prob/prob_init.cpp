@@ -161,6 +161,12 @@ void NavierStokes::prob_initData ()
                         S_new.array(mfi, Density), nscal,
                         domain, dx, problo, probhi, IC);
         }
+        else if ( 100 == probtype )
+        {
+            init_RayleighTaylor_LS(vbx, P_new.array(mfi), S_new.array(mfi, Xvel),
+                                S_new.array(mfi, Density), nscal,
+                                domain, dx, problo, probhi, IC);
+        }
         else
         {
             amrex::Abort("NavierStokes::prob_init: unknown probtype");
@@ -249,6 +255,9 @@ void NavierStokes::init_rsv (Box const& vbx,
                 GpuArray<Real, AMREX_SPACEDIM> const& /*probhi*/,
                 InitialConditions IC)
 {
+
+  BL_ASSERT(do_phi==1);
+
   const auto domlo = amrex::lbound(domain);
 
   amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -275,9 +284,12 @@ void NavierStokes::init_rsv (Box const& vbx,
     {
       scal(i,j,k,nt) = 1.0;
     }
-
-    scal(i,j,k,nscal-1) = IC.blob_radius - std::sqrt( (x-IC.blob_x)*(x-IC.blob_x)
+    
+    // Initialize the LS function if do_phi
+    if (do_phi) {
+      scal(i,j,k,phicomp-Density) = IC.blob_radius - std::sqrt( (x-IC.blob_x)*(x-IC.blob_x)
               + (y-IC.blob_y)*(y-IC.blob_y));
+    } 
 
   });
 }
@@ -569,6 +581,58 @@ void NavierStokes::init_RayleighTaylor (Box const& vbx,
     }
   });
 
+#endif
+}
+
+
+// 
+// ls related
+// 
+void NavierStokes::init_RayleighTaylor_LS (Box const& vbx,
+                    Array4<Real> const& /*press*/,
+                    Array4<Real> const& /*vel*/,
+                    Array4<Real> const& scal,
+                    const int nscal,
+                    Box const& domain,
+                    GpuArray<Real, AMREX_SPACEDIM> const& dx,
+                    GpuArray<Real, AMREX_SPACEDIM> const& problo,
+                    GpuArray<Real, AMREX_SPACEDIM> const& probhi,
+                    InitialConditions IC)
+{
+  const auto domlo = amrex::lbound(domain);
+
+  //
+  // Velocity already initialized to 0
+  //
+
+  BL_ASSERT(AMREX_SPACEDIM==2);
+  //
+  // Scalars, ordered as Density, Tracer(s), Temp (if using), LS
+  //
+  const Real Lx    = (probhi[0] - problo[0]);
+
+#if (AMREX_SPACEDIM == 2)
+  amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+    Real x = problo[0] + (i - domlo.x + 0.5)*dx[0];
+    Real y = problo[1] + (j - domlo.y + 0.5)*dx[1];
+
+    const Real pertheight = 2.0 + IC.pertamp*(std::cos(2.0*Pi*x/Lx));
+
+    scal(i,j,k,0) = IC.rho_2 + ((IC.rho_1-IC.rho_2)/2.0)*(1.0+std::tanh((y-pertheight)/IC.interface_width));
+    for ( int nt=1; nt<nscal; nt++)
+    {
+      scal(i,j,k,nt) = 1.0;
+    }
+
+    // Initialize the LS function if do_phi
+    if (do_phi) {
+      scal(i,j,k,phicomp-Density) = y-pertheight;
+    } 
+
+  });
+
+#elif (AMREX_SPACEDIM == 3)
 #endif
 }
 
