@@ -136,6 +136,17 @@ static void init_RayleighTaylor_LS (amrex::Box const& vbx,
               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& probhi,
               InitialConditions IC);
 
+static void init_BreakingWave (amrex::Box const& vbx,
+              amrex::Array4<amrex::Real> const& press,
+              amrex::Array4<amrex::Real> const& vel,
+              amrex::Array4<amrex::Real> const& scal,
+              int nscal,
+              amrex::Box const& domain,
+              amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dx,
+              amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& problo,
+              amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& probhi,
+              InitialConditions IC);
+
 static void init_TaylorGreen (amrex::Box const& vbx,
                amrex::Array4<amrex::Real> const& press,
                amrex::Array4<amrex::Real> const& vel,

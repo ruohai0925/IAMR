@@ -167,6 +167,12 @@ void NavierStokes::prob_initData ()
                                 S_new.array(mfi, Density), nscal,
                                 domain, dx, problo, probhi, IC);
         }
+        else if ( 101 == probtype )
+        {
+            init_BreakingWave(vbx, P_new.array(mfi), S_new.array(mfi, Xvel),
+                                S_new.array(mfi, Density), nscal,
+                                domain, dx, problo, probhi, IC);
+        }
         else
         {
             amrex::Abort("NavierStokes::prob_init: unknown probtype");
@@ -628,6 +634,80 @@ void NavierStokes::init_RayleighTaylor_LS (Box const& vbx,
     // Initialize the LS function if do_phi
     if (do_phi) {
       scal(i,j,k,phicomp-Density) = y-pertheight;
+    } 
+
+  });
+
+#elif (AMREX_SPACEDIM == 3)
+#endif
+}
+
+// 
+// ls related
+// 
+void NavierStokes::init_BreakingWave (Box const& vbx,
+                    Array4<Real> const& /*press*/,
+                    Array4<Real> const& vel,
+                    Array4<Real> const& scal,
+                    const int nscal,
+                    Box const& domain,
+                    GpuArray<Real, AMREX_SPACEDIM> const& dx,
+                    GpuArray<Real, AMREX_SPACEDIM> const& problo,
+                    GpuArray<Real, AMREX_SPACEDIM> const& probhi,
+                    InitialConditions IC)
+{
+  const auto domlo = amrex::lbound(domain);
+
+  BL_ASSERT(AMREX_SPACEDIM==2);
+  //
+  // Scalars, ordered as Density, Tracer(s), Temp (if using), LS
+  //
+  const Real Lx    = (probhi[0] - problo[0]);
+
+  // wave parameters
+  const Real WAVE_LENGTH = Lx;
+  const Real KA = 0.55;
+  const Real K_WAVE = 2.0*Pi/WAVE_LENGTH;
+  const Real O_WAVE = std::sqrt((K_WAVE*9.81)*(1.0+KA*KA/2.0));
+  // amrex::Print() << "rho_w rho_a " << rho_w << " " << rho_a << std::endl;
+
+#if (AMREX_SPACEDIM == 2)
+  amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+    Real x = problo[0] + (i - domlo.x + 0.5)*dx[0];
+    Real y = problo[1] + (j - domlo.y + 0.5)*dx[1];
+
+    const Real eta =  KA/K_WAVE*std::cos(K_WAVE*x)
+                      + 0.5    *std::pow(KA,2.0)/K_WAVE*std::cos(2.0*K_WAVE*x)
+                      + 3.0/8.0*std::pow(KA,3.0)/K_WAVE*std::cos(3.0*K_WAVE*x);
+
+    const Real ufs = O_WAVE*KA/K_WAVE*std::exp(K_WAVE*eta)*std::cos(K_WAVE*x);
+    const Real vfs = O_WAVE*KA/K_WAVE*std::exp(K_WAVE*eta)*std::sin(K_WAVE*x);
+
+    //
+    // Fill Velocity
+    //
+    if ( y <= eta )
+    {
+      vel(i,j,k,0) = O_WAVE*KA/K_WAVE*std::exp(K_WAVE*y)*std::cos(K_WAVE*x);
+      vel(i,j,k,1) = O_WAVE*KA/K_WAVE*std::exp(K_WAVE*y)*std::sin(K_WAVE*x);
+      scal(i,j,k,0) = rho_w;
+    }
+    else
+    {
+      vel(i,j,k,0) = ufs*std::exp(-100.0*(y-eta));
+      vel(i,j,k,1) = vfs*std::exp(-100.0*(y-eta));
+      scal(i,j,k,0) = rho_a;
+    }
+
+    for ( int nt=1; nt<nscal; nt++)
+    {
+      scal(i,j,k,nt) = 1.0;
+    }
+
+    // Initialize the LS function if do_phi
+    if (do_phi) {
+      scal(i,j,k,phicomp-Density) = eta-y;
     } 
 
   });
