@@ -11,7 +11,7 @@ TOP = ../..
 
 PRECISION   = DOUBLE
 
-DIM         = 2
+DIM         = 3 # 3
 COMP        = gnu
 
 DEBUG       = FALSE

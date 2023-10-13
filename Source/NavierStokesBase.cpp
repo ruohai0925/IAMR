@@ -208,13 +208,13 @@ int NavierStokesBase::do_reinit          = 0;
 int NavierStokesBase::lev0step_of_reinit = 1;
 int NavierStokesBase::number_of_reinit   = 4;
 int NavierStokesBase::reinit_sussman     = 1;
-int NavierStokesBase::reinit_bhalla      = 0;
 int NavierStokesBase::fix_mass           = 1;
-int NavierStokesBase::do_subcell_fix     = 0;
-int NavierStokesBase::do_sign_fix        = 0;
 
 int NavierStokesBase::do_cons_phi        = 0;
 int NavierStokesBase::prescribed_vel     = 0;
+
+int NavierStokesBase::do_cons_levelset   = 0;
+int NavierStokesBase::reinit_cons_levelset      = 0;
 
 namespace
 {
@@ -656,7 +656,7 @@ NavierStokesBase::Initialize ()
         pp.query("lev0step_of_reinit", lev0step_of_reinit);
         pp.query("number_of_reinit", number_of_reinit);
         pp.query("reinit_sussman", reinit_sussman);
-        pp.query("reinit_bhalla", reinit_bhalla);
+        pp.query("reinit_cons_levelset", reinit_cons_levelset);
 
         pp.query("do_cons_phi", do_cons_phi);
 
@@ -5444,16 +5444,16 @@ NavierStokesBase::reinit()
     // Step 3: only reinitialize the ls function on the current level
     for (int k=1; k<=number_of_reinit; k++)
     {
-        if(reinit_sussman && reinit_bhalla) {
-            Abort("reinit_sussman == 1 and reinit_bhalla == 1 are not allowed");
+        if(reinit_sussman && reinit_cons_levelset) {
+            Abort("reinit_sussman == 1 and reinit_cons_levelset == 1 are not allowed");
         }
         
         if(reinit_sussman){
             reinitialization_sussman(dtlevel,k);
         }
         
-        if(reinit_bhalla){
-            // reinitialization_bhalla(dtlevel,k);
+        if(reinit_cons_levelset){
+            // reinitialization_consls(dtlevel,k);
         }
     }
 }

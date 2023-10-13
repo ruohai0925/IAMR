@@ -1,0 +1,54 @@
+template <typename MF>
+void
+MLCellLinOpT<MF>::compGrad (int amrlev, const Array<MF*,AMREX_SPACEDIM>& grad,
+                            MF& sol, Location /*loc*/) const
+{
+    BL_PROFILE("MLCellLinOp::compGrad()");
+
+    if (sol.nComp() > 1) {
+        amrex::Abort("MLCellLinOp::compGrad called, but only works for single-component solves");
+    }
+
+    const int mglev = 0;
+    applyBC(amrlev, mglev, sol, BCMode::Inhomogeneous, StateMode::Solution,
+            m_bndry_sol[amrlev].get());
+
+    const int ncomp = this->getNComp();
+
+    AMREX_D_TERM(const RT dxi = static_cast<RT>(this->m_geom[amrlev][mglev].InvCellSize(0));,
+                 const RT dyi = static_cast<RT>(this->m_geom[amrlev][mglev].InvCellSize(1));,
+                 const RT dzi = static_cast<RT>(this->m_geom[amrlev][mglev].InvCellSize(2)););
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(sol, TilingIfNotGPU());  mfi.isValid(); ++mfi)
+    {
+        AMREX_D_TERM(const Box& xbx = mfi.nodaltilebox(0);,
+                     const Box& ybx = mfi.nodaltilebox(1);,
+                     const Box& zbx = mfi.nodaltilebox(2););
+        const auto& s = sol.array(mfi);
+        AMREX_D_TERM(const auto& gx = grad[0]->array(mfi);,
+                     const auto& gy = grad[1]->array(mfi);,
+                     const auto& gz = grad[2]->array(mfi););
+
+        AMREX_HOST_DEVICE_PARALLEL_FOR_4D ( xbx, ncomp, i, j, k, n,
+        {
+            gx(i,j,k,n) = dxi*(s(i,j,k,n) - s(i-1,j,k,n));
+        });
+#if (AMREX_SPACEDIM >= 2)
+        AMREX_HOST_DEVICE_PARALLEL_FOR_4D ( ybx, ncomp, i, j, k, n,
+        {
+            gy(i,j,k,n) = dyi*(s(i,j,k,n) - s(i,j-1,k,n));
+        });
+#endif
+#if (AMREX_SPACEDIM == 3)
+        AMREX_HOST_DEVICE_PARALLEL_FOR_4D ( zbx, ncomp, i, j, k, n,
+        {
+            gz(i,j,k,n) = dzi*(s(i,j,k,n) - s(i,j,k-1,n));
+        });
+#endif
+    }
+
+    addInhomogNeumannFlux(amrlev, grad, sol, false);
+}
+
