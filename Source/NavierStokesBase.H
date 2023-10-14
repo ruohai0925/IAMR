@@ -217,7 +217,7 @@ public:
     void heavi_to_rhoormu(amrex::MultiFab& outmf, amrex::Real var1, amrex::Real var2);
     void reinit ();
     void reinitialization_sussman (amrex::Real dt, int loop_iter);
-    void reinitialization_consls (amrex::Real dt, int loop_iter);
+    void reinitialization_consls (amrex::Real dt, int loop_iter, int epsG, int epsG2);
     void phi_to_sgn0 (amrex::MultiFab& phi);
     amrex::MultiFab& get_phi_half_time ();
     void rk_first_reinit (amrex::MultiFab& phi_ctime,
@@ -876,8 +876,7 @@ public:
     static int do_reinit;
     static int lev0step_of_reinit;
     static int number_of_reinit;
-    static int reinit_sussman;
-
+    static int reinit_levelset;
 
     amrex::MultiFab phi1;
     amrex::MultiFab phi2;
@@ -895,9 +894,8 @@ public:
     static int  do_cons_phi;
     static int  prescribed_vel;
 
-    // for reinit_cons_levelset
+    // for cons_levelset
     static int do_cons_levelset;
-    static int reinit_cons_levelset;
 
     int nghost_state () const;
     static constexpr int nghost_force () { return 1; }

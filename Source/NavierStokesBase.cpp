@@ -9,6 +9,8 @@
 #include <NSB_K.H>
 #include <NS_util.H>
 #include <iamr_constants.H>
+#include <NS_LS.H>
+#include <NS_KERNELS.H>
 
 #include <hydro_godunov.H>
 #include <hydro_bds.H>
@@ -207,14 +209,13 @@ Real NavierStokesBase::rho_w     = 1.0;
 int NavierStokesBase::do_reinit          = 0;
 int NavierStokesBase::lev0step_of_reinit = 1;
 int NavierStokesBase::number_of_reinit   = 4;
-int NavierStokesBase::reinit_sussman     = 1;
+int NavierStokesBase::reinit_levelset    = 1;
 int NavierStokesBase::fix_mass           = 1;
 
 int NavierStokesBase::do_cons_phi        = 0;
 int NavierStokesBase::prescribed_vel     = 0;
 
 int NavierStokesBase::do_cons_levelset   = 0;
-int NavierStokesBase::reinit_cons_levelset      = 0;
 
 namespace
 {
@@ -655,8 +656,7 @@ NavierStokesBase::Initialize ()
         pp.query("do_reinit", do_reinit);
         pp.query("lev0step_of_reinit", lev0step_of_reinit);
         pp.query("number_of_reinit", number_of_reinit);
-        pp.query("reinit_sussman", reinit_sussman);
-        pp.query("reinit_cons_levelset", reinit_cons_levelset);
+        pp.query("reinit_levelset", reinit_levelset);
 
         pp.query("do_cons_phi", do_cons_phi);
 
@@ -5428,34 +5428,94 @@ NavierStokesBase::reinit()
 
     if(verbose) amrex::Print() << "In the NavierStokesBase::reinit() " << std::endl;
 
-    // Step 1: get pseudo dt for the current level
     const Real* dx    = geom.CellSize();
     Real dxmin        = dx[0];
     for (int d=1; d<AMREX_SPACEDIM; ++d) {
         dxmin = std::min(dxmin,dx[d]);
     }
-    const Real coeff = 0.5;
-    Real dtlevel = coeff * dxmin;
-    amrex::Print() << "level " << level << " dtlevel " << dtlevel << std::endl;
 
-    // Step 2: copy phi_ctime to phi_original
-    MultiFab::Copy(phi_original, phi_ctime, 0, 0, 1, phi_ctime.nGrow());
+    if(reinit_levelset==1) {
+        BL_ASSERT(do_cons_levelset==0);
 
-    // Step 3: only reinitialize the ls function on the current level
-    for (int k=1; k<=number_of_reinit; k++)
-    {
-        if(reinit_sussman && reinit_cons_levelset) {
-            Abort("reinit_sussman == 1 and reinit_cons_levelset == 1 are not allowed");
-        }
-        
-        if(reinit_sussman){
+        // Step 1: copy phi_ctime to phi_original
+        MultiFab::Copy(phi_original, phi_ctime, 0, 0, 1, phi_ctime.nGrow());
+
+        // Step 2: get pseudo dt for the current level
+        const Real coeff = 0.5;
+        Real dtlevel = coeff * dxmin;
+        amrex::Print() << "level " << level << " dtlevel " << dtlevel << std::endl;
+
+        // Step 3: only reinitialize the ls function on the current level
+        for (int k=1; k<=number_of_reinit; k++)
+        {
             reinitialization_sussman(dtlevel,k);
         }
-        
-        if(reinit_cons_levelset){
-            // reinitialization_consls(dtlevel,k);
-        }
+
     }
+    else {
+        BL_ASSERT(do_cons_levelset==1);
+        const Real coeff = 0.75;
+        Real epsG  = calculate_eps_one(geom, reinit_levelset);
+        Real epsG2 = calculate_eps_two(geom, reinit_levelset);
+        Real dtlevel = coeff * std::min({dxmin, dxmin * dxmin / (4.0 * (epsG + epsG2))});
+
+        for (int k=1; k<=number_of_reinit; k++)
+        {
+            reinitialization_consls(dtlevel,k, epsG, epsG2);
+        }
+
+    }
+}
+
+void
+NavierStokesBase::reinitialization_consls (Real dt,
+                       int  loop_iter, int epsG, int epsG2)
+{
+    
+    if (verbose) amrex::Print() << "In the NavierStokesBase::reinitialization_consls() " << std::endl;
+    if (verbose) amrex::Print() << "loop_iter " << loop_iter << std::endl;
+
+    // Real Gconverge = 0.00000000000001;
+    // Real resmax = 1.e10;
+    // Real res = 0.0;
+
+    // Step 1:
+    MultiFab::Copy(phi_original, phi_ctime, 0, 0, 1, phi_ctime.nGrow());
+
+    for (int i=0; i<4; i++) {
+
+        // Step 2: 
+        MultiFab::Add(phi_ctime, phi_original, 0, 0, 1, phi_ctime.nGrow());
+        phi_ctime.mult(0.5, phi_ctime.nGrow());
+
+        // Step 3: copy phi_ctime back to phi in S_new, fill phi's bc data in S_new, then
+        // copy it to phi_ctime
+        const Real cur_time = state[State_Type].curTime();
+        MultiFab&  S_new = get_new_data(State_Type);
+        MultiFab::Copy(S_new, phi_ctime, 0, phicomp, 1, phi_ctime.nGrow());
+        fill_allgts(S_new,State_Type,phicomp,1,cur_time);
+        MultiFab::Copy(phi_ctime, S_new, phicomp, 0, 1, phi_ctime.nGrow());
+
+        // Step 4: calculate level set normal
+        Array<std::unique_ptr<MultiFab>,AMREX_SPACEDIM> phi_normal;
+        int normalize = 1;
+        cc_to_cc_grad(phi_normal, phi_ctime, geom, normalize);
+
+        // Step 5: calculate diffs (phi2) and comp (phi1), add them to diffs_comp (override phi_ctime)
+        phi1.setVal(0.0); phi2.setVal(0.0);
+        levelset_diffcomp(phi_normal, phi_ctime, phi1, phi2, epsG, epsG2);
+
+        // Step 6: update the level set
+        phi_ctime.mult(dt, 0);
+        MultiFab::Add(phi_ctime, phi_original, 0, 0, 1, 0);
+
+        // Step 7: same as the Step 3
+        MultiFab::Copy(S_new, phi_ctime, 0, phicomp, 1, phi_ctime.nGrow());
+        fill_allgts(S_new,State_Type,phicomp,1,cur_time);
+        MultiFab::Copy(phi_ctime, S_new, phicomp, 0, 1, phi_ctime.nGrow());
+
+    }
+
 }
 
 void
