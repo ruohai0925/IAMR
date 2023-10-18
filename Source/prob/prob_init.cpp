@@ -544,6 +544,11 @@ void NavierStokes::init_RayleighTaylor (Box const& vbx,
       scal(i,j,k,nt) = 1.0;
     }
 
+    // // Initialize the LS function if do_phi
+    // if (do_phi) {
+    //   scal(i,j,k,phicomp-Density) = y-pertheight;
+    // } 
+
   });
 
 #elif (AMREX_SPACEDIM == 3)
