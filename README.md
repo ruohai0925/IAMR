@@ -28,19 +28,11 @@ problems on CPUs and GPUs with/without subcycling.
         <tr>
             <td>
                 <video width="600" height="600" autoplay loop muted>
-                    <source src="./README_figures/movie_IAMR.mpg" type="video/mpg">
+                    <source src="./README_figures/movie_IAMR.mp4" type="video/mpg">
                     <!-- Your browser does not support the video tag. -->
                 </video>
                 <br>
                 <figcaption>Description for Movie 1</figcaption>
-            </td>
-            <td>
-                <video width="600" height="600" autoplay loop muted>
-                    <source src="./README_figures/movie_LSAMR.mpg" type="video/mpg">
-                    <!-- Your browser does not support the video tag. -->
-                </video>
-                <br>
-                <figcaption>Description for Movie 2</figcaption>
             </td>
         </tr>
     </table>
