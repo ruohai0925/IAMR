@@ -19,25 +19,23 @@ problems on CPUs and GPUs with/without subcycling.
     <br>
 </div>
 
-
 - [Rayleigh-Taylor (RT) instability](./Tutorials/RayleighTaylor_LS/)
 
 <div align="center">
     <!-- First Image -->
-    <div style="display:inline-block; margin-right:10px; vertical-align:top;">
-        <img src="./README_figures/RT_IAMR.png" alt="Short Description 1" width="600">
+    <div style="display:inline-block; margin-right:10px; vertical-align:top; width:300px; height:200px; overflow:hidden;">
+        <img src="./README_figures/RT_IAMR.png" alt="Short Description 1" width="300">
         <br>
         <figcaption>Longer Description for the first image.</figcaption>
         <br>
     </div>
     <!-- Second Image -->    
-    <div style="display:inline-block; margin-left:10px; vertical-align:top;">
-        <img src="./README_figures/RT_LSAMR.png" alt="Short Description 2" width="600">
+    <div style="display:inline-block; margin-left:10px; vertical-align:top; width:300px; height:200px; overflow:hidden;">
+        <img src="./README_figures/RT_LSAMR.png" alt="Short Description 2" width="300">
         <br>
         <figcaption>Longer Description for the second image.</figcaption>
         <br>
     </div>
 </div>
-
 
 - [Breaking Wave](./Tutorials/BreakingWave_LS/)
