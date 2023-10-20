@@ -17,23 +17,26 @@ problems on CPUs and GPUs with/without subcycling.
     <br>
     <figcaption style="text-align:center;">Profiles of drop interface in the RSV problem at t/T=1 after one rotation. Black line: Analytical Solution; Red line: 64*64; Blue line: 128*128; Green line: 256*256</figcaption>
     <br>
+    <br>
 </div>
 
 - [Rayleigh-Taylor (RT) instability](./Tutorials/RayleighTaylor_LS/)
 
 <div align="center">
     <!-- First Image -->
-    <div style="display:inline-block; margin-right:10px; vertical-align:top; width:300px; height:200px; overflow:hidden;">
-        <img src="./README_figures/RT_IAMR.png" alt="Short Description 1" width="300">
+    <div style="display:inline-block; margin-right:10px; vertical-align:top; width:600px; height:400px; overflow:hidden;">
+        <img src="./README_figures/RT_IAMR.png" alt="Short Description 1" width="600">
         <br>
-        <figcaption>Longer Description for the first image.</figcaption>
+        <figcaption>Density profile at t/T=1.1 using IAMR convective scheme.</figcaption>
         <br>
+        <br>        
     </div>
     <!-- Second Image -->    
-    <div style="display:inline-block; margin-left:10px; vertical-align:top; width:300px; height:200px; overflow:hidden;">
-        <img src="./README_figures/RT_LSAMR.png" alt="Short Description 2" width="300">
+    <div style="display:inline-block; margin-left:10px; vertical-align:top; width:600px; height:400px; overflow:hidden;">
+        <img src="./README_figures/RT_LSAMR.png" alt="Short Description 2" width="600">
         <br>
-        <figcaption>Longer Description for the second image.</figcaption>
+        <figcaption>Density profile at t/T=1.1 using LS method.</figcaption>
+        <br>
         <br>
     </div>
 </div>
