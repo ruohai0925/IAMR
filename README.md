@@ -15,8 +15,35 @@ problems on CPUs and GPUs with/without subcycling.
 <!-- <div align="center">
 <img src="./README_figures/RSV.jpeg" alt="Profiles of drop interface in the RSV problem at t/T=1 after one rotation. Black line: Analytical Solution; Red line: 64*64; Blue line: 128*128; Green line: 256*256"> -->
 
-<img src="./README_figures/RSV.jpeg" alt="Profiles of drop interface in the RSV problem" width="500">
-<figcaption>Profiles of drop interface in the RSV problem at t/T=1 after one rotation. Black line: Analytical Solution; Red line: 64*64; Blue line: 128*128; Green line: 256*256</figcaption>
+<div align="center">
+    <img src="./README_figures/RSV.jpeg" alt="Profiles of drop interface in the RSV problem" width="500">
+    <figcaption>Profiles of drop interface in the RSV problem at t/T=1 after one rotation. Black line: Analytical Solution; Red line: 64*64; Blue line: 128*128; Green line: 256*256</figcaption>
+</div>
+
+- [Rayleigh-Taylor (RT) instability](./Tutorials/RayleighTaylor_LS/)
 
 - Rayleigh-Taylor (RT) instability
+
+<div align="center">
+    <table>
+        <tr>
+            <td>
+                <video width="320" height="240" autoplay loop muted>
+                    <source src="./README_figures/movie_IAMR.mpg" type="video/mpg">
+                    <!-- Your browser does not support the video tag. -->
+                </video>
+                <br>
+                <figcaption>Description for Movie 1</figcaption>
+            </td>
+            <td>
+                <video width="320" height="240" autoplay loop muted>
+                    <source src="./README_figures/movie_LSAMR.mpg" type="video/mpg">
+                    <!-- Your browser does not support the video tag. -->
+                </video>
+                <br>
+                <figcaption>Description for Movie 2</figcaption>
+            </td>
+        </tr>
+    </table>
+</div>
 
