@@ -27,7 +27,7 @@ problems on CPUs and GPUs with/without subcycling.
     <div style="display:inline-block; margin-right:10px; vertical-align:top; width:600px; height:400px; overflow:hidden;">
         <img src="./README_figures/RT_IAMR.png" alt="Short Description 1" width="600">
         <br>
-        <figcaption>Density profile at t/T=1.1 using IAMR convective scheme.</figcaption>
+        <figcaption>Density profile at t/T=2.42 using IAMR convective scheme.</figcaption>
         <br>
         <br>        
     </div>
@@ -35,7 +35,15 @@ problems on CPUs and GPUs with/without subcycling.
     <div style="display:inline-block; margin-left:10px; vertical-align:top; width:600px; height:400px; overflow:hidden;">
         <img src="./README_figures/RT_LSAMR.png" alt="Short Description 2" width="600">
         <br>
-        <figcaption>Density profile at t/T=1.1 using LS method.</figcaption>
+        <figcaption>Density profile at t/T=2.42 using LS method.</figcaption>
+        <br>
+        <br>
+    </div>
+    <!-- Third Image -->    
+    <div style="display:inline-block; margin-left:10px; vertical-align:top; width:600px; height:400px; overflow:hidden;">
+        <img src="./README_figures/RT_tip.png" alt="Short Description 3" width="600">
+        <br>
+        <figcaption>Comparison of the tip locations of the falling fluid and the rising fluid.</figcaption>
         <br>
         <br>
     </div>
