@@ -213,7 +213,7 @@ public:
     //
     void fill_allgts (amrex::MultiFab& mf, int type, int scomp, int ncomp, amrex::Real time);
     void phi_to_heavi(amrex::MultiFab& phi);
-    void phi_to_delta(amrex::MultiFab& phi);
+    // void phi_to_delta(amrex::MultiFab& phi);
     void heavi_to_rhoormu(amrex::MultiFab& outmf, amrex::Real var1, amrex::Real var2);
     void reinit ();
     void reinitialization_sussman (amrex::Real dt, int loop_iter);
@@ -227,8 +227,7 @@ public:
                           amrex::MultiFab& sgn0,
                           amrex::MultiFab& G0,
                           amrex::Real dt, 
-                          amrex::MultiFab& phi_ori,
-                          amrex::MultiFab& dmin);
+                          amrex::MultiFab& phi_ori);
     void rk_second_reinit (amrex::MultiFab& phi_ctime,
                           amrex::MultiFab& phi1,
                           amrex::MultiFab& phi2,
@@ -236,8 +235,7 @@ public:
                           amrex::MultiFab& sgn0,
                           amrex::MultiFab& G0,
                           amrex::Real dt,
-                          amrex::MultiFab& phi_ori,
-                          amrex::MultiFab& dmin);
+                          amrex::MultiFab& phi_ori);
     void mass_fix (amrex::MultiFab& phi_ctime,
                           amrex::MultiFab& phi1,
                           amrex::MultiFab& phi2,
@@ -866,7 +864,6 @@ public:
     amrex::MultiFab phi_ptime;
     amrex::MultiFab phi_ctime;
     amrex::MultiFab heaviside;
-    amrex::MultiFab deltafunc;
 
     static amrex::Real mu_a;
     static amrex::Real rho_a;
@@ -878,18 +875,11 @@ public:
     static int number_of_reinit;
     static int reinit_levelset;
 
-    amrex::MultiFab phi1;
-    amrex::MultiFab phi2;
-    amrex::MultiFab phi3;
-    amrex::MultiFab G0;
     amrex::MultiFab sgn0;
 
     // for mass conservation in reinit_sussman
     static int fix_mass;  
     amrex::MultiFab phi_original;
-    amrex::MultiFab ld;
-    amrex::MultiFab lambdad;
-    amrex::MultiFab dmin;
 
     static int  do_cons_phi;
     static int  prescribed_vel;
