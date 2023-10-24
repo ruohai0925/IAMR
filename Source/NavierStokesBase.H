@@ -213,7 +213,6 @@ public:
     //
     void fill_allgts (amrex::MultiFab& mf, int type, int scomp, int ncomp, amrex::Real time);
     void phi_to_heavi(amrex::MultiFab& phi);
-    // void phi_to_delta(amrex::MultiFab& phi);
     void heavi_to_rhoormu(amrex::MultiFab& outmf, amrex::Real var1, amrex::Real var2);
     void reinit ();
     void reinitialization_sussman (amrex::Real dt, int loop_iter);

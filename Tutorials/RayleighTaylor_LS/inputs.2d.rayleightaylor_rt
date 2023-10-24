@@ -63,7 +63,7 @@ amr.v                   = 1
 
 # Interval (in number of coarse timesteps) between checkpoint(restart) files
 amr.check_int		= 200
-amr.restart             = chk02000
+amr.restart             = chk01200
 
 #*******************************************************************************
 
@@ -148,7 +148,7 @@ amr.derive_plot_vars    = mag_vort   diveru   avg_pressure
 
 ns.do_mom_diff        = 0
 ns.do_denminmax       = 1
-ns.do_phi             = 0
+ns.do_phi             = 1
 ns.do_cons_phi        = 0
 ns.do_reinit          = 1
 ns.lev0step_of_reinit = 1

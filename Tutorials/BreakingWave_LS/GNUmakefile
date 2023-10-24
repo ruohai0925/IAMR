@@ -14,7 +14,7 @@ PRECISION   = DOUBLE
 DIM         = 2
 COMP        = gnu
 
-DEBUG       = FALSE
+DEBUG       = TRUE # FALSE
 USE_MPI     = TRUE
 USE_OMP     = FALSE
 PROFILE     = FALSE

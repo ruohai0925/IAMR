@@ -52,3 +52,44 @@ MLCellLinOpT<MF>::compGrad (int amrlev, const Array<MF*,AMREX_SPACEDIM>& grad,
     addInhomogNeumannFlux(amrlev, grad, sol, false);
 }
 
+
+// void
+// NavierStokesBase::phi_to_delta(MultiFab& phi)
+// {
+
+//     if (verbose) amrex::Print() << "In the NavierStokesBase::phi_to_delta " << std::endl;
+//     const Real* dx    = geom.CellSize();
+//     const Real pi     = 3.141592653589793238462643383279502884197;
+//     const int eps_in  = epsilon;
+//     Real dxmin        = dx[0];
+//     for (int d=1; d<AMREX_SPACEDIM; ++d) {
+//         dxmin = std::min(dxmin,dx[d]);
+//     }
+//     Real eps = eps_in * dxmin;
+
+// #ifdef AMREX_USE_OMP
+// #pragma omp parallel if (Gpu::notInLaunchRegion())
+// #endif
+//     for (MFIter mfi(phi,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+//     {
+//         const Box& bx = mfi.growntilebox();
+//         auto const& phifab   = phi.array(mfi);
+//         auto const& deltafab = deltafunc.array(mfi);
+//         amrex::ParallelFor(bx, [phifab, deltafab, pi, eps]
+//         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+//         {
+
+//             if (phifab(i,j,k) > eps) {
+//                 deltafab(i,j,k) = 0.0;
+//             } else if (phifab(i,j,k) > -eps) {
+//                 deltafab(i,j,k) = 0.5 * (1.0 + std::cos(phifab(i,j,k) * pi / eps)) / eps;
+//             } else {
+//                 deltafab(i,j,k) = 0.0;
+//             }
+
+//         });
+//     }
+// }
+
+// void phi_to_delta(amrex::MultiFab& phi);
+
