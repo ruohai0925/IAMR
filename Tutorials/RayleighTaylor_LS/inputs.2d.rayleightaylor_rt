@@ -10,7 +10,7 @@
 max_step 		= 10000 # 10
 
 # Time at which calculation stops, if max_step is not reached first.
-stop_time 		= 2.5
+stop_time 		= 1.5 # 2.5
 ns.fixed_dt     = 0.0005
 
 
@@ -63,7 +63,7 @@ amr.v                   = 1
 
 # Interval (in number of coarse timesteps) between checkpoint(restart) files
 amr.check_int		= 200
-amr.restart             = chk01200
+amr.restart             = chk02000
 
 #*******************************************************************************
 
@@ -149,7 +149,7 @@ amr.derive_plot_vars    = mag_vort   diveru   avg_pressure
 ns.do_mom_diff        = 0
 ns.do_denminmax       = 1
 ns.do_phi             = 1
-ns.do_cons_phi        = 0
+ns.do_cons_phi        = 1
 ns.do_reinit          = 1
 ns.lev0step_of_reinit = 1
 ns.number_of_reinit   = 4

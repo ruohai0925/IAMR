@@ -212,8 +212,6 @@ public:
     // ls related
     //
     void fill_allgts (amrex::MultiFab& mf, int type, int scomp, int ncomp, amrex::Real time);
-    void phi_to_heavi(amrex::MultiFab& phi);
-    void heavi_to_rhoormu(amrex::MultiFab& outmf, amrex::Real var1, amrex::Real var2);
     void reinit ();
     void reinitialization_sussman (amrex::Real dt, int loop_iter);
     void reinitialization_consls (amrex::Real dt, int loop_iter, int epsG, int epsG2);
@@ -874,11 +872,9 @@ public:
     static int number_of_reinit;
     static int reinit_levelset;
 
-    amrex::MultiFab sgn0;
-
-    // for mass conservation in reinit_sussman
-    static int fix_mass;  
+    // for reinit_sussman  
     amrex::MultiFab phi_original;
+    amrex::MultiFab sgn0;
 
     static int  do_cons_phi;
     static int  prescribed_vel;

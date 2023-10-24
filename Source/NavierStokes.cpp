@@ -7,6 +7,8 @@
 #include <NavierStokes.H>
 #include <NS_util.H>
 #include <iamr_constants.H>
+#include <NS_LS.H>
+#include <NS_KERNELS.H>
 
 #ifdef BL_USE_VELOCITY
 #include <AMReX_DataServices.H>
@@ -670,28 +672,39 @@ NavierStokes::advance (Real time,
 
         if (do_mom_diff == 0) {
             // update the rho_ctime and density in S_new
-            phi_to_heavi(phi_ctime);
-            heavi_to_rhoormu(rho_ctime, rho_w, rho_a);
+            phi_to_heavi(geom, epsilon, phi_ctime, heaviside); 
+            heavi_to_rhoormu(heaviside, rho_w, rho_a, rho_ctime);
             MultiFab::Copy(S_new, rho_ctime, 0, Density, 1, rho_ctime.nGrow());
             // update phi_half
             MultiFab& phi_half_temp = get_phi_half_time();
             // update rho_half
-            phi_to_heavi(phi_half_temp);
-            heavi_to_rhoormu(rho_half, rho_w, rho_a);
+            phi_to_heavi(geom, epsilon, phi_half_temp, heaviside);
+            heavi_to_rhoormu(heaviside, rho_w, rho_a, rho_half);
+
+            // update mu_half
+            MultiFab outmf_mu_half(grids, dmap, 1, 1, MFInfo(), Factory());
+            heavi_to_rhoormu(heaviside, mu_w, mu_a, outmf_mu_half);
+            MultiFab::Copy(*viscn_cc,   outmf_mu_half, 0, 0, 1, 1);
+            MultiFab::Copy(*viscnp1_cc, outmf_mu_half, 0, 0, 1, 1);
         }
         else {
             //
             // Update Rho.
             //
             scalar_update(dt,first_scalar,first_scalar);
-            make_rho_curr_time();            
+            make_rho_curr_time();
+
+            // update phi_half
+            MultiFab& phi_half_temp = get_phi_half_time();
+            // update rho_half
+            phi_to_heavi(geom, epsilon, phi_half_temp, heaviside);
+
+            // update mu_half
+            MultiFab outmf_mu_half(grids, dmap, 1, 1, MFInfo(), Factory());
+            heavi_to_rhoormu(heaviside, mu_w, mu_a, outmf_mu_half);
+            MultiFab::Copy(*viscn_cc,   outmf_mu_half, 0, 0, 1, 1);
+            MultiFab::Copy(*viscnp1_cc, outmf_mu_half, 0, 0, 1, 1);
         }
-        
-        // update mu_half
-        MultiFab outmf_mu_half(grids, dmap, 1, 1, MFInfo(), Factory());
-        heavi_to_rhoormu(outmf_mu_half, mu_w, mu_a);
-        MultiFab::Copy(*viscn_cc,   outmf_mu_half, 0, 0, 1, 1);
-        MultiFab::Copy(*viscnp1_cc, outmf_mu_half, 0, 0, 1, 1);
     }
     else {
         //

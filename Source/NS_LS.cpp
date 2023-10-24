@@ -12,6 +12,75 @@
 using namespace amrex;
 
 // ls related
+
+void
+phi_to_heavi(const Geometry& geom, int epsilon, MultiFab& phi, MultiFab& heaviside)
+{
+
+    Print() << "In the phi_to_heavi " << std::endl;
+    
+    const Real* dx    = geom.CellSize();
+    const Real pi     = 3.141592653589793238462643383279502884197;
+    const int eps_in  = epsilon;
+    Real dxmin        = dx[0];
+    for (int d=1; d<AMREX_SPACEDIM; ++d) {
+        dxmin = std::min(dxmin,dx[d]);
+    }
+    Real eps = eps_in * dxmin;
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(phi,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.growntilebox();
+        auto const& phifab   = phi.array(mfi);
+        auto const& heavifab = heaviside.array(mfi);
+        amrex::ParallelFor(bx, [phifab, heavifab, pi, eps]
+        AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        {
+
+            if (phifab(i,j,k) > eps) {
+                heavifab(i,j,k) = 1.0;
+            } else if (phifab(i,j,k) > -eps) {
+                heavifab(i,j,k) = 0.5 * (1.0 + phifab(i,j,k) / eps + 1.0 / pi * std::sin(phifab(i,j,k) * pi / eps));
+            } else {
+                heavifab(i,j,k) = 0.0;
+            }
+
+        });
+    }
+}
+
+void
+heavi_to_rhoormu(MultiFab& heaviside, Real var1, Real var2, MultiFab& outmf)
+{
+
+    amrex::Print() << "In the heavi_to_rhomu " << std::endl;
+    
+    BL_ASSERT(heaviside.nComp() == outmf.nComp());
+
+    int ncomp = outmf.nComp();
+    int ngrow = outmf.nGrow();
+
+    // build heaviside_temp because we might need to smooth the heaviside function
+    MultiFab heaviside_temp(heaviside.boxArray(), heaviside.DistributionMap(), ncomp, ngrow);
+    MultiFab::Copy(heaviside_temp, heaviside, 0, 0, ncomp, ngrow);
+
+    // if( smoothforrhomu==1 && (parent->levelSteps(0)%lev0step_of_smoothforrhomu == 0) ){
+    // smooth_sf(heaviside_temp);
+    // }
+
+    heaviside_temp.mult(var1-var2, 0, ncomp, ngrow);
+
+    MultiFab rtmp(heaviside.boxArray(), heaviside.DistributionMap(), ncomp, ngrow);
+    rtmp.setVal(var2, 0, ncomp, ngrow);
+
+    MultiFab::Add(heaviside_temp, rtmp, 0, 0, ncomp, ngrow);
+    MultiFab::Copy(outmf, heaviside_temp, 0, 0, ncomp, ngrow);
+
+}
+
 Real calculate_eps_one (const Geometry& geom, int reinit_levelset)
 {
 

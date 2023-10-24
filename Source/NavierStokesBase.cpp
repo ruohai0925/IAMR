@@ -210,7 +210,6 @@ int NavierStokesBase::do_reinit          = 0;
 int NavierStokesBase::lev0step_of_reinit = 1;
 int NavierStokesBase::number_of_reinit   = 4;
 int NavierStokesBase::reinit_levelset    = 1;
-int NavierStokesBase::fix_mass           = 1;
 
 int NavierStokesBase::do_cons_phi        = 0;
 int NavierStokesBase::prescribed_vel     = 0;
@@ -332,10 +331,8 @@ void NavierStokesBase::define_workspace()
         phi_ptime.define(grids,dmap,1,2,MFInfo(),Factory());
         phi_ctime.define(grids,dmap,1,2,MFInfo(),Factory());
         heaviside.define(grids,dmap,1,2,MFInfo(),Factory());
-
         sgn0.define(grids,dmap,1,2,MFInfo(),Factory());
         phi_original.define(grids,dmap,1,2,MFInfo(),Factory());
-
     }
 
 #ifdef AMREX_USE_EB
@@ -800,12 +797,12 @@ NavierStokesBase::advance_setup (Real /*time*/,
         // amrex::Print() << "2 " << std::endl;
         MultiFab&  S_old    = get_old_data(State_Type);
         MultiFab::Copy(phi_ptime, S_old, phicomp, 0, 1, S_old.nGrow()); 
-        phi_to_heavi(phi_ptime);
-        heavi_to_rhoormu(rho_ptime, rho_w, rho_a);
+        phi_to_heavi(geom, epsilon, phi_ptime, heaviside);
+        heavi_to_rhoormu(heaviside, rho_w, rho_a, rho_ptime);
         MultiFab::Copy(S_old, rho_ptime, 0, Density, 1, rho_ptime.nGrow());
 
         MultiFab outmf_mu_ptime(grids, dmap, 1, 1, MFInfo(), Factory());
-        heavi_to_rhoormu(outmf_mu_ptime, mu_w, mu_a);
+        heavi_to_rhoormu(heaviside, mu_w, mu_a, outmf_mu_ptime);
         MultiFab::Copy(*viscn_cc, outmf_mu_ptime, 0, 0, 1, 1);
     }
 
@@ -5310,72 +5307,6 @@ NavierStokesBase::fill_allgts(MultiFab& mf, int type, int scomp, int ncomp, Real
 }
 
 void
-NavierStokesBase::phi_to_heavi(MultiFab& phi)
-{
-
-    if (verbose) amrex::Print() << "In the NavierStokesBase::phi_to_heavi " << std::endl;
-    const Real* dx    = geom.CellSize();
-    const Real pi     = 3.141592653589793238462643383279502884197;
-    const int eps_in  = epsilon;
-    Real dxmin        = dx[0];
-    for (int d=1; d<AMREX_SPACEDIM; ++d) {
-        dxmin = std::min(dxmin,dx[d]);
-    }
-    Real eps = eps_in * dxmin;
-
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-    for (MFIter mfi(phi,TilingIfNotGPU()); mfi.isValid(); ++mfi)
-    {
-        const Box& bx = mfi.growntilebox();
-        auto const& phifab   = phi.array(mfi);
-        auto const& heavifab = heaviside.array(mfi);
-        amrex::ParallelFor(bx, [phifab, heavifab, pi, eps]
-        AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-        {
-
-            if (phifab(i,j,k) > eps) {
-                heavifab(i,j,k) = 1.0;
-            } else if (phifab(i,j,k) > -eps) {
-                heavifab(i,j,k) = 0.5 * (1.0 + phifab(i,j,k) / eps + 1.0 / pi * std::sin(phifab(i,j,k) * pi / eps));
-            } else {
-                heavifab(i,j,k) = 0.0;
-            }
-
-        });
-    }
-}
-
-void
-NavierStokesBase::heavi_to_rhoormu(MultiFab& outmf, Real var1, Real var2)
-{
-
-    if(verbose) amrex::Print() << "In the NavierStokesBase::heavi_to_rhomu " << std::endl;
-    BL_ASSERT(heaviside.nComp() == outmf.nComp());
-
-    int ncomp = outmf.nComp();
-    int ngrow = outmf.nGrow();
-
-    // build heaviside_temp because we might need to smooth the heaviside function
-    MultiFab heaviside_temp(heaviside.boxArray(), heaviside.DistributionMap(), ncomp, ngrow, MFInfo(), Factory());
-    MultiFab::Copy(heaviside_temp, heaviside, 0, 0, ncomp, ngrow);
-
-    // if( smoothforrhomu==1 && (parent->levelSteps(0)%lev0step_of_smoothforrhomu == 0) ){
-    // smooth_sf(heaviside_temp);
-    // }
-
-    heaviside_temp.mult(var1-var2, 0, ncomp,ngrow);
-
-    MultiFab rtmp(heaviside.boxArray(), heaviside.DistributionMap(), ncomp, ngrow, MFInfo(), Factory());
-    rtmp.setVal(var2, 0, ncomp, ngrow);
-
-    MultiFab::Add(heaviside_temp, rtmp, 0, 0, ncomp, ngrow);
-    MultiFab::Copy(outmf, heaviside_temp, 0, 0, ncomp, ngrow);
-
-}
-
-void
 NavierStokesBase::reinit()
 {
 
@@ -5401,7 +5332,7 @@ NavierStokesBase::reinit()
         // Step 3: only reinitialize the ls function on the current level
         for (int k=1; k<=number_of_reinit; k++)
         {
-            reinitialization_sussman(dtlevel,k);
+            reinitialization_sussman(dtlevel, k);
         }
 
     }
@@ -5414,7 +5345,7 @@ NavierStokesBase::reinit()
 
         for (int k=1; k<=number_of_reinit; k++)
         {
-            reinitialization_consls(dtlevel,k, epsG, epsG2);
+            reinitialization_consls(dtlevel, k, epsG, epsG2);
         }
 
     }
@@ -5455,8 +5386,8 @@ NavierStokesBase::reinitialization_consls (Real dt,
         cc_to_cc_grad(phi_normal, phi_ctime, geom, normalize);
 
         // Step 5: calculate diffs (phi2) and comp (phi1), add them to diffs_comp (override phi_ctime)
-        MultiFab phi1(grids,dmap,1,2,MFInfo(),Factory());
-        MultiFab phi2(grids,dmap,1,2,MFInfo(),Factory());
+        MultiFab phi1(grids,dmap,1,2);
+        MultiFab phi2(grids,dmap,1,2);
         phi1.setVal(0.0); phi2.setVal(0.0);
         levelset_diffcomp(phi_normal, phi_ctime, phi1, phi2, epsG, epsG2);
 
@@ -5489,10 +5420,10 @@ NavierStokesBase::reinitialization_sussman (Real dt,
     // Step 2: RK2
     // phi1, phi2, phi3, and G0 have 2 ghost cells, initialize them as 0,
     // and these multifabs only influence the minmod function at the boundary;
-    MultiFab phi1(grids,dmap,1,2,MFInfo(),Factory());
-    MultiFab phi2(grids,dmap,1,2,MFInfo(),Factory());
-    MultiFab phi3(grids,dmap,1,2,MFInfo(),Factory());
-    MultiFab G0(grids,dmap,1,2,MFInfo(),Factory());
+    MultiFab phi1(grids,dmap,1,2);
+    MultiFab phi2(grids,dmap,1,2);
+    MultiFab phi3(grids,dmap,1,2);
+    MultiFab G0(grids,dmap,1,2);
     phi1.setVal(0.0); phi2.setVal(0.0); phi3.setVal(0.0); G0.setVal(0.0);
     rk_first_reinit(phi_ctime, phi1, phi2, phi3, sgn0, G0, dt, phi_original);
 
@@ -5512,28 +5443,23 @@ NavierStokesBase::reinitialization_sussman (Real dt,
     fill_allgts(S_new,State_Type,phicomp,1,cur_time);
     MultiFab::Copy(phi_ctime, S_new, phicomp, 0, 1, phi_ctime.nGrow());
 	
-    // Step 6: Choose whether to fix mass
-    if (fix_mass) {
-        
-        if (verbose) amrex::Print() << "Doing the fix_mass " << std::endl;
+    // Step 6: Fix mass
+    // Step 6-1: copy phi_original to phi1
+    MultiFab::Copy(phi1, phi_original, 0, 0, 1, phi_original.nGrow());
 
-        // Step 6-1: copy phi_original to phi1
-        MultiFab::Copy(phi1, phi_original, 0, 0, 1, phi_original.nGrow());
+    // Step 6-2: set inputs variables as 0.0
+    MultiFab ld(grids,dmap,1,2);
+    MultiFab lambdad(grids,dmap,1,2);
+    MultiFab deltafunc(grids,dmap,1,2);
+    phi2.setVal(0.0); phi3.setVal(0.0); ld.setVal(0.0); lambdad.setVal(0.0); deltafunc.setVal(0.0);
 
-        // Step 6-2: set inputs variables as 0.0
-        MultiFab ld(grids,dmap,1,2,MFInfo(),Factory());
-        MultiFab lambdad(grids,dmap,1,2,MFInfo(),Factory());
-        MultiFab deltafunc(grids,dmap,1,2,MFInfo(),Factory());
-        phi2.setVal(0.0); phi3.setVal(0.0); ld.setVal(0.0); lambdad.setVal(0.0); deltafunc.setVal(0.0);
+    // Step 6-3: mass_fix
+    mass_fix(phi_ctime, phi1, phi2, phi3, ld, lambdad, deltafunc, dt, loop_iter);
 
-        // Step 6-3: mass_fix
-        mass_fix(phi_ctime, phi1, phi2, phi3, ld, lambdad, deltafunc, dt, loop_iter);
-
-        // Step 6-4: same as Step 5
-        MultiFab::Copy(S_new, phi_ctime, 0, phicomp, 1, phi_ctime.nGrow());
-        fill_allgts(S_new,State_Type,phicomp,1,cur_time);
-        MultiFab::Copy(phi_ctime, S_new, phicomp, 0, 1, phi_ctime.nGrow());
-     }
+    // Step 6-4: same as Step 5
+    MultiFab::Copy(S_new, phi_ctime, 0, phicomp, 1, phi_ctime.nGrow());
+    fill_allgts(S_new,State_Type,phicomp,1,cur_time);
+    MultiFab::Copy(phi_ctime, S_new, phicomp, 0, 1, phi_ctime.nGrow());
 }
 
 void
