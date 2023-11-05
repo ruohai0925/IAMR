@@ -74,6 +74,15 @@ void NavierStokes::prob_initData ()
     }
 
     //
+    // ls related
+    //
+    IC.do_phi = do_phi;
+    IC.Density = Density;
+    IC.phicomp = phicomp;
+    IC.rho_w = rho_w;
+    IC.rho_a = rho_a;
+
+    //
     // Fill state and, optionally, pressure
     //
     MultiFab& P_new = get_new_data(Press_Type);
@@ -262,7 +271,7 @@ void NavierStokes::init_rsv (Box const& vbx,
                 InitialConditions IC)
 {
 
-  BL_ASSERT(do_phi==1);
+  BL_ASSERT(IC.do_phi==1);
 
   const auto domlo = amrex::lbound(domain);
 
@@ -292,8 +301,8 @@ void NavierStokes::init_rsv (Box const& vbx,
     }
     
     // Initialize the LS function if do_phi
-    if (do_phi) {
-      scal(i,j,k,phicomp-Density) = IC.blob_radius - std::sqrt( (x-IC.blob_x)*(x-IC.blob_x)
+    if (IC.do_phi) {
+      scal(i,j,k,IC.phicomp-IC.Density) = IC.blob_radius - std::sqrt( (x-IC.blob_x)*(x-IC.blob_x)
               + (y-IC.blob_y)*(y-IC.blob_y));
     } 
 
@@ -546,7 +555,7 @@ void NavierStokes::init_RayleighTaylor (Box const& vbx,
 
     // // Initialize the LS function if do_phi
     // if (do_phi) {
-    //   scal(i,j,k,phicomp-Density) = y-pertheight;
+    //   scal(i,j,k,IC.IC.phicomp-IC.Density) = y-pertheight;
     // } 
 
   });
@@ -637,8 +646,8 @@ void NavierStokes::init_RayleighTaylor_LS (Box const& vbx,
     }
 
     // Initialize the LS function if do_phi
-    if (do_phi) {
-      scal(i,j,k,phicomp-Density) = y-pertheight;
+    if (IC.do_phi) {
+      scal(i,j,k,IC.phicomp-IC.Density) = y-pertheight;
     } 
 
   });
@@ -674,7 +683,7 @@ void NavierStokes::init_BreakingWave (Box const& vbx,
   const Real KA = 0.55;
   const Real K_WAVE = 2.0*Pi/WAVE_LENGTH;
   const Real O_WAVE = std::sqrt((K_WAVE*9.81)*(1.0+KA*KA/2.0));
-  // amrex::Print() << "rho_w rho_a " << rho_w << " " << rho_a << std::endl;
+  // amrex::Print() << "IC.rho_w IC.rho_a " << IC.rho_w << " " << IC.rho_a << std::endl;
 
 #if (AMREX_SPACEDIM == 2)
   amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -696,13 +705,13 @@ void NavierStokes::init_BreakingWave (Box const& vbx,
     {
       vel(i,j,k,0) = O_WAVE*KA/K_WAVE*std::exp(K_WAVE*y)*std::cos(K_WAVE*x);
       vel(i,j,k,1) = O_WAVE*KA/K_WAVE*std::exp(K_WAVE*y)*std::sin(K_WAVE*x);
-      scal(i,j,k,0) = rho_w;
+      scal(i,j,k,0) = IC.rho_w;
     }
     else
     {
       vel(i,j,k,0) = ufs*std::exp(-100.0*(y-eta));
       vel(i,j,k,1) = vfs*std::exp(-100.0*(y-eta));
-      scal(i,j,k,0) = rho_a;
+      scal(i,j,k,0) = IC.rho_a;
     }
 
     for ( int nt=1; nt<nscal; nt++)
@@ -711,8 +720,8 @@ void NavierStokes::init_BreakingWave (Box const& vbx,
     }
 
     // Initialize the LS function if do_phi
-    if (do_phi) {
-      scal(i,j,k,phicomp-Density) = eta-y;
+    if (IC.do_phi) {
+      scal(i,j,k,IC.phicomp-IC.Density) = eta-y;
     } 
 
   });

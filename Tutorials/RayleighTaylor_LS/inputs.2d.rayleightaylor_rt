@@ -7,7 +7,7 @@
 
 # Maximum number of coarse grid timesteps to be taken, if stop_time is
 #  not reached first.
-max_step 		= 10000 # 10
+max_step 		= 1 # 10000 # 10
 
 # Time at which calculation stops, if max_step is not reached first.
 stop_time 		= 2.5 # 2.5
@@ -25,11 +25,11 @@ amr.vorticity.vorticity_greater =  0.1
 #*******************************************************************************
 
 # Number of cells in each coordinate direction at the coarsest level
-# amr.n_cell 		= 128 512
-amr.max_grid_size	= 32
+amr.n_cell 		= 128 512
+#amr.max_grid_size	= 32
 
-amr.n_cell 		= 32 128
-#amr.max_grid_size	= 128
+#amr.n_cell 		= 32 128
+amr.max_grid_size	= 128
 
 amr.grid_eff = 0.95
 
@@ -40,7 +40,7 @@ amr.refinement_indicators = vorticity
 amr.vorticity.vorticity_greater =  10
 
 # Maximum level (defaults to 0 for single level calculation)
-amr.max_level		= 2 # maximum number of levels of refinement
+amr.max_level		= 0 # maximum number of levels of refinement
 
 #*******************************************************************************
 

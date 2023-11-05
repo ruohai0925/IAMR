@@ -250,7 +250,10 @@ private:
     //
     // Hold external Dirichlet BC values
     //
-    // Max possible number of scalars is 4: Density, 2 Tracers, Temperature
+    //
+    // ls related
+    //
+    // Max possible number of scalars is 5: Density, 2 Tracers, Temperature, ls
     static amrex::GpuArray<amrex::GpuArray<amrex::Real, NUM_STATE_MAX>,
                    AMREX_SPACEDIM*2> m_bc_values;
 };

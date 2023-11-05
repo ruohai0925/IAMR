@@ -46,6 +46,16 @@ struct InitialConditions
   // ls related
   // total time for rsv problem
   amrex::Real totalTimeRsv = 4.0;
+    
+  //
+  // ls related
+  //
+  int do_phi  = 0;
+  int Density = 0;
+  int phicomp = 0;
+  amrex::Real rho_w = 3.0;
+  amrex::Real rho_a = 1.0;
+
 };
 
 //
