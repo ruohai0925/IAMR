@@ -8,7 +8,7 @@
 #include <NS_util.H>
 #include <iamr_constants.H>
 #include <NS_LS.H>
-#include <NS_KERNELS.H>
+#include <NS_kernels.H>
 
 #ifdef BL_USE_VELOCITY
 #include <AMReX_DataServices.H>
