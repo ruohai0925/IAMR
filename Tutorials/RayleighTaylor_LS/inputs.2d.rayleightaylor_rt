@@ -25,10 +25,10 @@ amr.vorticity.vorticity_greater =  0.1
 #*******************************************************************************
 
 # Number of cells in each coordinate direction at the coarsest level
-amr.n_cell 		= 128 512
+#amr.n_cell 		= 128 512
 #amr.max_grid_size	= 32
 
-#amr.n_cell 		= 32 128
+amr.n_cell 		= 32 128
 amr.max_grid_size	= 128
 
 amr.grid_eff = 0.95
@@ -169,3 +169,4 @@ ns.rho_a              = 1.0
 ns.rho_w              = 3.0
 
 #ns.getForceVerbose    = 1
+amrex.abort_on_out_of_gpu_memory = 1
