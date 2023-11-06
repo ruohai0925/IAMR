@@ -5524,6 +5524,7 @@ NavierStokesBase::rk_first_reinit (MultiFab& phi_ctime,
         dxmin = std::min(dxmin,dx[d]);
     }
     Real eps = eps_in * dxmin;
+    const GpuArray<Real,AMREX_SPACEDIM> dxGpu = geom.CellSizeArray();
 
 //     amrex::Print() << "1 " <<std::endl;
     
@@ -5594,28 +5595,25 @@ NavierStokesBase::rk_first_reinit (MultiFab& phi_ctime,
 //         });
 //     }
 
-    MultiFab phi1_xface(amrex::convert(grids, IntVect(AMREX_D_DECL(1,0,0))), dmap, 1, 1);
-    phi1_xface.setVal(0.0);
-    
-    amrex::Print() << "1 " <<std::endl;
+    // MultiFab phi1_xface(amrex::convert(grids, IntVect(AMREX_D_DECL(1,0,0))), dmap, 1, 1);
+    MultiFab phi1_face(amrex::convert(grids, IntVect(AMREX_D_DECL(1,1,1))), dmap, 1, 1); // A node-based mf actually
+    phi1_face.setVal(0.0);
     
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(phi1_xface,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    for (MFIter mfi(phi1_face,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         Box bx = mfi.growntilebox();
-        std::cout << "bx " << bx <<std::endl;
+        // std::cout << "bx " << bx <<std::endl;
         auto const& phifab   = phi_ctime.array(mfi);
-        auto const& phi1fab  = phi1_xface.array(mfi);
-        amrex::ParallelFor(bx, [phifab, phi1fab, dx]
+        auto const& phi1fab  = phi1_face.array(mfi);
+        amrex::ParallelFor(bx, [phi1fab, phifab, dxGpu]
         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            phi1fab(i,j,k) = ( phifab(i,j,k) - phifab(i-1,j,k) )/dx[0];
+            phi1fab(i,j,k) = ( phifab(i,j,k) - phifab(i-1,j,k) )/dxGpu[0];
         });
     }
-
-    amrex::Print() << "2 " <<std::endl;
     
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -5623,16 +5621,14 @@ NavierStokesBase::rk_first_reinit (MultiFab& phi_ctime,
     for (MFIter mfi(phi2,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         Box bx = mfi.growntilebox(1);
-        auto const& phi1fab  = phi1_xface.array(mfi);
+        auto const& phi1fab  = phi1_face.array(mfi);
         auto const& phi2fab  = phi2.array(mfi);
-        amrex::ParallelFor(bx, [phi1fab, phi2fab, dx]
+        amrex::ParallelFor(bx, [phi1fab, phi2fab, dxGpu]
         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            phi2fab(i,j,k) = ( phi1fab(i+1,j,k) - phi1fab(i,j,k) )/dx[0];
+            phi2fab(i,j,k) = ( phi1fab(i+1,j,k) - phi1fab(i,j,k) )/dxGpu[0];
         });
     }
-
-    amrex::Print() << "3 " <<std::endl;
     
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -5640,17 +5636,15 @@ NavierStokesBase::rk_first_reinit (MultiFab& phi_ctime,
     for (MFIter mfi(phi3,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box& vbx = mfi.validbox();
-        auto const& phi1fab = phi1_xface.array(mfi);
+        auto const& phi1fab = phi1_face.array(mfi);
         auto const& phi2fab = phi2.array(mfi);
         auto const& phi3fab = phi3.array(mfi);
         auto const& sgn0fab = sgn0.array(mfi);
-        amrex::ParallelFor(vbx, [phi1fab, phi2fab, phi3fab, sgn0fab, dx, this]
+        amrex::ParallelFor(vbx, [phi1fab, phi2fab, phi3fab, sgn0fab, dxGpu]
         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            Real dxm = phi1fab(i, j, k) + 
-                this->minmod(phi2fab(i - 1, j, k), phi2fab(i, j, k)) * dx[0] / 2.0;
-            Real dxp = phi1fab(i + 1, j, k) -
-                this->minmod(phi2fab(i, j, k), phi2fab(i + 1, j, k)) * dx[0] / 2.0;
+            Real dxm = phi1fab(i, j, k) + minmod(phi2fab(i - 1, j, k), phi2fab(i, j, k)) * dxGpu[0] / 2.0;
+            Real dxp = phi1fab(i + 1, j, k) - minmod(phi2fab(i, j, k), phi2fab(i + 1, j, k)) * dxGpu[0] / 2.0;
             Real ddx = 0.0;
             if (dxp * sgn0fab(i, j, k) < 0.0 && dxm * sgn0fab(i, j, k) < -dxp * sgn0fab(i, j, k)) {
                 ddx = dxp;
@@ -5662,64 +5656,118 @@ NavierStokesBase::rk_first_reinit (MultiFab& phi_ctime,
             phi3fab(i, j, k) = pow(ddx, 2);
         });
     }
+    
+// #ifdef AMREX_USE_OMP
+// #pragma omp parallel if (Gpu::notInLaunchRegion())
+// #endif
+//     for (MFIter mfi(phi_ctime,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+//     {
+//         Box bx = mfi.validbox();
+//         bx.growLo(1,1).growHi(1,2);
+//         auto const& phifab   = phi_ctime.array(mfi);
+//         auto const& phi1fab  = phi1.array(mfi);
+//         amrex::ParallelFor(bx, [phifab, phi1fab, dx]
+//         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+//         {
+//             phi1fab(i,j,k) = ( phifab(i,j,k) - phifab(i,j-1,k) )/dx[1];
+//         });
+//     }
 
-    {
-      amrex::Gpu::LaunchSafeGuard lsg(false);
-      int idx = 0;
-      amrex::Print() << "phi2 " << " " << phi2.max(idx,0) << " " << phi2.min(idx,0) << " " << phi2.norm2(0) << "\n";
-      amrex::Print() << "phi3 " << " " << phi3.max(idx,0) << " " << phi3.min(idx,0) << " " << phi3.norm2(0) << "\n";
-    }
-    amrex::Abort("stop here");
+//     amrex::Print() << "5 " <<std::endl;
+
+// #ifdef AMREX_USE_OMP
+// #pragma omp parallel if (Gpu::notInLaunchRegion())
+// #endif
+//     for (MFIter mfi(phi1,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+//     {
+//         Box bx = mfi.validbox();
+//         bx.growLo(1,1).growHi(1,1);
+//         auto const& phi1fab  = phi1.array(mfi);
+//         auto const& phi2fab  = phi2.array(mfi);
+//         amrex::ParallelFor(bx, [phi1fab, phi2fab, dx]
+//         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+//         {
+//             phi2fab(i,j,k) = ( phi1fab(i,j+1,k) - phi1fab(i,j,k) )/dx[1];
+//         });
+//     }
+
+//     amrex::Print() << "6 " <<std::endl;
+
+// #ifdef AMREX_USE_OMP
+// #pragma omp parallel if (Gpu::notInLaunchRegion())
+// #endif
+//     for (MFIter mfi(phi1,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+//     {
+//         const Box& vbx = mfi.validbox();
+//         auto const& phi1fab = phi1.array(mfi);
+//         auto const& phi2fab = phi2.array(mfi);
+//         auto const& phi3fab = phi3.array(mfi);
+//         auto const& sgn0fab = sgn0.array(mfi);
+//         amrex::ParallelFor(vbx, [phi1fab, phi2fab, phi3fab, sgn0fab, dx]
+//         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+//         {
+//             Real dym = phi1fab(i, j, k) + minmod(phi2fab(i, j - 1, k), phi2fab(i, j, k)) * dx[1] / 2.0;
+//             Real dyp = phi1fab(i, j + 1, k) - minmod(phi2fab(i, j, k), phi2fab(i, j + 1, k)) * dx[1] / 2.0;
+//             Real ddy = 0.0;
+//             if (dyp * sgn0fab(i, j, k) < 0.0 && dym * sgn0fab(i, j, k) < -dyp * sgn0fab(i, j, k)) {
+//                 ddy = dyp;
+//             } else if (dym * sgn0fab(i, j, k) > 0.0 && dyp * sgn0fab(i, j, k) > -dym * sgn0fab(i, j, k)) {
+//                 ddy = dym;
+//             } else {
+//                 ddy = (dyp + dym) / 2.0;
+//             }
+//             phi3fab(i, j, k) += pow(ddy, 2);
+//             if (AMREX_SPACEDIM==2) {
+//                 phi3fab(i, j, k) = std::sqrt(phi3fab(i, j, k));
+//             }
+//         });
+//     }
     
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(phi_ctime,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    for (MFIter mfi(phi1_face,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         Box bx = mfi.validbox();
-        bx.growLo(1,1).growHi(1,2);
         auto const& phifab   = phi_ctime.array(mfi);
-        auto const& phi1fab  = phi1.array(mfi);
-        amrex::ParallelFor(bx, [phifab, phi1fab, dx]
+        auto const& phi1fab  = phi1_face.array(mfi);
+        amrex::ParallelFor(bx, [phifab, phi1fab, dxGpu]
         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            phi1fab(i,j,k) = ( phifab(i,j,k) - phifab(i,j-1,k) )/dx[1];
+            phi1fab(i,j,k) = ( phifab(i,j,k) - phifab(i,j-1,k) )/dxGpu[1];
         });
     }
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(phi1,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    for (MFIter mfi(phi2,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
-        Box bx = mfi.validbox();
-        bx.growLo(1,1).growHi(1,1);
-        auto const& phi1fab  = phi1.array(mfi);
+        Box bx = mfi.growntilebox(1);
+        auto const& phi1fab  = phi1_face.array(mfi);
         auto const& phi2fab  = phi2.array(mfi);
-        amrex::ParallelFor(bx, [phi1fab, phi2fab, dx]
+        amrex::ParallelFor(bx, [phi1fab, phi2fab, dxGpu]
         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            phi2fab(i,j,k) = ( phi1fab(i,j+1,k) - phi1fab(i,j,k) )/dx[1];
+            phi2fab(i,j,k) = ( phi1fab(i,j+1,k) - phi1fab(i,j,k) )/dxGpu[1];
         });
     }
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(phi1,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    for (MFIter mfi(phi3,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box& vbx = mfi.validbox();
-        auto const& phi1fab = phi1.array(mfi);
+        auto const& phi1fab = phi1_face.array(mfi);
         auto const& phi2fab = phi2.array(mfi);
         auto const& phi3fab = phi3.array(mfi);
         auto const& sgn0fab = sgn0.array(mfi);
-        amrex::ParallelFor(vbx, [phi1fab, phi2fab, phi3fab, sgn0fab, dx, this]
+        amrex::ParallelFor(vbx, [phi1fab, phi2fab, phi3fab, sgn0fab, dxGpu]
         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            Real dym = phi1fab(i, j, k) + 
-                this->minmod(phi2fab(i, j - 1, k), phi2fab(i, j, k)) * dx[1] / 2.0;
-            Real dyp = phi1fab(i, j + 1, k) -
-                this->minmod(phi2fab(i, j, k), phi2fab(i, j + 1, k)) * dx[1] / 2.0;
+            Real dym = phi1fab(i, j, k) + minmod(phi2fab(i, j - 1, k), phi2fab(i, j, k)) * dxGpu[1] / 2.0;
+            Real dyp = phi1fab(i, j + 1, k) - minmod(phi2fab(i, j, k), phi2fab(i, j + 1, k)) * dxGpu[1] / 2.0;
             Real ddy = 0.0;
             if (dyp * sgn0fab(i, j, k) < 0.0 && dym * sgn0fab(i, j, k) < -dyp * sgn0fab(i, j, k)) {
                 ddy = dyp;
@@ -5734,58 +5782,54 @@ NavierStokesBase::rk_first_reinit (MultiFab& phi_ctime,
             }
         });
     }
-
+    
 #if (AMREX_SPACEDIM==3)
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(phi_ctime,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    for (MFIter mfi(phi1_face,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
-        Box bx = mfi.validbox();
-        bx.growLo(2,1).growHi(2,2);
+        Box bx = mfi.growntilebox();
         auto const& phifab   = phi_ctime.array(mfi);
-        auto const& phi1fab  = phi1.array(mfi);
-        amrex::ParallelFor(bx, [phifab, phi1fab, dx]
+        auto const& phi1fab  = phi1_face.array(mfi);
+        amrex::ParallelFor(bx, [phifab, phi1fab, dxGpu]
         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            phi1fab(i,j,k) = ( phifab(i,j,k) - phifab(i,j,k-1) )/dx[2];
+            phi1fab(i,j,k) = ( phifab(i,j,k) - phifab(i,j,k-1) )/dxGpu[2];
         });
     }
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(phi1,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    for (MFIter mfi(phi2,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
-        Box bx = mfi.validbox();
-        bx.growLo(2,1).growHi(2,1);
-        auto const& phi1fab  = phi1.array(mfi);
+        Box bx = mfi.growntilebox(1);
+        auto const& phi1fab  = phi1_face.array(mfi);
         auto const& phi2fab  = phi2.array(mfi);
-        amrex::ParallelFor(bx, [phi1fab, phi2fab, dx]
+        amrex::ParallelFor(bx, [phi1fab, phi2fab, dxGpu]
         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            phi2fab(i,j,k) = ( phi1fab(i,j,k+1) - phi1fab(i,j,k) )/dx[2];
+            phi2fab(i,j,k) = ( phi1fab(i,j,k+1) - phi1fab(i,j,k) )/dxGpu[2];
         });
     }
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(phi1,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    for (MFIter mfi(phi3,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box& vbx = mfi.validbox();
-        auto const& phi1fab = phi1.array(mfi);
+        auto const& phi1fab = phi1_face.array(mfi);
         auto const& phi2fab = phi2.array(mfi);
         auto const& phi3fab = phi3.array(mfi);
         auto const& sgn0fab = sgn0.array(mfi);
-        amrex::ParallelFor(vbx, [phi1fab, phi2fab, phi3fab, sgn0fab, dx, this]
+        amrex::ParallelFor(vbx, [phi1fab, phi2fab, phi3fab, sgn0fab, dxGpu]
         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            Real dzm = phi1fab(i, j, k) + 
-                this->minmod(phi2fab(i, j, k - 1), phi2fab(i, j, k)) * dx[2] / 2.0;
-            Real dzp = phi1fab(i, j, k + 1) -
-                this->minmod(phi2fab(i, j, k), phi2fab(i, j, k + 1)) * dx[2] / 2.0;
+            Real dzm = phi1fab(i, j, k) + minmod(phi2fab(i, j, k - 1), phi2fab(i, j, k)) * dxGpu[2] / 2.0;
+            Real dzp = phi1fab(i, j, k + 1) - minmod(phi2fab(i, j, k), phi2fab(i, j, k + 1)) * dxGpu[2] / 2.0;
             Real ddz = 0.0;
             if (dzp * sgn0fab(i, j, k) < 0.0 && dzm * sgn0fab(i, j, k) < -dzp * sgn0fab(i, j, k)) {
                 ddz = dzp;
@@ -5807,36 +5851,36 @@ NavierStokesBase::rk_first_reinit (MultiFab& phi_ctime,
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(phi1,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    for (MFIter mfi(phi2,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box& vbx = mfi.validbox();
         auto const& phifab  = phi_ctime.array(mfi);
-        auto const& phi1fab = phi1.array(mfi);
+        auto const& phi2fab = phi2.array(mfi);
         auto const& phi3fab = phi3.array(mfi);
         auto const& G0fab   = G0.array(mfi);
-        amrex::ParallelFor(vbx, [phifab, phi1fab, phi3fab, G0fab, delta_t]
+        amrex::ParallelFor(vbx, [phifab, phi2fab, phi3fab, G0fab, delta_t]
         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
             Real sgntmp = phifab(i, j, k) /
                 std::sqrt( pow(phifab(i, j, k), 2) + pow(phi3fab(i, j, k)*2.0*delta_t,2) );
-            phi1fab(i, j, k) = phifab(i,j,k) - delta_t*sgntmp*G0fab(i,j,k);
+            phi2fab(i, j, k) = phifab(i,j,k) - delta_t*sgntmp*G0fab(i,j,k);
         });
     }
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(phi1,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    for (MFIter mfi(phi2,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box& vbx = mfi.validbox();
         auto const& phifab  = phi_ctime.array(mfi);
-        auto const& phi1fab = phi1.array(mfi);
-        amrex::ParallelFor(vbx, [phifab, phi1fab, eps]
+        auto const& phi2fab = phi2.array(mfi);
+        amrex::ParallelFor(vbx, [phifab, phi2fab, eps]
         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            if (phi1fab(i,j,k)*phifab(i,j,k) < 0.0) {
+            if (phi2fab(i,j,k)*phifab(i,j,k) < 0.0) {
                 if (std::abs(phifab(i,j,k)) <= eps) {
-                    phi1fab(i, j, k) = phifab(i,j,k) * 0.1;
+                    phi2fab(i, j, k) = phifab(i,j,k) * 0.1;
                 }
                 else {
                     amrex::Abort("sign change in rk1 bulk flow!");
@@ -5845,8 +5889,7 @@ NavierStokesBase::rk_first_reinit (MultiFab& phi_ctime,
         });
     }
 
-    MultiFab::Copy(phi_ctime, phi1, 0, 0, 1, 0); // only copy interior cells
-
+    MultiFab::Copy(phi_ctime, phi2, 0, 0, 1, 0); // only copy interior cells
 }
 
 void
@@ -5912,13 +5955,11 @@ NavierStokesBase::rk_second_reinit (MultiFab& phi_ctime,
         auto const& phi2fab = phi2.array(mfi);
         auto const& phi3fab = phi3.array(mfi);
         auto const& sgn0fab = sgn0.array(mfi);
-        amrex::ParallelFor(vbx, [phi1fab, phi2fab, phi3fab, sgn0fab, dx, this]
+        amrex::ParallelFor(vbx, [phi1fab, phi2fab, phi3fab, sgn0fab, dx]
         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            Real dxm = phi1fab(i, j, k) + 
-                this->minmod(phi2fab(i - 1, j, k), phi2fab(i, j, k)) * dx[0] / 2.0;
-            Real dxp = phi1fab(i + 1, j, k) -
-                this->minmod(phi2fab(i, j, k), phi2fab(i + 1, j, k)) * dx[0] / 2.0;
+            Real dxm = phi1fab(i, j, k) + minmod(phi2fab(i - 1, j, k), phi2fab(i, j, k)) * dx[0] / 2.0;
+            Real dxp = phi1fab(i + 1, j, k) - minmod(phi2fab(i, j, k), phi2fab(i + 1, j, k)) * dx[0] / 2.0;
             Real ddx = 0.0;
             if (dxp * sgn0fab(i, j, k) < 0.0 && dxm * sgn0fab(i, j, k) < -dxp * sgn0fab(i, j, k)) {
                 ddx = dxp;
@@ -5973,13 +6014,11 @@ NavierStokesBase::rk_second_reinit (MultiFab& phi_ctime,
         auto const& phi2fab = phi2.array(mfi);
         auto const& phi3fab = phi3.array(mfi);
         auto const& sgn0fab = sgn0.array(mfi);
-        amrex::ParallelFor(vbx, [phi1fab, phi2fab, phi3fab, sgn0fab, dx, this]
+        amrex::ParallelFor(vbx, [phi1fab, phi2fab, phi3fab, sgn0fab, dx]
         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            Real dym = phi1fab(i, j, k) + 
-                this->minmod(phi2fab(i, j - 1, k), phi2fab(i, j, k)) * dx[1] / 2.0;
-            Real dyp = phi1fab(i, j + 1, k) -
-                this->minmod(phi2fab(i, j, k), phi2fab(i, j + 1, k)) * dx[1] / 2.0;
+            Real dym = phi1fab(i, j, k) + minmod(phi2fab(i, j - 1, k), phi2fab(i, j, k)) * dx[1] / 2.0;
+            Real dyp = phi1fab(i, j + 1, k) - minmod(phi2fab(i, j, k), phi2fab(i, j + 1, k)) * dx[1] / 2.0;
             Real ddy = 0.0;
             if (dyp * sgn0fab(i, j, k) < 0.0 && dym * sgn0fab(i, j, k) < -dyp * sgn0fab(i, j, k)) {
                 ddy = dyp;
@@ -6039,13 +6078,11 @@ NavierStokesBase::rk_second_reinit (MultiFab& phi_ctime,
         auto const& phi2fab = phi2.array(mfi);
         auto const& phi3fab = phi3.array(mfi);
         auto const& sgn0fab = sgn0.array(mfi);
-        amrex::ParallelFor(vbx, [phi1fab, phi2fab, phi3fab, sgn0fab, dx, this]
+        amrex::ParallelFor(vbx, [phi1fab, phi2fab, phi3fab, sgn0fab, dx]
         AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            Real dzm = phi1fab(i, j, k) + 
-                this->minmod(phi2fab(i, j, k - 1), phi2fab(i, j, k)) * dx[2] / 2.0;
-            Real dzp = phi1fab(i, j, k + 1) -
-                this->minmod(phi2fab(i, j, k), phi2fab(i, j, k + 1)) * dx[2] / 2.0;
+            Real dzm = phi1fab(i, j, k) + minmod(phi2fab(i, j, k - 1), phi2fab(i, j, k)) * dx[2] / 2.0;
+            Real dzp = phi1fab(i, j, k + 1) - minmod(phi2fab(i, j, k), phi2fab(i, j, k + 1)) * dx[2] / 2.0;
             Real ddz = 0.0;
             if (dzp * sgn0fab(i, j, k) < 0.0 && dzm * sgn0fab(i, j, k) < -dzp * sgn0fab(i, j, k)) {
                 ddz = dzp;
@@ -6333,34 +6370,3 @@ NavierStokesBase::get_phi_half_time ()
     }
     return phi_half;
 }
-
-// quick fix, not sure if it the best way
-#ifdef AMREX_USE_GPU
-__device__ Real 
-NavierStokesBase::minmod(Real alpha_1, Real beta_1)
-{
-    if (alpha_1 * beta_1 <= 0.0) {
-        return 0.0;
-    }
-    else if (fabs(alpha_1) <= fabs(beta_1)) {
-        return alpha_1;
-    }
-    else {
-        return beta_1;
-    }
-}
-#else
-Real 
-NavierStokesBase::minmod(Real alpha_1, Real beta_1)
-{
-    if (alpha_1 * beta_1 <= 0.0) {
-        return 0.0;
-    }
-    else if (std::abs(alpha_1) <= std::abs(beta_1)) {
-        return alpha_1;
-    }
-    else {
-        return beta_1;
-    }
-}
-#endif
