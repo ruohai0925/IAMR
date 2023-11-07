@@ -218,7 +218,6 @@ public:
     void phi_to_sgn0 (amrex::MultiFab& phi);
     amrex::MultiFab& get_phi_half_time ();
     void rk_first_reinit (amrex::MultiFab& phi_ctime,
-                          amrex::MultiFab& phi1,
                           amrex::MultiFab& phi2,
                           amrex::MultiFab& phi3,
                           amrex::MultiFab& sgn0,
@@ -226,7 +225,6 @@ public:
                           amrex::Real dt, 
                           amrex::MultiFab& phi_ori);
     void rk_second_reinit (amrex::MultiFab& phi_ctime,
-                          amrex::MultiFab& phi1,
                           amrex::MultiFab& phi2,
                           amrex::MultiFab& phi3,
                           amrex::MultiFab& sgn0,
@@ -234,7 +232,7 @@ public:
                           amrex::Real dt,
                           amrex::MultiFab& phi_ori);
     void mass_fix (amrex::MultiFab& phi_ctime,
-                          amrex::MultiFab& phi1,
+                          amrex::MultiFab& phi_original,
                           amrex::MultiFab& phi2,
                           amrex::MultiFab& phi3,
                           amrex::MultiFab& ld,
