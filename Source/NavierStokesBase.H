@@ -240,7 +240,6 @@ public:
                           amrex::MultiFab& deltafunc_alias,
                           amrex::Real delta_t,
                           int  loop_iter);
-    amrex::Real get_eps ();
 
     amrex::Vector<amrex::BCRec> const& get_bcrec_velocity () const noexcept { return m_bcrec_velocity; }
     amrex::Vector<amrex::BCRec> const& get_bcrec_scalars () const noexcept { return m_bcrec_scalars; }

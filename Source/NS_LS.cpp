@@ -13,20 +13,27 @@ using namespace amrex;
 
 // ls related
 
+Real calculate_eps (const Geometry& geom, int epsilon)
+{
+    const Real* dx    = geom.CellSize();
+    const Real pi     = 3.141592653589793238462643383279502884197;
+    Real dxmin        = dx[0];
+    for (int d=1; d<AMREX_SPACEDIM; ++d) {
+        dxmin = std::min(dxmin,dx[d]);
+    }
+    Real eps = epsilon * dxmin;
+
+    return eps;
+}
+
 void
 phi_to_heavi(const Geometry& geom, int epsilon, MultiFab& phi, MultiFab& heaviside)
 {
 
     Print() << "In the phi_to_heavi " << std::endl;
     
-    const Real* dx    = geom.CellSize();
     const Real pi     = 3.141592653589793238462643383279502884197;
-    const int eps_in  = epsilon;
-    Real dxmin        = dx[0];
-    for (int d=1; d<AMREX_SPACEDIM; ++d) {
-        dxmin = std::min(dxmin,dx[d]);
-    }
-    Real eps = eps_in * dxmin;
+    Real eps = calculate_eps(geom, epsilon);
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
