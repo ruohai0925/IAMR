@@ -5466,14 +5466,8 @@ NavierStokesBase::phi_to_sgn0 (MultiFab& phi)
     
     sgn0.setVal(0.0);
 
-    const Real* dx    = geom.CellSize();
     const Real pi     = 3.141592653589793238462643383279502884197;
-    const int eps_in  = epsilon;
-    Real dxmin        = dx[0];
-    for (int d=1; d<AMREX_SPACEDIM; ++d) {
-        dxmin = std::min(dxmin,dx[d]);
-    }
-    Real eps = eps_in * dxmin;
+    Real eps = get_eps();
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -5512,13 +5506,7 @@ NavierStokesBase::rk_first_reinit (MultiFab& phi_ctime,
 
     if(verbose) amrex::Print() << "NavierStokesBase::rk_first_reinit " << std::endl;
     
-    const Real* dx    = geom.CellSize();
-    const int eps_in  = epsilon;
-    Real dxmin        = dx[0];
-    for (int d=1; d<AMREX_SPACEDIM; ++d) {
-        dxmin = std::min(dxmin,dx[d]);
-    }
-    Real eps = eps_in * dxmin;
+    Real eps = get_eps();
     const GpuArray<Real,AMREX_SPACEDIM> dxGpu = geom.CellSizeArray();
 
     // MultiFab phi1_xface(amrex::convert(grids, IntVect(AMREX_D_DECL(1,0,0))), dmap, 1, 1);
@@ -5764,13 +5752,7 @@ NavierStokesBase::rk_second_reinit (MultiFab& phi_ctime,
 
     if(verbose) amrex::Print() << "In the NavierStokesBase::rk_second_reinit " << std::endl;
 
-    const Real* dx    = geom.CellSize();
-    const int eps_in  = epsilon;
-    Real dxmin        = dx[0];
-    for (int d=1; d<AMREX_SPACEDIM; ++d) {
-        dxmin = std::min(dxmin,dx[d]);
-    }
-    Real eps = eps_in * dxmin;
+    Real eps = get_eps();
     const GpuArray<Real,AMREX_SPACEDIM> dxGpu = geom.CellSizeArray();
 
     // MultiFab phi1_xface(amrex::convert(grids, IntVect(AMREX_D_DECL(1,0,0))), dmap, 1, 1);
@@ -6022,14 +6004,8 @@ NavierStokesBase::mass_fix (MultiFab& phi_ctime,
 {
     if(verbose) amrex::Print() << "NavierStokesBase::mass_fix " << std::endl;
     
-    const Real* dx    = geom.CellSize();
     const Real pi     = 3.141592653589793238462643383279502884197;
-    const int eps_in  = epsilon;
-    Real dxmin        = dx[0];
-    for (int d=1; d<AMREX_SPACEDIM; ++d) {
-        dxmin = std::min(dxmin,dx[d]);
-    }
-    Real eps = eps_in * dxmin;
+    Real eps = get_eps();
     Real tao = loop_iter * delta_t;
 
     // calculate ld and delta
@@ -6241,4 +6217,19 @@ NavierStokesBase::get_phi_half_time ()
         });
     }
     return phi_half;
+}
+
+Real
+NavierStokesBase::get_eps ()
+{
+    const Real* dx    = geom.CellSize();
+    const Real pi     = 3.141592653589793238462643383279502884197;
+    const int eps_in  = epsilon;
+    Real dxmin        = dx[0];
+    for (int d=1; d<AMREX_SPACEDIM; ++d) {
+        dxmin = std::min(dxmin,dx[d]);
+    }
+    Real eps = eps_in * dxmin;
+
+    return eps;
 }
