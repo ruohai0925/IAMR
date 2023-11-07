@@ -16,7 +16,6 @@ using namespace amrex;
 Real calculate_eps (const Geometry& geom, int epsilon)
 {
     const Real* dx    = geom.CellSize();
-    const Real pi     = 3.141592653589793238462643383279502884197;
     Real dxmin        = dx[0];
     for (int d=1; d<AMREX_SPACEDIM; ++d) {
         dxmin = std::min(dxmin,dx[d]);
