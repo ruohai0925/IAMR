@@ -194,6 +194,8 @@ int NavierStokesBase::average_in_checkpoint = -1;
 //
 int NavierStokesBase::skip_level_projector = 0;
 
+int NavierStokesBase::isolver  = 0;
+
 //
 // ls related
 //
@@ -652,6 +654,7 @@ NavierStokesBase::Initialize ()
     }
 
     pp.query("prescribed_vel", prescribed_vel);
+    pp.query("isolver", isolver);
 
     amrex::ExecOnFinalize(NavierStokesBase::Finalize);
 

@@ -848,6 +848,8 @@ public:
     //
     static int  skip_level_projector;
 
+    static int isolver;
+
     //
     // ls related
     //

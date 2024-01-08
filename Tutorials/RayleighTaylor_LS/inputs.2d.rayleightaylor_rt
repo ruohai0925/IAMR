@@ -164,3 +164,4 @@ ns.rho_w              = 3.0
 
 #ns.getForceVerbose    = 1
 amrex.abort_on_out_of_gpu_memory = 1
+ns.isolver            = 0

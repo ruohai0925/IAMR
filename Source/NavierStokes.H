@@ -103,6 +103,22 @@ public:
                          int  iteration,
                          int  ncycle) override;
 
+    // ls related
+    amrex::Real advance_semistaggered_twophase_ls (amrex::Real time,
+                         amrex::Real dt,
+                         int  iteration,
+                         int  ncycle);
+
+    amrex::Real advance_semistaggered_fsi_diffusedib (amrex::Real time,
+                         amrex::Real dt,
+                         int  iteration,
+                         int  ncycle);
+
+    amrex::Real advance_staggered_twophase_clsvof (amrex::Real time,
+                         amrex::Real dt,
+                         int  iteration,
+                         int  ncycle);
+
     ////////////////////////////////////////////////////////////////////////////
     //    NavierStokesBase public virtual functions                           //
     ////////////////////////////////////////////////////////////////////////////
