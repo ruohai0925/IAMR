@@ -9,6 +9,7 @@
 #include <iamr_constants.H>
 #include <NS_LS.H>
 #include <NS_kernels.H>
+#include <DiffusedIB.H>
 
 #ifdef BL_USE_VELOCITY
 #include <AMReX_DataServices.H>
@@ -588,7 +589,7 @@ NavierStokes::advance (Real time,
     if (isolver==0) {
         dt_test = advance_semistaggered_twophase_ls(time,dt,iteration,ncycle);
     }
-    else if(isolver==1) {
+    else if(isolver==1 && do_diffused_ib==1) {
         dt_test = advance_semistaggered_fsi_diffusedib(time,dt,iteration,ncycle);
     }
     else if (isolver==2) { // To be implemented
@@ -2541,13 +2542,24 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
 
     if (prescribed_vel)
     {
-        BL_ASSERT(do_phi==1);
         dt_test = dt;
 
-        //
+        // Step 1: initialize the nodal level set function
         // Create struct to hold initial conditions parameters
         //
         InitialConditions IC;
+        ParmParse pp("prob");
+        pp.query("blob_radius",IC.blob_radius);
+        Vector<Real> blob_center(AMREX_SPACEDIM, 0.);
+        pp.queryarr("blob_center",blob_center,0,AMREX_SPACEDIM);
+        AMREX_D_TERM(IC.blob_x = blob_center[0];,
+            IC.blob_y = blob_center[1];,
+            IC.blob_z = blob_center[2];);
+        // amrex::Print() << "check " << IC.blob_radius << " "
+        //                            << IC.blob_x << " "
+        //                            << IC.blob_y << " "
+        //                            << IC.blob_z << std::endl;
+
         // Integer indices of the lower left and upper right corners of the
         // valid region of the entire domain.
         Box const&  domain = geom.Domain();
@@ -2557,26 +2569,30 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
         // Physical coordinates of the upper right corner of the domain
         auto const& probhi = geom.ProbHiArray();
 
-        // Step 1: do the reinitialization
-        // which has been done before
-
-        // Step 2: set vel of internal cells in S_new and fill the gts
-        MultiFab&  S_new    = get_new_data(State_Type);
-
-        int ncomp = S_new.nComp();
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-        for (MFIter mfi(S_new,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        for (MFIter mfi(phi_nodal,TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
-            const Box& vbx = mfi.tilebox();
-            set_rsv_vel(vbx, S_new.array(mfi, Xvel), domain, dx, problo, probhi, IC, time);
+            const Box& bx = mfi.tilebox();
+            set_initial_phi_nodal(bx, phi_nodal.array(mfi), domain, dx, problo, probhi, IC, time);
         }
 
-        // Step 3: copy vel in S_new back to S_old
-        MultiFab&  S_old    = get_old_data(State_Type);
-        MultiFab::Copy(S_old, S_new, 0, 0, ncomp, S_new.nGrow());
+        // Step 2: calculate pvf from the nodal level set function (only for internal cells)
+        pvf.setVal(0.0);
+        nodal_phi_to_pvf(pvf, phi_nodal);
 
+        // Step 3 (optional): copy for visualization
+        MultiFab&  S_new    = get_new_data(State_Type);
+        MultiFab::Copy(S_new, pvf, 0, Tracer, 1, pvf.nGrow());
+
+        // Step 4: calculate total volume
+        Real vol = dx[0];
+        for (int d=1; d<AMREX_SPACEDIM; ++d) {
+            vol *= dx[d];
+        }
+        pvf.mult(vol);
+        amrex::Print() << "Volume with numerical integration " << pvf.sum() << std::endl;
     }
     else {
         //

@@ -164,6 +164,12 @@ void NavierStokes::prob_initData ()
                              S_new.array(mfi, Density), nscal,
                              domain, dx, problo, probhi, IC);
         }
+        else if ( 98 == probtype )
+        {
+            init_particles(vbx, P_new.array(mfi), S_new.array(mfi, Xvel),
+                             S_new.array(mfi, Density), nscal,
+                             domain, dx, problo, probhi, IC);
+        }
         else if ( 99 == probtype ) // ls related
         {
             init_rsv(vbx, P_new.array(mfi), S_new.array(mfi, Xvel),
@@ -338,6 +344,37 @@ void NavierStokes::set_rsv_vel (Box const& vbx,
 #endif
 
   });
+}
+
+//
+// diffused ib
+// 
+void NavierStokes::set_initial_phi_nodal (Box const& bx,
+                Array4<Real> const& phi_nodal,
+                Box const& domain,
+                GpuArray<Real, AMREX_SPACEDIM> const& dx,
+                GpuArray<Real, AMREX_SPACEDIM> const& problo,
+                GpuArray<Real, AMREX_SPACEDIM> const& /*probhi*/,
+                InitialConditions IC,
+                Real time)
+{
+  
+  BL_ASSERT(AMREX_SPACEDIM == 3);
+  BL_ASSERT(probtype == 98);
+
+  const auto domlo = amrex::lbound(domain);
+  amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+    Real x = problo[0] + (i - domlo.x)*dx[0];
+    Real y = problo[1] + (j - domlo.y)*dx[1];
+    Real z = problo[2] + (k - domlo.z)*dx[2];
+
+    phi_nodal(i,j,k) = std::sqrt( (x-IC.blob_x)*(x-IC.blob_x)
+              + (y-IC.blob_y)*(y-IC.blob_y)  + (z-IC.blob_z)*(z-IC.blob_z)) - IC.blob_radius;;
+    phi_nodal(i,j,k) = phi_nodal(i,j,k) / IC.blob_radius;
+
+  });
+
 }
 
 void NavierStokes::init_constant_vel_rho (Box const& vbx,
@@ -798,6 +835,49 @@ void NavierStokes::init_TaylorGreen (Box const& vbx,
     {
       scal(i,j,k,nt) = 1.0;
     }
+  });
+}
+
+void NavierStokes::init_particles (Box const& vbx,
+                     Array4<Real> const& press,
+                     Array4<Real> const& vel,
+                     Array4<Real> const& scal,
+                     const int nscal,
+                     Box const& domain,
+                     GpuArray<Real, AMREX_SPACEDIM> const& dx,
+                     GpuArray<Real, AMREX_SPACEDIM> const& problo,
+                     GpuArray<Real, AMREX_SPACEDIM> const& /*probhi*/,
+                     InitialConditions IC)
+{
+
+  const auto domlo = amrex::lbound(domain);
+
+  amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+    // Real x = problo[0] + (i - domlo.x + 0.5)*dx[0];
+    // Real y = problo[1] + (j - domlo.y + 0.5)*dx[1];
+    // Real z = problo[2] + (k - domlo.z + 0.5)*dx[2];
+
+    //
+    // Fill Velocity
+    //
+    vel(i,j,k,0) = 0.0;
+    vel(i,j,k,1) = 0.0;
+
+#if (AMREX_SPACEDIM == 3)
+    vel(i,j,k,2) = 0.0;
+#endif
+
+    //
+    // Scalars, ordered as Density, Tracer(s), Temp (if using)
+    //
+
+    // All Tracers are set here
+    for ( int nt=0; nt<nscal; nt++)
+    {
+      scal(i,j,k,nt) = 1.0;
+    }
+
   });
 }
 

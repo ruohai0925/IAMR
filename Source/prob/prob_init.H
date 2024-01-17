@@ -168,6 +168,20 @@ static void init_TaylorGreen (amrex::Box const& vbx,
                amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& probhi,
                InitialConditions IC);
 
+//
+// diffused ib
+//
+static void init_particles (amrex::Box const& vbx,
+               amrex::Array4<amrex::Real> const& press,
+               amrex::Array4<amrex::Real> const& vel,
+               amrex::Array4<amrex::Real> const& scal,
+               int nscal,
+               amrex::Box const& domain,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dx,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& problo,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& probhi,
+               InitialConditions IC);
+
 static void init_Euler (amrex::Box const& vbx,
          amrex::Array4<amrex::Real> const& press,
          amrex::Array4<amrex::Real> const& vel,
@@ -198,8 +212,22 @@ static int probtype;
 //
 // ls related
 // perform prescribed velocity
+//
 static void set_rsv_vel (amrex::Box const& vbx,
           amrex::Array4<amrex::Real> const& vel,
+          amrex::Box const& domain,
+          amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dx,
+          amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& problo,
+          amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& probhi,
+          InitialConditions IC,
+          amrex::Real time);
+
+//
+// diffused ib
+// set initial phi nodal
+//
+static void set_initial_phi_nodal (amrex::Box const& bx,
+          amrex::Array4<amrex::Real> const& phi_nodal,
           amrex::Box const& domain,
           amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dx,
           amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& problo,

@@ -42,3 +42,6 @@ CEXE_headers += NS_kernels.H
 
 CEXE_sources += NS_LS.cpp
 CEXE_headers += NS_LS.H
+
+CEXE_sources += DiffusedIB.cpp
+CEXE_headers += DiffusedIB.H

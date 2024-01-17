@@ -218,6 +218,11 @@ int NavierStokesBase::prescribed_vel     = 0;
 
 int NavierStokesBase::do_cons_levelset   = 0;
 
+//
+// diffused ib
+//
+int NavierStokesBase::do_diffused_ib   = 0;
+
 namespace
 {
     bool initialized = false;
@@ -335,6 +340,15 @@ void NavierStokesBase::define_workspace()
         heaviside.define(grids,dmap,1,2,MFInfo(),Factory());
         sgn0.define(grids,dmap,1,2,MFInfo(),Factory());
         phi_original.define(grids,dmap,1,2,MFInfo(),Factory());
+    }
+
+    //
+    // diffused ib
+    //
+    if (do_diffused_ib) {
+        const BoxArray& nba = amrex::convert(grids,IntVect::TheNodeVector());
+        phi_nodal.define(nba,dmap,1,2,MFInfo(),Factory());
+        pvf.define(grids,dmap,1,2,MFInfo(),Factory());
     }
 
 #ifdef AMREX_USE_EB
@@ -655,6 +669,7 @@ NavierStokesBase::Initialize ()
 
     pp.query("prescribed_vel", prescribed_vel);
     pp.query("isolver", isolver);
+    pp.query("do_diffused_ib", do_diffused_ib);
 
     amrex::ExecOnFinalize(NavierStokesBase::Finalize);
 

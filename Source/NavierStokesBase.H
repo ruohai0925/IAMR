@@ -881,6 +881,13 @@ public:
     // for cons_levelset
     static int do_cons_levelset;
 
+    //
+    // diffused ib
+    //
+    static int  do_diffused_ib;
+    amrex::MultiFab phi_nodal;
+    amrex::MultiFab pvf;
+
     int nghost_state () const;
     static constexpr int nghost_force () { return 1; }
 
