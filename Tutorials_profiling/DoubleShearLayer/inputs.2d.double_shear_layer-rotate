@@ -6,7 +6,7 @@
 # WHEN SHOULD THE SIMULATION STOP?
 #*******************************************************************************
 # Maximum number of timesteps to be taken, if stop_time is not reached first.
-max_step 				= 1000
+max_step 				= 200
 # Time at which calculation stops, if max_step is not reached first.
 stop_time 				= 10.0
 # Stop simulation when we reach steady-state?

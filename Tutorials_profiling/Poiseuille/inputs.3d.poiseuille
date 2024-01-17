@@ -2,7 +2,7 @@
 # INPUTS.3D.POISEUILLE
 #*******************************************************************************
 
-max_step                =  1000
+max_step                =  200
 
 stop_time 		=  -1
 
@@ -23,7 +23,7 @@ amr.v                   =  1
 
 amr.check_int		=  1000
 
-amr.plot_int		=  10
+amr.plot_int		=  50
 
 ns.cfl                  =  0.5  # CFL number used to set dt
 

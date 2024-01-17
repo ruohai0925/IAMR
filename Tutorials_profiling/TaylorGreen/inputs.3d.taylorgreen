@@ -49,7 +49,7 @@ amr.check_file          = chk
 #*******************************************************************************
 
 # Interval (in number of coarse timesteps) between plot files
-amr.plot_int		= 10
+amr.plot_int		= 50
 amr.plot_file           = plt
 
 #*******************************************************************************

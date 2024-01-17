@@ -7,7 +7,7 @@
 
 # Maximum number of coarse grid timesteps to be taken, if stop_time is
 #  not reached first.
-max_step 		= 500
+max_step 		= 200
 
 # Time at which calculation stops, if max_step is not reached first.
 stop_time 		= 1.0
@@ -57,12 +57,12 @@ amr.v                   = 0
 #*******************************************************************************
 
 # Interval (in number of coarse timesteps) between checkpoint(restart) files
-amr.check_int		= 10 
+amr.check_int		= 50 
 
 #*******************************************************************************
 
 # Interval (in number of coarse timesteps) between plot files
-amr.plot_int		= 10
+amr.plot_int		= 50
 
 #*******************************************************************************
 
