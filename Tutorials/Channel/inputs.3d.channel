@@ -2,7 +2,7 @@
 # INPUTS.3D.CHANNEL
 #*******************************************************************************
 
-max_step                =  1
+max_step                =  10
 
 stop_time 		=  -1
 
@@ -49,18 +49,11 @@ ns.hi_bc             	=  0 4 0
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 
-# Boundary condition
-xlo.velocity            =   1.  0.  0.
+
 
 # PROBLEM PARAMETERS           
 prob.probtype = 97
-prob.blob_center =  0.15 0.5 0.5
-prob.blob_radius =  0.1
-prob.interface_width = 0.001
-# Constant density initial condition
-prob.density_ic = 1.0
-# Set up constant flow
-prob.velocity_ic = 1.0 0. 0.
 
-amr.derive_plot_vars   	=  mag_vort
+
+amr.derive_plot_vars    = mag_vort   diveru   avg_pressure
 nodal_proj.verbose 			=  0
