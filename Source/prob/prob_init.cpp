@@ -134,6 +134,14 @@ void NavierStokes::prob_initData ()
                                   S_new.array(mfi, Density), nscal,
                                   domain, dx, problo, probhi, IC);
         }
+
+        else if ( 97 == probtype )
+        {
+            init_channel(vbx, P_new.array(mfi), S_new.array(mfi, Xvel),
+                                  S_new.array(mfi, Density), nscal,
+                                  domain, dx, problo, probhi, IC);
+        }
+
         else if ( 5 == probtype )
         {
             init_DoubleShearLayer(vbx, P_new.array(mfi), S_new.array(mfi, Xvel),
@@ -425,6 +433,48 @@ void NavierStokes::init_constant_vel_rho (Box const& vbx,
       // scal(i,j,k,nt) = dist < IC.blob_radius ? 1.0 : 0.0;
       scal(i,j,k,nt) = 0.0;
     }
+  });
+}
+
+void NavierStokes::init_channel (Box const& vbx,
+                      Array4<Real> const& /*press*/,
+                      Array4<Real> const& vel,
+                      Array4<Real> const& scal,
+                      const int nscal,
+                      Box const& domain,
+                      GpuArray<Real, AMREX_SPACEDIM> const& dx,
+                      GpuArray<Real, AMREX_SPACEDIM> const& problo,
+                      GpuArray<Real, AMREX_SPACEDIM> const& probhi,
+                      InitialConditions IC)
+{
+  
+  BL_ASSERT(AMREX_SPACEDIM == 3);
+  const auto domlo = amrex::lbound(domain);
+
+  amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+    // Real x = problo[0] + (i - domlo.x + 0.5)*dx[0];
+    Real y = problo[1] + (j - domlo.y + 0.5)*dx[1];
+    // Real z = problo[2] + (k - domlo.z + 0.5)*dx[2];
+
+    //
+    // Fill Velocity
+    //
+    vel(i,j,k,0) = 0.0;
+    vel(i,j,k,1) = 0.0;
+
+    Real w_b = 18.5;
+    const Real Ly    = (probhi[1] - problo[1]);
+    vel(i,j,k,2) = w_b * std::pow((1.0 - (y/Ly - 1.0)),2.0);
+
+    //
+    // Scalars, ordered as Density, Tracer(s), Temp (if using)
+    //
+    scal(i,j,k,0) = 1.0;
+
+    // Tracers
+    scal(i,j,k,1) = 0.0;
+
   });
 }
 
