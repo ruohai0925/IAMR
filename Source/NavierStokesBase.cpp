@@ -63,7 +63,7 @@ struct HomExtDirFill
 //
 // A dummy function because FillPatch requires something to exist for filling dirichlet boundary conditions,
 // even if we know we cannot have an ext_dir BC.
-// u_mac BCs are only either periodic (INT_DIR) or first order extrapolation (FOEXTRAP).
+// u_mac BCs are only either periodic (BCType::int_dir) or first order extrapolation (FOEXTRAP).
 //
 struct umacFill
 {
@@ -694,10 +694,10 @@ NavierStokesBase::read_geometry ()
     int coord;
     pp.get("coord_sys",coord);
 
-    if ((Geometry::CoordType) coord == Geometry::RZ && phys_bc.lo(0) != Symmetry)
+    if ((Geometry::CoordType) coord == Geometry::RZ && phys_bc.lo(0) != PhysBCType::symmetry)
     {
-        phys_bc.setLo(0,Symmetry);
-        amrex::Print() << "\nWarning: Setting phys_bc at xlo to Symmetry\n\n";
+        phys_bc.setLo(0,PhysBCType::symmetry);
+        amrex::Print() << "\nWarning: Setting phys_bc at xlo to PhysBCType::symmetry\n\n";
     }
 #endif
 }
@@ -1760,14 +1760,14 @@ NavierStokesBase::getOutFlowFaces (Vector<Orientation>& outFaces)
     outFaces.resize(0);
     for (int idir = 0; idir < AMREX_SPACEDIM; idir++)
     {
-        if (phys_bc.lo(idir) == Outflow)
+        if (phys_bc.lo(idir) == PhysBCType::outflow)
         {
             auto len = outFaces.size();
             outFaces.resize(len+1);
             outFaces[len] = Orientation(idir,Orientation::low);
         }
 
-        if (phys_bc.hi(idir) == Outflow)
+        if (phys_bc.hi(idir) == PhysBCType::outflow)
         {
             auto len = outFaces.size();
             outFaces.resize(len+1);
@@ -1990,7 +1990,7 @@ NavierStokesBase::initialTimeStep ()
 {
     Real returnDt = init_shrink*estTimeStep();
 
-    if (verbose) amrex::Print() << "Multiplying dt by init_shrink: dt = "
+    amrex::Print() << "Multiplying dt by init_shrink: dt = "
                    << returnDt << '\n';
     return returnDt;
 }
@@ -3074,7 +3074,7 @@ NavierStokesBase::scalar_advection_update (Real dt,
     //     {
     //         amrex::Print() << "SAU: Old scalar " << sigma << " contains Nans" << std::endl;
 
-    //         IntVect mpt(D_DECL(-100,100,-100));
+    //         IntVect mpt(AMREX_D_DECL(-100,100,-100));
     //         for (MFIter mfi(S_old); mfi.isValid(); ++mfi){
     //             if ( S_old[mfi].contains_nan<RunOn::Device>(mpt) )
     //                 amrex::Print() << " Nans at " << mpt << std::endl;
@@ -3084,7 +3084,7 @@ NavierStokesBase::scalar_advection_update (Real dt,
     //     {
     //         amrex::Print() << "SAU: New scalar " << sigma << " contains Nans" << std::endl;
 
-    //         IntVect mpt(D_DECL(-100,100,-100));
+    //         IntVect mpt(AMREX_D_DECL(-100,100,-100));
     //         for (MFIter mfi(S_new); mfi.isValid(); ++mfi){
     //             if ( S_new[mfi].contains_nan<RunOn::Device>(mpt) )
     //                 amrex::Print() << " Nans at " << mpt << std::endl;
@@ -3162,8 +3162,8 @@ set_bcrec_new (Vector<BCRec>  &bcrec,
       for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
       {
          int bc_index = (src_comp+n)*(2*AMREX_SPACEDIM) + dir;
-         bcrec[n].setLo(dir,INT_DIR);
-         bcrec[n].setHi(dir,INT_DIR);
+         bcrec[n].setLo(dir,BCType::int_dir);
+         bcrec[n].setHi(dir,BCType::int_dir);
          if ( ( box.smallEnd(dir) < domain.smallEnd(dir) ) ||
               ( box.bigEnd(dir)   > domain.bigEnd(dir) ) ) {
             for (int crse = 0; crse < cgrids.size(); crse++) {
@@ -3763,7 +3763,7 @@ NavierStokesBase::velocity_advection_update (Real dt)
        {
          amrex::Print() << "VAU: Old velocity " << sigma << " contains Nans" << std::endl;
 
-         IntVect mpt(D_DECL(-100,100,-100));
+         IntVect mpt(AMREX_D_DECL(-100,100,-100));
          for (MFIter mfi(U_old); mfi.isValid(); ++mfi){
            const Box& bx = mfi.tilebox();
            if ( U_old[mfi].contains_nan<RunOn::Device>(bx, sigma, 1, mpt) )
@@ -3774,7 +3774,7 @@ NavierStokesBase::velocity_advection_update (Real dt)
        {
          amrex::Print() << "VAU: New velocity " << sigma << " contains Nans" << std::endl;
 
-         IntVect mpt(D_DECL(-100,100,-100));
+         IntVect mpt(AMREX_D_DECL(-100,100,-100));
          for (MFIter mfi(U_new); mfi.isValid(); ++mfi){
            const Box& bx = mfi.tilebox();
            if ( U_new[mfi].contains_nan<RunOn::Device>(bx, sigma, 1, mpt) )
@@ -4128,7 +4128,7 @@ NavierStokesBase::ParticleDerive (const std::string& name,
             //
             ParticleDerive("particle_count",time,mf,dcomp);
 
-            IntVect trr(D_DECL(1,1,1));
+            IntVect trr(AMREX_D_DECL(1,1,1));
 
             for (int lev = level+1; lev <= parent->finestLevel(); lev++)
             {
