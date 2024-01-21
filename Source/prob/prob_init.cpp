@@ -465,7 +465,7 @@ void NavierStokes::init_channel (Box const& vbx,
 
     Real w_b = 18.5;
     const Real Ly    = (probhi[1] - problo[1]);
-    vel(i,j,k,2) = w_b * std::pow((1.0 - (y/Ly - 1.0)),2.0);
+    vel(i,j,k,2) = w_b * (1.0 - std::pow((y/Ly - 1.0),2.0));
 
     //
     // Scalars, ordered as Density, Tracer(s), Temp (if using)

@@ -2372,7 +2372,7 @@ NavierStokes::advance_semistaggered_twophase_ls (Real time,
                 int solve_coarse_level = iteration % 2; 
                 if (verbose)
                 {
-                    Print() << "solve_coarse_level " << solve_coarse_level << std::endl;
+                    // Print() << "solve_coarse_level " << solve_coarse_level << std::endl;
                     // Print() << "skip_level_projector " << skip_level_projector << std::endl;
                     // Print() << "level " << level << std::endl;
                     // Print() << "finest_level " << finest_level << std::endl;

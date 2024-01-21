@@ -2,7 +2,7 @@
 # INPUTS.3D.CHANNEL
 #*******************************************************************************
 
-max_step                =  10
+max_step                =  20
 
 stop_time 		=  -1
 
@@ -28,7 +28,7 @@ amr.plot_int		=  1
 ns.cfl                  =  0.5  # CFL number used to set dt
 
 ns.init_shrink          =  0.3  # factor which multiplies the very first time step
-ns.init_iter          	=  3    # number of initial iterations
+ns.init_iter          	=  0    # number of initial iterations
 
 ns.vel_visc_coef        =  0.00555
 ns.scal_diff_coefs      =  0.0
@@ -49,11 +49,32 @@ ns.hi_bc             	=  0 4 0
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 
-
-
 # PROBLEM PARAMETERS           
 prob.probtype = 97
 
+amr.derive_plot_vars    = avg_pressure
 
-amr.derive_plot_vars    = mag_vort   diveru   avg_pressure
-nodal_proj.verbose 			=  0
+# hypre
+nodal_proj.verbose 			=  1
+nodal_proj.proj_tol = 1.e-8
+nodal_proj.proj_abs_tol = 1.e-10
+nodal_proj.max_fmg_iter = 0
+nodal_proj.mg_max_coarsening_level = 0
+nodal_proj.bottom_solver = hypre
+nodal_proj.agglomeration = 1    # Do agglomeration on AMR Level 0?
+nodal_proj.consolidation = 1    # Do consolidation?
+
+mac_proj.verbose = 1
+mac_proj.bottom_solver = hypre
+mac_proj.bottom_verbose = 2
+mac_proj.mg_max_coarsening_level = 0  # No. of GMG coarsening level before calling hypre
+mac_proj.mac_tol = 1.e-8
+mac_proj.mac_abs_tol = 1.e-10
+mac_proj.max_fmg_iter = 0     # # of F-cycles before switching to V.  To do pure V-cycle, set to 0
+mac_proj.agglomeration = 1    # Do agglomeration on AMR Level 0?
+mac_proj.consolidation = 1    # Do consolidation?
+
+hypre.hypre_solver = BoomerAMG
+hypre.adjust_singular_matrix = 1
+
+
