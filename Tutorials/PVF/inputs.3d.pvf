@@ -14,6 +14,7 @@ stop_time 		= 4.0
 
 ns.fixed_dt     = 0.001
 ns.cfl = 0.3
+ns.init_iter = 0
 
 # Refinement criterion, use vorticity and presence of tracer
 amr.refinement_indicators = tracer vorticity
@@ -29,7 +30,7 @@ amr.vorticity.vorticity_greater = 1.0
 
 # Number of cells in each coordinate direction at the coarsest level
 # amr.n_cell 		= 16 16 16
-amr.n_cell 		= 32 32 32
+amr.n_cell 		= 64 64 64 
 
 amr.max_grid_size	= 128
 
@@ -51,9 +52,9 @@ amr.ref_ratio		= 2 2 2 2
 #*******************************************************************************
 
 # Sets the "NavierStokes" code to be verbose
-ns.v                    = 1
-nodal_proj.verbose      = 1
-mac_proj.verbose        = 1
+ns.v                    = 0
+nodal_proj.verbose      = 0
+mac_proj.verbose        = 0
 
 # mac_proj.mac_tol        = 0.1
 # mac_proj.mac_abs_tol    = 0.1
