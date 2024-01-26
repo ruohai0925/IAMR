@@ -351,12 +351,6 @@ void NavierStokesBase::define_workspace()
         pvf.define(grids,dmap,1,2,MFInfo(),Factory());
     }
 
-#ifdef AMREX_USE_EB
-    init_eb(level_geom, bl, dm);
-#endif
-
-    //FIXME --- this fn is really similar to restart()... work on that later
-
     //
     // Set up reflux registers.
     //
