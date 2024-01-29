@@ -17,32 +17,29 @@ ns.cfl = 0.3
 ns.init_iter = 0
 
 # Refinement criterion, use vorticity and presence of tracer
-amr.refinement_indicators = tracer vorticity
+amr.refinement_indicators = tracer
 
-amr.tracer.value_greater = 0.1
+amr.max_level		= 2 # maximum number of levels of refinement
+# amr.tracer.value_greater = 0.1
+# amr.tracer.value_less = 1.1
 amr.tracer.field_name = tracer
+amr.tracer.in_box_lo = 0.5 0.5 0.5
+amr.tracer.in_box_hi = 1.5 1.5 1.5
 
-amr.vorticity.vorticity_greater = 1.0
-#amr.vorticity.start_time = 0.001
-#amr.vorticity.end_name = 0.002
+amr.blocking_factor     = 8
 
 #*******************************************************************************
 
 # Number of cells in each coordinate direction at the coarsest level
 # amr.n_cell 		= 16 16 16
-amr.n_cell 		= 64 64 64 
+amr.n_cell 		= 32 32 32 
 
 amr.max_grid_size	= 128
 
 #*******************************************************************************
 
-# Maximum level (defaults to 0 for single level calculation)
-amr.max_level		= 0 # maximum number of levels of refinement
-
-#*******************************************************************************
-
 # Interval (in number of level l timesteps) between regridding
-amr.regrid_int		= 2 # regrid_int 
+amr.regrid_int		= 1 # regrid_int 
 
 #*******************************************************************************
 
@@ -62,7 +59,7 @@ mac_proj.verbose        = 0
 #*******************************************************************************
 
 # Sets the "amr" code to be verbose
-amr.v                   = 0
+amr.v                   = 1
 
 #*******************************************************************************
 
@@ -99,7 +96,7 @@ ns.skip_level_projector = 0
 #*******************************************************************************
 
 # subcycling vs. non-subcycling 
-amr.subcycling_mode     = Auto 
+amr.subcycling_mode     = None 
 
 #*******************************************************************************
 
@@ -147,3 +144,5 @@ prob.blob_radius = 0.4
 ns.isolver            = 1
 ns.do_diffused_ib     = 1
 ns.prescribed_vel     = 1
+
+ns.sum_interval       = 1

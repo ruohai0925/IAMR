@@ -575,13 +575,13 @@ NavierStokes::advance (Real time,
 {
     BL_PROFILE("NavierStokes::advance()");
 
-    if (verbose)
-    {
+    //if (verbose)
+    //{
         Print() << "Advancing grids at level " << level
                 << " : starting time = "       << time
                 << " with dt = "               << dt
                 << std::endl;
-    }
+    //}
 
     advance_setup(time,dt,iteration,ncycle);
 
@@ -605,11 +605,11 @@ NavierStokes::advance (Real time,
     //
     advance_cleanup(iteration,ncycle);
 
-    if (verbose)
-    {
+    //if (verbose)
+    //{
         Print() << "NavierStokes::advance(): exiting." << std::endl;
         printMaxValues();
-    }
+    //}
 
     return dt_test;  // Return estimate of best new timestep.
 }
@@ -2544,6 +2544,8 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
     {
         dt_test = dt;
 
+        amrex::Print() << "Begin the PVF test " << std::endl;
+
         // Step 1: initialize the nodal level set function
         // Create struct to hold initial conditions parameters
         //
@@ -2593,6 +2595,9 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
         }
         pvf.mult(vol);
         amrex::Print() << "Volume with numerical integration " << pvf.sum() << std::endl;
+
+        const Real cur_time = state[State_Type].curTime();
+        fill_allgts(S_new,State_Type,0,S_new.nComp(),cur_time);
     }
     else {
         //
