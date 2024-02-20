@@ -39,6 +39,9 @@ do
     # make -j16 AMREX_CUDA_ARCH=86
     make -j16
 
+    # restore the input file
+    cp ${Cases[$i]}.temp ${Cases[$i]}
+
     for skip_level_projector in 0 1
     do
     for cycling in None Auto
