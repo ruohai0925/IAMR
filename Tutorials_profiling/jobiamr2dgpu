@@ -2,9 +2,9 @@
 
 # break the cases into different key-value pairs
 declare -A Cases
-# Cases[Bubble]=inputs.2d.bubble
+Cases[Bubble]=inputs.2d.bubble
 # Cases[ConvectedVortex]=inputs.2d.convectedvortex
-Cases[DoubleShearLayer]=inputs.2d.double_shear_layer-rotate
+# Cases[DoubleShearLayer]=inputs.2d.double_shear_layer-rotate
 # Cases[FlowPastCylinder]=inputs.2d.flow_past_cylinder-x
 # Cases[LidDrivenCavity]=inputs.2d.lid_driven_cavity
 # Cases[RayleighTaylor]=inputs.2d.rayleightaylor
@@ -22,10 +22,22 @@ do
 
     # Build a new dir for storing the results
     results_topdir=$new_case_dir/case_results_gpu2d
-    echo "delete the old dir $results_topdir"
-    rm -rf $results_topdir
+    # echo "delete the old dir $results_topdir"
+    # rm -rf $results_topdir
     echo "build a new dir $results_topdir"
     mkdir -p $results_topdir
+
+    cd $new_case_dir
+    
+    cp GNUmakefile GNUmakefile.temp
+    sed -i "s/3 # DIM/2 # DIM/g" GNUmakefile
+    sed -i "s/TRUE # MPI/FALSE # MPI/g" GNUmakefile
+    sed -i "s/TRUE # OMP/FALSE # OMP/g" GNUmakefile
+    sed -i "s/FALSE # CUDA/TRUE # CUDA/g" GNUmakefile
+
+    # build the simulation for GPU
+    # make -j16 AMREX_CUDA_ARCH=86
+    make -j16
 
     for skip_level_projector in 0 1
     do
@@ -41,15 +53,6 @@ do
     cd $new_case_dir
     cp ${Cases[$i]} ${Cases[$i]}.temp
 
-    cp GNUmakefile GNUmakefile.temp
-    sed -i "s/3 # DIM/2 # DIM/g" GNUmakefile
-    sed -i "s/TRUE # MPI/FALSE # MPI/g" GNUmakefile
-    sed -i "s/TRUE # OMP/FALSE # OMP/g" GNUmakefile
-    sed -i "s/FALSE # CUDA/TRUE # CUDA/g" GNUmakefile
-
-    # build the simulation for GPU
-    make -j16 AMREX_CUDA_ARCH=86
-
 ################################################################################
     # replace the variables
     sed -i "s/0 # skip_level_projector/${skip_level_projector} # skip_level_projector/g" ${Cases[$i]}    
@@ -60,6 +63,10 @@ do
 
     # run the simulation
     ./amr2d.gnu.PROF.CUDA.ex ${Cases[$i]} > log.txt
+
+    results_saveddir=$new_case_dir/case_results_gpu2d/gpu2d_skip${skip_level_projector}_${cycling}_mgs${max_grid_size}_$maxlev${max_level}_regrid${regrid_int}
+    echo "delete the old saved dir $results_saveddir"
+    rm -rf $results_saveddir
 
     results_bottomdir=$new_case_dir/gpu2d_skip${skip_level_projector}_${cycling}_mgs${max_grid_size}_$maxlev${max_level}_regrid${regrid_int}
     echo "delete the old dir $results_bottomdir"
@@ -75,10 +82,7 @@ do
     # restore the input file
     cp ${Cases[$i]}.temp ${Cases[$i]}
 
-    # restore the GNUMakefile
-    cp GNUmakefile.temp GNUmakefile
-
-   # exit
+    # exit
     echo "exit the dir $new_case_dir"
     cd ${work_folder}
     done
@@ -86,4 +90,10 @@ do
     done
     done
     done
+    
+    cd $new_case_dir
+    
+    # restore the GNUMakefile
+    cp GNUmakefile.temp GNUmakefile
+    
 done
