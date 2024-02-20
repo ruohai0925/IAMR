@@ -19,10 +19,21 @@ do
 
     # Build a new dir for storing the results
     results_topdir=$new_case_dir/case_results_cpu3d
-    echo "delete the old dir $results_topdir"
-    rm -rf $results_topdir
+    # echo "delete the old dir $results_topdir"
+    # rm -rf $results_topdir
     echo "build a new dir $results_topdir"
     mkdir -p $results_topdir
+
+    cd $new_case_dir
+
+    cp GNUmakefile GNUmakefile.temp
+    sed -i "s/2 # DIM/3 # DIM/g" GNUmakefile
+    sed -i "s/FALSE # MPI/TRUE # MPI/g" GNUmakefile
+    sed -i "s/FALSE # OMP/TRUE # OMP/g" GNUmakefile
+    sed -i "s/TRUE # CUDA/FALSE # CUDA/g" GNUmakefile
+
+    # build the simulation for CPU
+    make -j16
 
     for skip_level_projector in 0 #1
     do
@@ -38,16 +49,6 @@ do
     cd $new_case_dir
     cp ${Cases[$i]} ${Cases[$i]}.temp
 
-    cp GNUmakefile GNUmakefile.temp
-    sed -i "s/2 # DIM/3 # DIM/g" GNUmakefile
-    sed -i "s/FALSE # MPI/TRUE # MPI/g" GNUmakefile
-    sed -i "s/FALSE # OMP/TRUE # OMP/g" GNUmakefile
-    sed -i "s/TRUE # CUDA/FALSE # CUDA/g" GNUmakefile
-
-
-    # build the simulation for CPU
-    make -j16
-
 ################################################################################
     # replace the variables
     sed -i "s/0 # skip_level_projector/${skip_level_projector} # skip_level_projector/g" ${Cases[$i]}    
@@ -58,6 +59,9 @@ do
 
     # run the simulation
     OMP_NUM_THREADS=2 mpiexec -n 16 ./amr3d.gnu.PROF.MPI.OMP.ex ${Cases[$i]} > log.txt
+    results_saveddir=$new_case_dir/case_results_cpu3d/cpu3d_skip${skip_level_projector}_${cycling}_mgs${max_grid_size}_$maxlev${max_level}_regrid${regrid_int}
+    echo "delete the old saved dir $results_saveddir"
+    rm -rf $results_saveddir
 
     results_bottomdir=$new_case_dir/cpu3d_skip${skip_level_projector}_${cycling}_mgs${max_grid_size}_$maxlev${max_level}_regrid${regrid_int}
     echo "delete the old dir $results_bottomdir"
@@ -73,9 +77,6 @@ do
     # restore the input file
     cp ${Cases[$i]}.temp ${Cases[$i]}
 
-    # restore the GNUMakefile
-    cp GNUmakefile.temp GNUmakefile
-
     # exit
     echo "exit the dir $new_case_dir"
     cd ${work_folder}
@@ -84,4 +85,10 @@ do
     done
     done
     done
+
+    cd $new_case_dir
+
+    # restore the GNUMakefile
+    cp GNUmakefile.temp GNUmakefile
+
 done
