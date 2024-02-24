@@ -53,8 +53,15 @@ void nodal_phi_to_pvf(MultiFab& pvf, const MultiFab& phi_nodal)
 /*                     other function                            */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+AMREX_GPU_HOST_DEVICE
+[[nodiscard]] AMREX_FORCE_INLINE
+Real cal_momentum(Real rho, Real radious)
+{
+    return 8.0 * Math::pi<Real>() * rho * Math::powi<5>(radious) / 15.0;
+}
+
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void deltaFunction(int xf, Real h, Real& value)
+void amrex::deltaFunction(int xf, Real h, Real& value)
 {
     Real rr = amrex::Math::abs(xf);
     if(rr >=0 && rr < 1){
@@ -75,7 +82,7 @@ void deposit_cic (P const& p,
                   Array4<Real> const& E,
                   GpuArray<Real,AMREX_SPACEDIM> const& plo,
                   GpuArray<Real,AMREX_SPACEDIM> const& dx,
-                  const std::function<void(int, Real, Real&)>& delta)
+                  const deltaFuncType& delta)
 {
     const Real d = AMREX_D_TERM(dx[0], *dx[1], *dx[2]);
 
@@ -112,7 +119,7 @@ void interpolate_cir(P const& p, Real& Up, Real& Vp, Real& Wp,
                      Array4<Real const> const& E,
                      GpuArray<Real, AMREX_SPACEDIM> const& plo,
                      GpuArray<Real, AMREX_SPACEDIM> const& dx,
-                     const std::function<void(int, Real, Real&)>& delta)
+                     const deltaFuncType& delta)
 {
     const Real d = AMREX_D_TERM(dx[0], *dx[1], *dx[2]);
 
@@ -151,76 +158,68 @@ void mParticle::InitParticlesAndMarkers(const Vector<Real>& x,
                                         const Vector<Real>& y,
                                         const Vector<Real>& z,
                                         int radious){
-    int level = finestLevel();
-    //get particle container's tile
+    //get particle tile
     std::pair<int, int> key{0,0};
-    auto& particleTileTmp = GetParticles(level)[key];
-    
-    for(int index = 0; index < x.size(); index++){
-        //insert particle's
-        if ( ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber() ) {
-            ParticleType p;
-            p.id() = ParticleType::NextID();
-            p.cpu() = ParallelDescriptor::MyProc();
-
-            p.pos(0) = x.at(index);
-            p.pos(1) = y.at(index);
-            p.pos(2) = z.at(index);
-
-            std::array<ParticleReal, numAttri> attr;
-            attr[U_Marker] = 0.0;
-            attr[V_Marker] = 0.0;
-            attr[W_Marker] = 0.0;
-            attr[Fx_Marker] = 0.0;
-            attr[Fy_Marker] = 0.0;
-            attr[Fz_Marker] = 0.0;
-            // attr[V] = 10.0;
-            particleTileTmp.push_back(p);
-            particleTileTmp.push_back_real(attr);
-            //insert particle's markers
-            Real phiK = 0;
-            int Ml = static_cast<int>(Math::pi<Real>() / 3 * (12 * Math::powi<2>(radious / m_gdb->Geom(level).CellSizeArray()[0])));
-            //record the Ml
-            numMakerPerP.push_back(Ml);
-            for(int marker_index = 0; marker_index < Ml; marker_index++){
-                //insert code
-                ParticleType markerP;
-                markerP.id() = ParticleType::NextID();
-                p.cpu() = ParallelDescriptor::MyProc();
-                //calculate the position of marker
-                Real Hk = -1.0 + 2.0 * ( marker_index - 1) / ( Ml - 1.0);
-                Real thetaK = std::acos(Hk);
-                if(marker_index == 0 || marker_index == ( Ml - 1)){
-                    phiK = 0;
-                }else {
-                    phiK = std::fmod( phiK + 3.809 / std::sqrt(marker_index) / std::sqrt( 1 - Math::powi<2>(Hk)) , 2 * Math::pi<Real>());
-                }
-                markerP.pos(0) = x.at(index) + radious * std::sin(thetaK) * std::cos(phiK);
-                markerP.pos(1) = y.at(index) + radious * std::sin(thetaK) * std::sin(phiK);
-                markerP.pos(2) = z.at(index) + radious * std::cos(thetaK);
-
-                std::array<ParticleReal, numAttri> Marker_attr;
-                Marker_attr[U_Marker] = 0.0;
-                Marker_attr[V_Marker] = 0.0;
-                Marker_attr[W_Marker] = 0.0;
-                Marker_attr[Fx_Marker] = 0.0;
-                Marker_attr[Fy_Marker] = 0.0;
-                Marker_attr[Fz_Marker] = 0.0;
-                // attr[V] = 10.0;
-                particleTileTmp.push_back(markerP);
-                particleTileTmp.push_back_real(Marker_attr);
+    auto& particleTileTmp = GetParticles(0)[key];
+    //insert markers
+    if ( ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber() ) {
+        //insert particle's markers
+        //just initial particle, not markers
+        Real phiK = 0;
+        Real h = m_gdb->Geom(level).CellSizeArray()[0];
+        int Ml = static_cast<int>(Math::pi<Real>() / 3 * (12 * Math::powi<2>(RADIOUS / h)));
+        Real dv = Math::pi<Real>() * h / 3 / Ml * (12 * RADIOUS * RADIOUS + h * h);
+        // int Ml = 32;
+        Print() << "\n initial the particle, and the particle marker's : " << Ml << ", dv : " << dv << "\n";
+        for(int marker_index = 0; marker_index < Ml; marker_index++){
+            //insert code
+            ParticleType markerP;
+            markerP.id() = ParticleType::NextID();
+            markerP.cpu() = ParallelDescriptor::MyProc();
+            //calculate the position of marker
+            Real Hk = -1.0 + 2.0 * (marker_index) / ( Ml - 1.0);
+            Real thetaK = std::acos(Hk);
+            if(marker_index == 0 || marker_index == ( Ml - 1)){
+                phiK = 0;
+            }else {
+                phiK = std::fmod( phiK + 3.809 / std::sqrt(Ml) / std::sqrt( 1 - Math::powi<2>(Hk)) , 2 * Math::pi<Real>());
             }
+            // Print() << "Marker index : " << marker_index << ", Hk : " << Hk << ", thetak : " << thetaK << ", phiK : " << phiK << "\n";
+            markerP.pos(0) = 0.5 + RADIOUS * std::sin(thetaK) * std::cos(phiK);
+            markerP.pos(1) = 0.5 + RADIOUS * std::sin(thetaK) * std::sin(phiK);
+            markerP.pos(2) = 0.5 + RADIOUS * std::cos(thetaK);
+
+            std::array<ParticleReal, numAttri> Marker_attr;
+            Marker_attr[U_Marker] = 1.0;
+            Marker_attr[V_Marker] = 1.0;
+            Marker_attr[W_Marker] = 1.0;
+            Marker_attr[Fx_Marker] = 3.0;
+            Marker_attr[Fy_Marker] = 1.0;
+            Marker_attr[Fz_Marker] = 3.0;
+            // attr[V] = 10.0;
+            particleTileTmp.push_back(markerP);
+            particleTileTmp.push_back_real(Marker_attr);
         }
+
+        kernel mKernel;
+        mKernel.location << 0.5, 0.5, 0.5;
+        mKernel.velocity << 3.0, 1.0, 3.0;
+        mKernel.omega << 0.0, 0.0, 0.0;
+        mKernel.varphi << 0.0, 0.0, 0.0;
+        mKernel.radious = RADIOUS;
+        mKernel.ml = Ml;
+        mKernel.dv = dv;
+        mKernel.rho = 1.0;
+        particle_kernels.push_back(mKernel);
+        WriteAsciiFile(amrex::Concatenate("particle", 0));
     }
-    WriteAsciiFile(Concatenate("particle", 0));
     Redistribute();
 }
 
 void mParticle::VelocityInterpolation(const MultiFab &Eular,
-                                      const std::function<void(int, Real, Real&)>& delta)//
+                                      const deltaFuncType& delta)//
 {
     const int ng = Eular.nGrow();
-    const int level = finestLevel();
     const auto& gm = m_gdb->Geom(level);
     auto plo = gm.ProbLoArray();
     auto dx = gm.CellSizeArray();
@@ -239,28 +238,27 @@ void mParticle::VelocityInterpolation(const MultiFab &Eular,
         const auto& E = Eular[pti].array();
 
         amrex::ParallelFor(np, [=] AMREX_GPU_DEVICE (int i) noexcept{
-            interpolate_cir(p_ptr[i], Up[i], Vp[i], Wp[i], E, plo, dx, delta);
+            interpolate_cir(p_ptr[i], Up[i], Vp[i], Wp[i], particle_kernels.at(0).dv, E, plo, dx, delta);
         });
     }
-
     WriteAsciiFile(amrex::Concatenate("particle", 1));
 }
 
-void mParticle::ForceSpreading(MultiFab & Eular, const std::function<void(int, Real, Real&)>& delta){
-    int fine_level = finestLevel();
-    amrex::Print() << "\nfine_level : " << fine_level
+void mParticle::ForceSpreading(MultiFab & Eular, 
+                               const deltaFuncType& delta){
+    amrex::Print() << "\nfine_level : " << level
                    << ",  tU's size : " << Eular.size()
                    << ",  tU n grow : " << Eular.nGrow() << "\n";
     const int ng = Eular.nGrow();
     int index = 0;
-    const auto& gm = m_gdb->Geom(fine_level);
+    const auto& gm = m_gdb->Geom(level);
     auto plo = gm.ProbLoArray();
     auto dxi = gm.CellSizeArray();
-    for(mParIter pti(*this, fine_level); pti.isValid(); ++pti){
+    for(mParIter pti(*this, level); pti.isValid(); ++pti){
         const Long np = pti.numParticles();
-        const auto& fxP = pti.GetStructOfArrays().GetRealData(P_ATTR::Fx_Marker);
-        const auto& fyP = pti.GetStructOfArrays().GetRealData(P_ATTR::Fy_Marker);
-        const auto& fzP = pti.GetStructOfArrays().GetRealData(P_ATTR::Fz_Marker);
+        const auto& fxP = pti.GetStructOfArrays().GetRealData(P_ATTR::U_Marker);//Fx_Marker 
+        const auto& fyP = pti.GetStructOfArrays().GetRealData(P_ATTR::V_Marker);//Fy_Marker 
+        const auto& fzP = pti.GetStructOfArrays().GetRealData(P_ATTR::W_Marker);//Fz_Marker 
         const auto& particles = pti.GetArrayOfStructs();
         auto Uarray = Eular[pti].array();
 
@@ -269,7 +267,7 @@ void mParticle::ForceSpreading(MultiFab & Eular, const std::function<void(int, R
         const auto& fzP_ptr = fzP.data();
         const auto& p_ptr = particles().data();
         amrex::ParallelFor(np, [=] AMREX_GPU_DEVICE (int i) noexcept{
-            deposit_cic(p_ptr[i], fxP_ptr[i], fyP_ptr[i], fzP_ptr[i], Uarray, plo, dxi, delta);
+            deposit_cic(p_ptr[i], fxP_ptr[i], fyP_ptr[i], fzP_ptr[i], particle_kernels.at(0).dv, Uarray, plo, dxi, delta);
         });
     }
 }
@@ -278,4 +276,74 @@ void mParticle::VelocityCorrection(amrex::MultiFab & Eular, Real dt, Real rhoS)
 {
     //NS_LS line 29
     //        const Box& bx = mfi.growntilebox(); ghost cell
+        const auto& gm = m_gdb->Geom(level);
+    auto plo = gm.ProbLoArray();
+    auto dxi = gm.InvCellSizeArray();
+    //update the kernel's infomation and cal body force
+    int cal_index = 0;
+    for(auto & kernel : particle_kernels){
+        for(mParIter pti(*this, level); pti.isValid(); ++pti){
+            auto &particles = pti.GetArrayOfStructs();
+            auto *p_ptr = particles.data();
+            auto &attri = pti.GetAttribs();
+            auto *FxP = attri[P_ATTR::Fx_Marker].data();
+            auto *FyP = attri[P_ATTR::Fy_Marker].data();
+            auto *FzP = attri[P_ATTR::Fz_Marker].data();
+            auto *UP  = attri[P_ATTR::U_Marker].data();
+            auto *VP  = attri[P_ATTR::V_Marker].data();
+            auto *WP  = attri[P_ATTR::W_Marker].data();
+            const int numOfMarker = kernel.ml;
+            const int Dv = kernel.dv;
+            const Long np = pti.numParticles();
+
+            mVector ForceDv{0.0,0.0,0.0};
+            auto *ForceDv_ptr = &ForceDv;
+            mVector Moment{0.0,0.0,0.0};
+            auto *Moment_ptr = &Moment;
+            auto *location_ptr = &kernel.location;
+            auto *omega_ptr = &kernel.omega;
+            const Real rho_p = kernel.rho;
+            //sum
+            amrex::ParallelFor(np, [=] AMREX_GPU_DEVICE (int i) noexcept{
+                //calculate the force
+                //find current particle's lagrangian marker
+                if(p_ptr[i].id() < (cal_index + numOfMarker) && p_ptr[i].id() >= cal_index){
+                    *ForceDv_ptr += mVector(p_ptr[i].rdata(P_ATTR::Fx_Marker),
+                                            p_ptr[i].rdata(P_ATTR::Fy_Marker),
+                                            p_ptr[i].rdata(P_ATTR::Fz_Marker)) * Dv;
+                    *Moment_ptr +=  (*location_ptr - mVector(p_ptr[i].pos(0),
+                                                             p_ptr[i].pos(1),
+                                                             p_ptr[i].pos(2))).cross(
+                                    mVector(p_ptr[i].rdata(P_ATTR::Fx_Marker),
+                                            p_ptr[i].rdata(P_ATTR::Fy_Marker),
+                                            p_ptr[i].rdata(P_ATTR::Fz_Marker))) * Dv;
+                }
+            });
+            mVector oldVelocity = kernel.velocity;
+            mVector oldOmega = kernel.omega;
+            kernel.velocity = kernel.velocity -
+                              2 * alpha_k * dt / Dv / (kernel.rho - 1) * (ForceDv + mVector(0.0, -9.8, 0.0));
+            kernel.omega = kernel.omega -
+                           2 * alpha_k * dt * kernel.rho / cal_momentum(kernel.rho, kernel.radious) / (kernel.rho - 1) * Moment;
+            kernel.location = kernel.location + alpha_k * dt * (kernel.velocity + oldVelocity);
+            kernel.varphi = kernel.varphi + alpha_k * dt * (kernel.omega + oldOmega);
+            //sum
+            auto Uarray = Eular[pti].array();
+            amrex::ParallelFor(np, [=] AMREX_GPU_DEVICE (int i) noexcept{
+                //calculate the force
+                //find current particle's lagrangian marker
+                if(p_ptr[i].id() < (cal_index + numOfMarker) && p_ptr[i].id() >= cal_index){
+                    mVector tmp = (*omega_ptr).cross(mVector(*location_ptr - mVector(p_ptr[i].pos(0),
+                                                                                              p_ptr[i].pos(1),
+                                                                                              p_ptr[i].pos(2))));
+                    p_ptr[i].rdata(P_ATTR::Fx_Marker) = rho_p / dt *(p_ptr[i].rdata(P_ATTR::U_Marker) + tmp(0));
+                    p_ptr[i].rdata(P_ATTR::Fy_Marker) = rho_p / dt *(p_ptr[i].rdata(P_ATTR::V_Marker) + tmp(1));
+                    p_ptr[i].rdata(P_ATTR::Fz_Marker) = rho_p / dt *(p_ptr[i].rdata(P_ATTR::W_Marker) + tmp(2));
+                }
+            });
+        }
+        cal_index++;
+    }
+    //Lagrangian to Eular
+    ForceSpreading(Eular);
 }

@@ -4,7 +4,11 @@
 #include <AMReX_Particles.H>
 #include <AMReX_MultiFabUtil.H>
 
+#include <eigen3/Eigen/Dense>
+
 using namespace amrex;
+using mVector = Eigen::Vector<Real, 3>;
+using deltaFuncType = std::function<void(Real, Real, Real, Real&)>;
 
 AMREX_INLINE AMREX_GPU_DEVICE
 Real nodal_phi_to_heavi(Real phi)
@@ -31,6 +35,18 @@ enum P_ATTR{
     Fy_Marker,
     Fz_Marker,
     numAttri
+};
+
+
+struct kernel{
+    mVector velocity;
+    mVector location;
+    mVector omega;
+    mVector varphi;
+    Real radious;
+    Real rho;
+    Real ml;
+    Real dv;
 };
 
 class mParIter : public ParIter<0, 0, numAttri>{
@@ -83,14 +99,14 @@ public:
                                  const Vector<Real>& z,
                                  int radious);
 
-    void VelocityInterpolation(const amrex::MultiFab &Eular, const std::function<void(int, Real, Real&)>& delta = deltaFunction);
+    void VelocityInterpolation(const amrex::MultiFab &Eular, const deltaFuncType& delta = deltaFunction);
 
-    void ForceSpreading(amrex::MultiFab &Eular, const std::function<void(int, Real, Real&)>& delta = deltaFunction);
+    void ForceSpreading(amrex::MultiFab &Eular, const deltaFuncType& delta = deltaFunction);
 
-    void VelocityCorrection(amrex::MultiFab &Eular, Real dt, Real rhoS);
+    void VelocityCorrection(amrex::MultiFab& Eular, Real dt, Real alpha_k);
 
 private:
-    Vector<int> numMakerPerP;
+    Vector<kernel> particle_kernels;
 };
 
 #endif
