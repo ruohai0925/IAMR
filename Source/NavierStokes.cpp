@@ -2639,6 +2639,14 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
         //
         velocity_update(dt);
 
+        /*
+        for i = 1:Ns:
+            VelocityInterpolation(u*);
+            ComputeLagrangianForce();
+            ForceSpreading();
+            VelocityCorrection(u^(Ns));
+        */
+
         //
         // Increment rho average.
         //

@@ -349,6 +349,9 @@ void NavierStokesBase::define_workspace()
         const BoxArray& nba = amrex::convert(grids,IntVect::TheNodeVector());
         phi_nodal.define(nba,dmap,1,2,MFInfo(),Factory());
         pvf.define(grids,dmap,1,2,MFInfo(),Factory());
+
+        // Class constructor
+        // InitParticlesAndMarkers()
     }
 
     //
