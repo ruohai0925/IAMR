@@ -36,8 +36,6 @@ enum P_ATTR{
     Fz_Marker,
     numAttri
 };
-
-
 struct kernel{
     mVector velocity;
     mVector location;
@@ -79,10 +77,11 @@ public:
  * @param h 
  * @param value 
  */
-void deltaFunction(int xf, Real h, Real& value);
+void deltaFunction(Real xf, Real xp, Real h, Real& value);
 
 class mParticle : public ParticleContainer<0, 0, numAttri>{
 public:
+
     explicit mParticle(const Vector<Geometry>            & gm,
                        const Vector<DistributionMapping> & dm,
                        const Vector<BoxArray>            & ba,
@@ -91,22 +90,47 @@ public:
 
     explicit mParticle(const Geometry &gm,
                        const DistributionMapping & dm,
-                       const BoxArray & ba)
-                       : ParticleContainer<0, 0, numAttri>(gm, dm, ba){}
+                       const BoxArray & ba,
+                       Real fluid_rho, 
+                       int force_index, 
+                       int velocity_index, 
+                       int finest_level)
+                       : ParticleContainer<0, 0, numAttri>(gm, dm, ba),
+                       euler_fluid_rho(fluid_rho),
+                       euler_finest_level(finest_level),
+                       euler_force_index(force_index),
+                       euler_velocity_index(force_index){}
 
     void InitParticlesAndMarkers(const Vector<Real>& x,
                                  const Vector<Real>& y,
                                  const Vector<Real>& z,
+                                 Real rho_s,
                                  int radious);
 
-    void VelocityInterpolation(const amrex::MultiFab &Eular, const deltaFuncType& delta = deltaFunction);
+    void InteractWithEuler(MultiFab &Euler, int loop_time = 20, Real dt = 0.1, Real alpha_k = 0.5, const deltaFuncType& delta = deltaFunction);
 
-    void ForceSpreading(amrex::MultiFab &Eular, const deltaFuncType& delta = deltaFunction);
-
-    void VelocityCorrection(amrex::MultiFab& Eular, Real dt, Real alpha_k);
+    void WriteParticleFile(int index);
 
 private:
+    int euler_finest_level;
+
+    int euler_force_index;
+
+    int euler_velocity_index;
+
+    Real euler_fluid_rho;
+
     Vector<kernel> particle_kernels;
+
+    void InitialWithLargrangianPoints(const kernel& current_kernel);
+
+    void VelocityInterpolation(const amrex::MultiFab &Euler, const deltaFuncType& delta);
+
+    void ForceSpreading(amrex::MultiFab &Euler, const deltaFuncType& delta);
+
+    void VelocityCorrection(const amrex::MultiFab& Euler, kernel& kernel, Real dt, Real alpha_k );
+
+    void UpdateF(Real dt, const kernel& kernel);
 };
 
 #endif
