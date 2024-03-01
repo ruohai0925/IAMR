@@ -207,10 +207,18 @@ void mParticle::InitParticlesAndMarkers(const Vector<Real>& x,
 
     for(int index = 0; index < x.size(); index++){
         kernel mKernel;
-        mKernel.location << x[index], y[index], z[index];
-        mKernel.velocity << 0.0, 0.0, 0.0;
-        mKernel.omega << 0.0, 0.0, 0.0;
-        mKernel.varphi << 0.0, 0.0, 0.0;
+        mKernel.location[0] = x[index];
+        mKernel.location[1] = y[index];
+        mKernel.location[2] =  z[index];
+        mKernel.velocity[0] = 0.0;
+        mKernel.velocity[1] = 0.0;
+        mKernel.velocity[2] = 0.0;
+        mKernel.omega[0] = 0.0;
+        mKernel.omega[1] = 0.0;
+        mKernel.omega[2] = 0.0;
+        mKernel.varphi[0] = 0.0;
+        mKernel.varphi[1] = 0.0;
+        mKernel.varphi[2] = 0.0;
         mKernel.radious = radious;
         mKernel.ml = Ml;
         mKernel.dv = dv;
@@ -337,8 +345,8 @@ void mParticle::VelocityCorrection(const amrex::MultiFab& Euler, kernel& kernel,
         auto *WP  = attri[P_ATTR::W_Marker].data();
         const Real Dv = kernel.dv;
         const Long np = pti.numParticles();
-        mVector ForceDv{0.0,0.0,0.0};
-        mVector Moment{0.0,0.0,0.0};
+        RealVect ForceDv{std::vector<Real>{0.0,0.0,0.0}};
+        RealVect Moment{std::vector<Real>{0.0,0.0,0.0}};
         auto *ForceDv_ptr  = &ForceDv;
         auto *Moment_ptr   = &Moment;
         auto *location_ptr = &kernel.location;
@@ -350,18 +358,12 @@ void mParticle::VelocityCorrection(const amrex::MultiFab& Euler, kernel& kernel,
         amrex::ParallelFor(np, [=] AMREX_GPU_DEVICE (int i) noexcept{
             //calculate the force
             //find current particle's lagrangian marker
-            *ForceDv_ptr += mVector(FxP[i],
-                                    FyP[i],
-                                    FzP[i]) * Dv;
-            *Moment_ptr +=  (mVector(p_ptr[i].pos(0),
-                                    p_ptr[i].pos(1),
-                                    p_ptr[i].pos(2)) - *location_ptr).cross(
-                            mVector(FxP[i],
-                                    FyP[i],
-                                    FzP[i])) * Dv;
+            *ForceDv_ptr += RealVect(AMREX_D_DECL(FxP[i],FyP[i],FzP[i])) * Dv;
+            *Moment_ptr +=  (RealVect(AMREX_D_DECL(p_ptr[i].pos(0),p_ptr[i].pos(1),p_ptr[i].pos(2))) - *location_ptr).crossProduct(
+                            RealVect(AMREX_D_DECL(FxP[i],FyP[i],FzP[i]))) * Dv;
         });
-        mVector oldVelocity = kernel.velocity;
-        mVector oldOmega = kernel.omega;
+        RealVect oldVelocity = kernel.velocity;
+        RealVect oldOmega = kernel.omega;
         kernel.velocity = kernel.velocity -
                             2 * alpha_k * dt/( Math::pi<Real>() * 4 * Math::powi<3>(kernel.radious) / 3) / (kernel.rho - euler_fluid_rho) * (ForceDv);// + mVector(0.0, -9.8, 0.0));
         kernel.omega = kernel.omega -
@@ -375,24 +377,24 @@ void mParticle::VelocityCorrection(const amrex::MultiFab& Euler, kernel& kernel,
         amrex::ParallelFor(np, [=] AMREX_GPU_DEVICE (int i) noexcept{
             //calculate the force
             //find current particle's lagrangian marker
-            mVector tmp = (*omega_ptr).cross(mVector(*location_ptr - mVector(p_ptr[i].pos(0),
-                                                                                        p_ptr[i].pos(1),
-                                                                                        p_ptr[i].pos(2))));
-            FxP[i] = rho_p / dt *(UP[i] + tmp(0));
-            FyP[i] = rho_p / dt *(VP[i] + tmp(1));
-            FzP[i] = rho_p / dt *(WP[i] + tmp(2));
-            p_ptr[i].pos(0) += deltaX(0);
-            p_ptr[i].pos(1) += deltaX(1);
-            p_ptr[i].pos(2) += deltaX(2);
+            RealVect tmp = (*omega_ptr).crossProduct(*location_ptr - RealVect(p_ptr[i].pos(0),
+                                                                                    p_ptr[i].pos(1),
+                                                                                    p_ptr[i].pos(2)));
+            FxP[i] = rho_p / dt *(UP[i] + tmp[0]);
+            FyP[i] = rho_p / dt *(VP[i] + tmp[1]);
+            FzP[i] = rho_p / dt *(WP[i] + tmp[2]);
+            p_ptr[i].pos(0) += deltaX[0];
+            p_ptr[i].pos(1) += deltaX[1];
+            p_ptr[i].pos(2) += deltaX[2];
         });
     }
 }
 
 void mParticle::UpdateF(Real dt, const kernel& kernel)
 {
-    Real Ub = kernel.velocity(0);
-    Real Vb = kernel.velocity(1);
-    Real Wb = kernel.velocity(2);
+    Real Ub = kernel.velocity[0];
+    Real Vb = kernel.velocity[1];
+    Real Wb = kernel.velocity[2];
 
     for(mParIter pti(*this, euler_finest_level); pti.isValid(); ++pti){
         auto& particles = pti.GetArrayOfStructs();

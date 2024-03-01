@@ -4,10 +4,9 @@
 #include <AMReX_Particles.H>
 #include <AMReX_MultiFabUtil.H>
 
-#include <eigen3/Eigen/Dense>
+#include <AMReX_RealVect.H>
 
 using namespace amrex;
-using mVector = Eigen::Vector<Real, 3>;
 using deltaFuncType = std::function<void(Real, Real, Real, Real&)>;
 
 AMREX_INLINE AMREX_GPU_DEVICE
@@ -37,10 +36,10 @@ enum P_ATTR{
     numAttri
 };
 struct kernel{
-    mVector velocity;
-    mVector location;
-    mVector omega;
-    mVector varphi;
+    RealVect velocity;
+    RealVect location;
+    RealVect omega;
+    RealVect varphi;
     Real radious;
     Real rho;
     Real ml;
