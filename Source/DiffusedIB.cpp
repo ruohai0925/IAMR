@@ -53,23 +53,38 @@ void nodal_phi_to_pvf(MultiFab& pvf, const MultiFab& phi_nodal)
 /*                     other function                            */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-AMREX_GPU_HOST_DEVICE
 [[nodiscard]] AMREX_FORCE_INLINE
 Real cal_momentum(Real rho, Real radious)
 {
     return 8.0 * Math::pi<Real>() * rho * Math::powi<5>(radious) / 15.0;
 }
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void deltaFunction(Real xf, Real xp, Real h, Real& value)
+AMREX_FORCE_INLINE
+void deltaFunction(Real xf, Real xp, Real h, Real& value, DELTA_FUNCTION_TYPE type)
 {
     Real rr = amrex::Math::abs(( xf - xp ) / h);
-    if(rr >= 0 && rr < 1){
-        value = 1.0 / 8.0 * ( 3.0 - 2.0 * rr + std::sqrt( 1.0 + 4.0 * rr - 4 * Math::powi<2>(rr))) / h;
-    }else if (rr >= 1 && rr < 2) {
-        value = 1.0 / 8.0 * ( 5.0 - 2.0 * rr - std::sqrt( -7.0 + 12.0 * rr - 4 * Math::powi<2>(rr))) / h;
-    }else {
-        value = 0;
+
+    switch (type) {
+    case DELTA_FUNCTION_TYPE::FOUR_POINT_IB:
+        if(rr >= 0 && rr < 0.5 ){
+            value = 1.0 / 8.0 * ( 3.0 - 2.0 * rr + std::sqrt( 1.0 + 4.0 * rr - 4 * Math::powi<2>(rr))) / h;
+        }else if (rr >= 1 && rr < 2) {
+            value = 1.0 / 8.0 * ( 5.0 - 2.0 * rr - std::sqrt( -7.0 + 12.0 * rr - 4 * Math::powi<2>(rr))) / h;
+        }else {
+            value = 0;
+        }
+        break;
+    case DELTA_FUNCTION_TYPE::THREE_POINT_IB:
+        if(rr >= 0 && rr < 1){
+            value = 1.0 / 6.0 * ( 5.0 - 3.0 * rr + std::sqrt( - 3.0 * ( 1 - Math::powi<2>(rr)) + 1.0 )) / h;
+        }else if (rr >= 1 && rr < 2) {
+            value = 1.0 / 3.0 * ( 1.0 + std::sqrt( 1.0 - 3 * Math::powi<2>(rr))) / h;
+        }else {
+            value = 0;
+        }
+        break;
+    default:
+        break;
     }
 }
 
@@ -83,7 +98,7 @@ void ForceSpreading_cic (P const& p,
                   int EularFIndex,
                   GpuArray<Real,AMREX_SPACEDIM> const& plo,
                   GpuArray<Real,AMREX_SPACEDIM> const& dx,
-                  const deltaFuncType& delta)
+                  DELTA_FUNCTION_TYPE type)
 {
     const Real d = AMREX_D_TERM(dx[0], *dx[1], *dx[2]);
     //plo to ii jj kk
@@ -103,9 +118,9 @@ void ForceSpreading_cic (P const& p,
                 const Real xi = (i + ii) * dx[0] + dx[0]/2;
                 const Real yj = (j + jj) * dx[1] + dx[1]/2;
                 const Real kz = (k + kk) * dx[2] + dx[2]/2;
-                delta( p.pos(0), xi, dx[0], tU);
-                delta( p.pos(1), yj, dx[1], tV);
-                delta( p.pos(2), kz, dx[2], tW);
+                deltaFunction( p.pos(0), xi, dx[0], tU, type);
+                deltaFunction( p.pos(1), yj, dx[1], tV, type);
+                deltaFunction( p.pos(2), kz, dx[2], tW, type);
                 Real delta_value = tU * tV * tW;
                 Gpu::Atomic::AddNoRet(&E(i + ii, j + jj, k + kk, EularFIndex  ), delta_value * fxP * d);
                 Gpu::Atomic::AddNoRet(&E(i + ii, j + jj, k + kk, EularFIndex+1), delta_value * fyP * d);
@@ -121,7 +136,7 @@ void VelocityInterpolation_cir(P const& p, Real& Up, Real& Vp, Real& Wp,
                      Array4<Real const> const& E, int EularVIndex,
                      GpuArray<Real, AMREX_SPACEDIM> const& plo,
                      GpuArray<Real, AMREX_SPACEDIM> const& dx,
-                     const deltaFuncType& delta)
+                     DELTA_FUNCTION_TYPE type)
 {
     const Real d = AMREX_D_TERM(dx[0], *dx[1], *dx[2]);
 
@@ -144,9 +159,9 @@ void VelocityInterpolation_cir(P const& p, Real& Up, Real& Vp, Real& Wp,
                 const Real xi = (i + ii) * dx[0] + dx[0]/2;
                 const Real yj = (j + jj) * dx[1] + dx[1]/2;
                 const Real kz = (k + kk) * dx[2] + dx[2]/2;
-                delta( p.pos(0), xi, dx[0], tU);
-                delta( p.pos(1), yj, dx[1], tV);
-                delta( p.pos(2), kz, dx[2], tW);
+                deltaFunction( p.pos(0), xi, dx[0], tU, type);
+                deltaFunction( p.pos(1), yj, dx[1], tV, type);
+                deltaFunction( p.pos(2), kz, dx[2], tW, type);
                 const Real delta_value = tU * tV * tW;
                 Gpu::Atomic::AddNoRet( &Up, delta_value * E(i + ii, j + jj, k + kk, EularVIndex  ) * d );
                 Gpu::Atomic::AddNoRet( &Vp, delta_value * E(i + ii, j + jj, k + kk, EularVIndex+1) * d );
@@ -160,12 +175,14 @@ void VelocityInterpolation_cir(P const& p, Real& Up, Real& Vp, Real& Wp,
 /*                    mParticle member function                  */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 //loop all particels
-void mParticle::InteractWithEuler(MultiFab &Euler, int loop_time, Real dt, Real alpha_k, const deltaFuncType& delta ){
+void mParticle::InteractWithEuler(MultiFab &Euler, int loop_time, Real dt, Real alpha_k, DELTA_FUNCTION_TYPE type){
 
     for(kernel& kernel : particle_kernels){
         //switch particles
         InitialWithLargrangianPoints(kernel);
         
+        UpdateParticles(Euler, kernel, dt, alpha_k);
+        const int EulerForceIndex = euler_force_index;
         //for 1 -> Ns
         while(loop_time > 0){
             //clear Euler force
@@ -173,23 +190,25 @@ void mParticle::InteractWithEuler(MultiFab &Euler, int loop_time, Real dt, Real 
                 const auto& bx = mfi.validbox();
                 const auto& mf_array = Euler.array(mfi);
 
-                amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k){
-                    mf_array(i,j,k,euler_force_index  ) = 0.0;//+ std::exp(-r_squared);
-                    mf_array(i,j,k,euler_force_index+1) = 0.0;
-                    mf_array(i,j,k,euler_force_index+2) = 0.0;
+                amrex::ParallelFor(bx, [mf_array, EulerForceIndex] 
+                AMREX_GPU_DEVICE(int i, int j, int k){
+                    mf_array(i,j,k,EulerForceIndex  ) = 0.0;//+ std::exp(-r_squared);
+                    mf_array(i,j,k,EulerForceIndex+1) = 0.0;
+                    mf_array(i,j,k,EulerForceIndex+2) = 0.0;
                 });
             }
             //correction
-            VelocityInterpolation(Euler, delta);
-            UpdateF(dt, kernel);
-            ForceSpreading(Euler, delta);
+            VelocityInterpolation(Euler, type);
+            ComputeLagrangianForce(dt, kernel);
+            ForceSpreading(Euler, type);
+            //VelocityCorrection
             MultiFab::Saxpy(Euler, dt, Euler, euler_force_index, euler_velocity_index, 3, 0);
             loop_time--;
         };
     }
 }
 
-void mParticle::InitParticlesAndMarkers(const Vector<Real>& x,
+void mParticle::InitParticles(const Vector<Real>& x,
                                         const Vector<Real>& y,
                                         const Vector<Real>& z,
                                         Real rho_s,
@@ -276,11 +295,12 @@ void mParticle::InitialWithLargrangianPoints(const kernel& current_kernel){
 }
 
 void mParticle::VelocityInterpolation(const MultiFab &Euler,
-                                      const deltaFuncType& delta)//
+                                      DELTA_FUNCTION_TYPE type)//
 {
     const auto& gm = m_gdb->Geom(euler_finest_level);
     auto plo = gm.ProbLoArray();
     auto dx = gm.CellSizeArray();
+    const int EulerVelocityIndex = euler_velocity_index;
     //assert
     AMREX_ASSERT(OnSameGrids(euler_finest_level, *Euler[0]));
 
@@ -295,19 +315,21 @@ void mParticle::VelocityInterpolation(const MultiFab &Euler,
         auto* Wp = attri[P_ATTR::W_Marker].data();
         const auto& E = Euler[pti].array();
 
-        amrex::ParallelFor(np, [=] AMREX_GPU_DEVICE (int i) noexcept{
-            VelocityInterpolation_cir(p_ptr[i], Up[i], Vp[i], Wp[i], E, euler_velocity_index, plo, dx, delta);
+        amrex::ParallelFor(np, [=] 
+        AMREX_GPU_DEVICE (int i) noexcept{
+            VelocityInterpolation_cir(p_ptr[i], Up[i], Vp[i], Wp[i], E, EulerVelocityIndex, plo, dx, type);
         });
     }
     WriteAsciiFile(amrex::Concatenate("particle", 1));
 }
 
 void mParticle::ForceSpreading(MultiFab & Euler, 
-                               const deltaFuncType& delta){
+                               DELTA_FUNCTION_TYPE type){
     int index = 0;
     const auto& gm = m_gdb->Geom(euler_finest_level);
     auto plo = gm.ProbLoArray();
     auto dxi = gm.CellSizeArray();
+    const int EulerForceIndex = euler_force_index;
     for(mParIter pti(*this, euler_finest_level); pti.isValid(); ++pti){
         const Long np = pti.numParticles();
         const auto& fxP = pti.GetStructOfArrays().GetRealData(P_ATTR::U_Marker);//Fx_Marker 
@@ -321,13 +343,14 @@ void mParticle::ForceSpreading(MultiFab & Euler,
         const auto& fyP_ptr = fyP.data();
         const auto& fzP_ptr = fzP.data();
         const auto& p_ptr = particles().data();
-        amrex::ParallelFor(np, [=] AMREX_GPU_DEVICE (int i) noexcept{
-            ForceSpreading_cic(p_ptr[i], fxP_ptr[i], fyP_ptr[i], fzP_ptr[i], Uarray, euler_force_index, plo, dxi, delta);
+        amrex::ParallelFor(np, [=] 
+        AMREX_GPU_DEVICE (int i) noexcept{
+            ForceSpreading_cic(p_ptr[i], fxP_ptr[i], fyP_ptr[i], fzP_ptr[i], Uarray, EulerForceIndex, plo, dxi, type);
         });
     }
 }
 
-void mParticle::VelocityCorrection(const amrex::MultiFab& Euler, kernel& kernel, Real dt, Real alpha_k)
+void mParticle::UpdateParticles(const amrex::MultiFab& Euler, kernel& kernel, Real dt, Real alpha_k)
 {
     const auto& gm = m_gdb->Geom(euler_finest_level);
     auto plo = gm.ProbLoArray();
@@ -355,7 +378,8 @@ void mParticle::VelocityCorrection(const amrex::MultiFab& Euler, kernel& kernel,
         auto *varphi_ptr   = &kernel.varphi;
         const Real rho_p = kernel.rho;
         //sum
-        amrex::ParallelFor(np, [=] AMREX_GPU_DEVICE (int i) noexcept{
+        amrex::ParallelFor(np, [=] 
+        AMREX_GPU_DEVICE (int i) noexcept{
             //calculate the force
             //find current particle's lagrangian marker
             *ForceDv_ptr += RealVect(AMREX_D_DECL(FxP[i],FyP[i],FzP[i])) * Dv;
@@ -374,7 +398,8 @@ void mParticle::VelocityCorrection(const amrex::MultiFab& Euler, kernel& kernel,
         *varphi_ptr = *varphi_ptr + alpha_k * dt * (*omega_ptr + oldOmega);
         //sum
         auto Uarray = Euler[pti].array();
-        amrex::ParallelFor(np, [=] AMREX_GPU_DEVICE (int i) noexcept{
+        amrex::ParallelFor(np, [=] 
+        AMREX_GPU_DEVICE (int i) noexcept{
             //calculate the force
             //find current particle's lagrangian marker
             RealVect tmp = (*omega_ptr).crossProduct(*location_ptr - RealVect(p_ptr[i].pos(0),
@@ -390,7 +415,7 @@ void mParticle::VelocityCorrection(const amrex::MultiFab& Euler, kernel& kernel,
     }
 }
 
-void mParticle::UpdateF(Real dt, const kernel& kernel)
+void mParticle::ComputeLagrangianForce(Real dt, const kernel& kernel)
 {
     Real Ub = kernel.velocity[0];
     Real Vb = kernel.velocity[1];
@@ -408,7 +433,8 @@ void mParticle::UpdateF(Real dt, const kernel& kernel)
         auto *FxP = attri[P_ATTR::Fx_Marker].data();
         auto *FyP = attri[P_ATTR::Fy_Marker].data();
         auto *FzP = attri[P_ATTR::Fz_Marker].data();
-        amrex::ParallelFor(np, [=] AMREX_GPU_DEVICE (int i) noexcept{
+        amrex::ParallelFor(np,
+        [=] AMREX_GPU_DEVICE (int i) noexcept{
             FxP[i] = (Ub - Up[i])/dt; //
             FyP[i] = (Vb - Vp[i])/dt; //
             FzP[i] = (Wb - Wp[i])/dt; //
