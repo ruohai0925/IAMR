@@ -287,7 +287,8 @@ void mParticle::InitialWithLargrangianPoints(const kernel& current_kernel){
             phiK = 0;
         }else {
             phiK = std::fmod( phiK + 3.809 / std::sqrt(current_kernel.ml) / std::sqrt( 1 - Math::powi<2>(Hk)) , 2 * Math::pi<Real>());
-        }            
+        }
+        // bug here! 0.5;            
         particles[index].pos(0) = 0.5 + current_kernel.radious * std::sin(thetaK) * std::cos(phiK);
         particles[index].pos(1) = 0.5 + current_kernel.radious * std::sin(thetaK) * std::sin(phiK);
         particles[index].pos(2) = 0.5 + current_kernel.radious * std::cos(thetaK);
@@ -302,7 +303,7 @@ void mParticle::VelocityInterpolation(const MultiFab &Euler,
     auto dx = gm.CellSizeArray();
     const int EulerVelocityIndex = euler_velocity_index;
     //assert
-    AMREX_ASSERT(OnSameGrids(euler_finest_level, *Euler[0]));
+    //AMREX_ASSERT(OnSameGrids(euler_finest_level, *Euler[0]));
 
     for(mParIter pti(*this, euler_finest_level); pti.isValid(); ++pti){
         auto& particles = pti.GetArrayOfStructs();

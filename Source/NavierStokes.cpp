@@ -71,6 +71,23 @@ NavierStokes::Initialize ()
 
     NavierStokes::Initialize_diffusivities();
 
+    // 
+    // diffused ib
+    //
+    if (do_diffused_ib) {
+        
+        // if (level == parent->finestLevel()) {
+        // void InitParticles(const Vector<Real>& x,
+        //                 const Vector<Real>& y,
+        //                 const Vector<Real>& z,
+        //                 Real rho_s,
+        //                 int radious);
+        amrex::Vector<amrex::Real> x {0.0};
+        // mParticle_obj->InitParticles(x,x,x,1.0,1.0); // static function can not use un-static members;
+        // }
+        // InitParticlesAndMarkers()
+    }    
+
     amrex::ExecOnFinalize(NavierStokes::Finalize);
 
     initialized = true;
@@ -2641,6 +2658,12 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
         //
         velocity_update(dt);
 
+        // mParticle::InteractWithEuler(MultiFab &Euler, int loop_time, Real dt, Real alpha_k, DELTA_FUNCTION_TYPE type)
+        if (level == parent->finestLevel())
+        {
+            MultiFab&  S_new    = get_new_data(State_Type);
+            mParticle_obj->InteractWithEuler(S_new, 10, dt, 0.5);
+        }
         /*
         for i = 1:Ns:
             VelocityInterpolation(u*);

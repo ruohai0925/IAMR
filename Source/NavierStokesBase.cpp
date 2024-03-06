@@ -11,6 +11,7 @@
 #include <iamr_constants.H>
 #include <NS_LS.H>
 #include <NS_kernels.H>
+#include <DiffusedIB.H>
 
 #include <hydro_godunov.H>
 #include <hydro_bds.H>
@@ -351,6 +352,10 @@ void NavierStokesBase::define_workspace()
         pvf.define(grids,dmap,1,2,MFInfo(),Factory());
 
         // Class constructor
+        // if (level == parent->finestLevel()) {
+        mParticle_obj = new mParticle(parent->Geom(level), dmap, grids, 1.0, 0, 
+                      0, level);
+        // }
         // InitParticlesAndMarkers()
     }
 
