@@ -713,7 +713,7 @@ NavierStokesBase::advance_setup (Real /*time*/,
     umac_n_grow = 1;
 
 #ifdef AMREX_PARTICLES
-    if (ncycle > umac_n_grow) {
+    if (ncycle > umac_n_grow && NSPC) {
         umac_n_grow = ncycle;
     }
 #endif
@@ -3940,6 +3940,9 @@ NavierStokesBase::read_particle_params ()
 void
 NavierStokesBase::initParticleData ()
 {
+
+    if (!do_nspc) { return; }
+
     if (level == 0)
     {
         if (NSPC == 0)
