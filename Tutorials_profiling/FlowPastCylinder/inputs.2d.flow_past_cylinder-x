@@ -38,10 +38,10 @@ ns.scal_diff_coefs       = 1.0
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #        ADAPTIVE MESH REFINEMENT       #
 #.......................................#
-amr.n_cell              =   128 128 32    # Grid cells at coarsest AMRlevel
+amr.n_cell              =   128 128    # Grid cells at coarsest AMRlevel
 
-amr.max_grid_size	= 8 # max_grid_size
-amr.max_level		= 0 # max_level
+amr.max_grid_size	= 16 # max_grid_size
+amr.max_level		= 2 # max_level
 amr.regrid_int		= 4 # regrid_int
 ns.skip_level_projector = 0 # skip_level_projector
 amr.subcycling_mode     = Auto # subcycling_mode
@@ -53,21 +53,21 @@ amr.vorticity.vorticity_greater =  1000.0
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #              GEOMETRY                 #
 #.......................................#
-geometry.prob_lo        =  -0.04 -0.04 -0.005  # Lo corner coordinates
-geometry.prob_hi        =   0.04  0.04  0.005 # Hi corner coordinates
-geometry.is_periodic    =   0   1   1   # Periodicity x y z (0/1)
+geometry.prob_lo        =  -0.04 -0.04  # Lo corner coordinates
+geometry.prob_hi        =   0.04  0.04 # Hi corner coordinates
+geometry.is_periodic    =   0   0     # Periodicity x y z (0/1)
 geometry.coord_sys      = 0             # 0 for Cartesian, 1 for RZ
 
 # 0 = Interior/Periodic  3 = Symmetry
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWal
 # Boundary conditions on the low end of the domain.
-ns.lo_bc 	     	= 1 4 0
+ns.lo_bc 	     	= 1 4
 # Boundary conditions on the high end of the domain.
-ns.hi_bc   	     	= 2 4 0
+ns.hi_bc   	     	= 2 4
 
 # inflow velocity
-xlo.velocity = 1. 0. 0.
+xlo.velocity = 1. 0. 
 
 # Add cylinder
 #eb2.geom_type             = all_regular # for no EB
@@ -80,12 +80,12 @@ eb2.sphere_has_fluid_inside=0
 #          PROBLEM PARAMETERS           #
 #.......................................#
 prob.probtype = 4
-prob.blob_center = -0.55 0.05 0.5
+prob.blob_center = -0.55 0.05
 prob.blob_radius =  0.04
 # Constant density initial condition
 prob.density_ic = 1.0
 # Set up a flow, defaults to zero
-prob.velocity_ic = 1. 0. 0.
+prob.velocity_ic = 1. 0.
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #              VERBOSITY                #
