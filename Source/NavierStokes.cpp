@@ -9,7 +9,6 @@
 #include <iamr_constants.H>
 #include <NS_LS.H>
 #include <NS_kernels.H>
-#include <DiffusedIB.H>
 
 #ifdef BL_USE_VELOCITY
 #include <AMReX_DataServices.H>
@@ -71,6 +70,7 @@ NavierStokes::Initialize ()
 
     NavierStokes::Initialize_diffusivities();
 
+#ifdef AMREX_PARTICLES
     // 
     // diffused ib
     //
@@ -87,7 +87,7 @@ NavierStokes::Initialize ()
         // }
         // InitParticlesAndMarkers()
     }    
-
+#endif
     amrex::ExecOnFinalize(NavierStokes::Finalize);
 
     initialized = true;
@@ -2657,7 +2657,8 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
         // Add the advective and other terms to get velocity at t^{n+1}.
         //
         velocity_update(dt);
-
+        
+#ifdef AMREX_PARTICLES
         // mParticle::InteractWithEuler(MultiFab &Euler, int loop_time, Real dt, Real alpha_k, DELTA_FUNCTION_TYPE type)
         if (level == parent->finestLevel())
         {
@@ -2671,7 +2672,7 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
             ForceSpreading();
             VelocityCorrection(u^(Ns));
         */
-
+#endif
         //
         // Increment rho average.
         //

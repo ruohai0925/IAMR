@@ -11,7 +11,6 @@
 #include <iamr_constants.H>
 #include <NS_LS.H>
 #include <NS_kernels.H>
-#include <DiffusedIB.H>
 
 #include <hydro_godunov.H>
 #include <hydro_bds.H>
@@ -350,13 +349,13 @@ void NavierStokesBase::define_workspace()
         const BoxArray& nba = amrex::convert(grids,IntVect::TheNodeVector());
         phi_nodal.define(nba,dmap,1,2,MFInfo(),Factory());
         pvf.define(grids,dmap,1,2,MFInfo(),Factory());
-
+#ifdef AMREX_PARTICLES
         // Class constructor
         // if (level == parent->finestLevel()) {
-        mParticle_obj = new mParticle(parent->Geom(level), dmap, grids, 1.0, 0, 
-                      0, level);
+        mParticle_obj = new mParticle(geom, dmap, grids, level);
         // }
         // InitParticlesAndMarkers()
+#endif
     }
 
     //
