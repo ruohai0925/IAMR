@@ -15,9 +15,9 @@
 #include <Projection.H>
 #include <SyncRegister.H>
 #include <AMReX_Utility.H>
-#include <DiffusedIB.H>
 
 #ifdef AMREX_PARTICLES
+#include <DiffusedIB.H>
 #include <AMReX_AmrParticles.H>
 #endif
 
@@ -888,8 +888,9 @@ public:
     static int  do_diffused_ib;
     amrex::MultiFab phi_nodal;
     amrex::MultiFab pvf;
+#ifdef AMREX_PARTICLES
     mParticle *mParticle_obj;
-
+#endif
     int nghost_state () const;
     static constexpr int nghost_force () { return 1; }
 
