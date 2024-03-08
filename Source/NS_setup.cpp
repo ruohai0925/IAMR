@@ -498,6 +498,15 @@ NavierStokes::variableSetUp ()
     }
 #endif
 
+// #ifdef AMREX_PARTICLES
+//     if (do_diffused_ib) {
+//         Vector<Real> x {7.5};
+//         Vector<Real> y {3.0};
+//         Vector<Real> z {3.0};
+//         mParticle_obj->InitParticles(x,y,z,1.0,0.5,1.0,3,0);
+//     }
+// #endif
+
     //
     // **************  DEFINE ERROR ESTIMATION QUANTITIES  *************
     //

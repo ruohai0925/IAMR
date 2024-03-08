@@ -2663,6 +2663,10 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
         if (level == parent->finestLevel())
         {
             MultiFab&  S_new    = get_new_data(State_Type);
+            // re-construct a new multifab aliasing with S_new;
+            // build a new multifab F_new (0,1,2);
+            // combine the address of vel in S_new and F_new to be vel_eulerforce
+            // vel_eulerforce(xvel, yvel, zvel, xforace, yforce, zforce);
             mParticle_obj->InteractWithEuler(S_new, 10, dt, 0.5);
         }
         /*

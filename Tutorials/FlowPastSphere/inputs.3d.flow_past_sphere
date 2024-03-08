@@ -127,6 +127,9 @@ ns.hi_bc             = 2 0 0
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 
+# Boundary condition
+xlo.velocity            =   1.  0.  0.
+
 #*******************************************************************************
 
 # Problem parameters

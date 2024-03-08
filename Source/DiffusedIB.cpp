@@ -218,7 +218,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
                               int velocity_index){                                        
     euler_force_index = force_index;
     euler_fluid_rho = rho_f;
-    euler_velocity_index = force_index;
+    euler_velocity_index = velocity_index;
     //pre judge
     if(!((x.size() == y.size()) && (x.size() == z.size()))){
         Print() << "particle's position container are all different size";

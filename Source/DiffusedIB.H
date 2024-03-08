@@ -90,7 +90,6 @@ public:
                        const BoxArray & ba,
                        int finest_level)
                        : ParticleContainer<0, 0, numAttri>(gm, dm, ba),
-                       euler_fluid_rho(rho_f),
                        euler_finest_level(finest_level){}
 
     void InitParticles(const Vector<Real>& x,

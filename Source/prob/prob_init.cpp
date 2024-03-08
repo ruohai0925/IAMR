@@ -172,7 +172,7 @@ void NavierStokes::prob_initData ()
                              S_new.array(mfi, Density), nscal,
                              domain, dx, problo, probhi, IC);
         }
-        else if ( 98 == probtype )
+        else if ( 98 == probtype ) // for PVF case
         {
             init_particles(vbx, P_new.array(mfi), S_new.array(mfi, Xvel),
                              S_new.array(mfi, Density), nscal,
