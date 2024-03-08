@@ -88,21 +88,19 @@ public:
     explicit mParticle(const Geometry &gm,
                        const DistributionMapping & dm,
                        const BoxArray & ba,
-                       Real rho_f, 
-                       int force_index, 
-                       int velocity_index, 
                        int finest_level)
                        : ParticleContainer<0, 0, numAttri>(gm, dm, ba),
                        euler_fluid_rho(rho_f),
-                       euler_finest_level(finest_level),
-                       euler_force_index(force_index),
-                       euler_velocity_index(force_index){}
+                       euler_finest_level(finest_level){}
 
     void InitParticles(const Vector<Real>& x,
                        const Vector<Real>& y,
                        const Vector<Real>& z,
                        Real rho_s,
-                       int radious);
+                       int radious,
+                       Real rho_f, 
+                       int force_index, 
+                       int velocity_index);
 
     void InteractWithEuler(MultiFab &Euler, int loop_time = 20, Real dt = 0.1, Real alpha_k = 0.5, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
 

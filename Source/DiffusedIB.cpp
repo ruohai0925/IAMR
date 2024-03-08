@@ -209,10 +209,16 @@ void mParticle::InteractWithEuler(MultiFab &Euler, int loop_time, Real dt, Real 
 }
 
 void mParticle::InitParticles(const Vector<Real>& x,
-                                        const Vector<Real>& y,
-                                        const Vector<Real>& z,
-                                        Real rho_s,
-                                        int radious){
+                              const Vector<Real>& y,
+                              const Vector<Real>& z,
+                              Real rho_s,
+                              int radious,
+                              Real rho_f, 
+                              int force_index, 
+                              int velocity_index){                                        
+    euler_force_index = force_index;
+    euler_fluid_rho = rho_f;
+    euler_velocity_index = force_index;
     //pre judge
     if(!((x.size() == y.size()) && (x.size() == z.size()))){
         Print() << "particle's position container are all different size";
@@ -288,10 +294,10 @@ void mParticle::InitialWithLargrangianPoints(const kernel& current_kernel){
         }else {
             phiK = std::fmod( phiK + 3.809 / std::sqrt(current_kernel.ml) / std::sqrt( 1 - Math::powi<2>(Hk)) , 2 * Math::pi<Real>());
         }
-        // bug here! 0.5;            
-        particles[index].pos(0) = 0.5 + current_kernel.radious * std::sin(thetaK) * std::cos(phiK);
-        particles[index].pos(1) = 0.5 + current_kernel.radious * std::sin(thetaK) * std::sin(phiK);
-        particles[index].pos(2) = 0.5 + current_kernel.radious * std::cos(thetaK);
+        // update LargrangianPoint position with particle position           
+        particles[index].pos(0) = current_kernel.location[0] + current_kernel.radious * std::sin(thetaK) * std::cos(phiK);
+        particles[index].pos(1) = current_kernel.location[1] + current_kernel.radious * std::sin(thetaK) * std::sin(phiK);
+        particles[index].pos(2) = current_kernel.location[2] + current_kernel.radious * std::cos(thetaK);
     }
 }
 
