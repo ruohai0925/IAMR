@@ -87,19 +87,18 @@ public:
 
     explicit mParticle(const Geometry &gm,
                        const DistributionMapping & dm,
-                       const BoxArray & ba,
-                       int finest_level)
-                       : ParticleContainer<0, 0, numAttri>(gm, dm, ba),
-                       euler_finest_level(finest_level){}
+                       const BoxArray & ba)
+                       : ParticleContainer<0, 0, numAttri>(gm, dm, ba){}
 
     void InitParticles(const Vector<Real>& x,
                        const Vector<Real>& y,
                        const Vector<Real>& z,
                        Real rho_s,
-                       int radious,
+                       Real radious,
                        Real rho_f, 
                        int force_index, 
-                       int velocity_index);
+                       int velocity_index,
+                       int finest_level);
 
     void InteractWithEuler(MultiFab &Euler, int loop_time = 20, Real dt = 0.1, Real alpha_k = 0.5, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
 
@@ -125,6 +124,37 @@ public:
     void UpdateParticles(const amrex::MultiFab& Euler, kernel& kernel, Real dt, Real alpha_k );
 
     void ComputeLagrangianForce(Real dt, const kernel& kernel);
+};
+
+class Particles{
+public:
+    static void create_particles(const Geometry &gm,
+                                 const DistributionMapping & dm,
+                                 const BoxArray & ba);
+
+    static mParticle* get_particles();
+    static void init_particle();
+
+    static void define_para(const Vector<Real>& x,
+                            const Vector<Real>& y,
+                            const Vector<Real>& z,
+                            Real rho_s,
+                            Real radious,
+                            Real rho_f, 
+                            int force_index, 
+                            int velocity_index,
+                            int finest_level);
+
+private:
+    inline static Vector<Real> _x{}, _y{}, _z{};
+    inline static int euler_finest_level = 0;
+    inline static int euler_velocity_index = 0;
+    inline static int euler_force_index = 0;
+    inline static Real euler_fluid_rho = 0.0;
+    inline static Real euler_solid_rho = 0.0;
+    inline static Real particle_radious = 0.0;
+
+    inline static mParticle* particle = nullptr;
 };
 
 #endif
