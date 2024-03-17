@@ -609,7 +609,9 @@ NavierStokes::advance (Real time,
         dt_test = advance_semistaggered_twophase_ls(time,dt,iteration,ncycle);
     }
     else if(isolver==1 && do_diffused_ib==1) {
+#ifdef AMREX_PARTICLES
         dt_test = advance_semistaggered_fsi_diffusedib(time,dt,iteration,ncycle);
+#endif
     }
     else if (isolver==2) { // To be implemented
         dt_test = advance_staggered_twophase_clsvof(time,dt,iteration,ncycle);

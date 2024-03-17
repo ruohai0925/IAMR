@@ -108,11 +108,12 @@ public:
                          amrex::Real dt,
                          int  iteration,
                          int  ncycle);
-
+#ifdef AMREX_PARTICLES
     amrex::Real advance_semistaggered_fsi_diffusedib (amrex::Real time,
                          amrex::Real dt,
                          int  iteration,
                          int  ncycle);
+#endif
 
     amrex::Real advance_staggered_twophase_clsvof (amrex::Real time,
                          amrex::Real dt,
