@@ -2667,7 +2667,7 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
             // build a new multifab F_new (0,1,2);
             // combine the address of vel in S_new and F_new to be vel_eulerforce
             // vel_eulerforce(xvel, yvel, zvel, xforace, yforce, zforce);
-            mParticle_obj->InteractWithEuler(S_new, 10, dt, 0.5);
+            Particles::get_particles()->InteractWithEuler(S_new, 10, dt, 0.5);
         }
         /*
         for i = 1:Ns:

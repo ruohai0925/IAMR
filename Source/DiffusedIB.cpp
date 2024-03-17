@@ -212,10 +212,12 @@ void mParticle::InitParticles(const Vector<Real>& x,
                               const Vector<Real>& y,
                               const Vector<Real>& z,
                               Real rho_s,
-                              int radious,
+                              Real radious,
                               Real rho_f, 
                               int force_index, 
-                              int velocity_index){                                        
+                              int velocity_index,
+                              int finest_level){
+    euler_finest_level = finest_level;                                      
     euler_force_index = force_index;
     euler_fluid_rho = rho_f;
     euler_velocity_index = velocity_index;
@@ -452,4 +454,51 @@ void mParticle::ComputeLagrangianForce(Real dt, const kernel& kernel)
 void mParticle::WriteParticleFile(int index)
 {
     WriteAsciiFile(amrex::Concatenate("particle", index));
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/*                    Particles member function                  */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+void Particles::create_particles(const Geometry &gm,
+                             const DistributionMapping & dm,
+                             const BoxArray & ba)
+{
+    particle = new  mParticle(gm, dm, ba);
+}
+
+mParticle* Particles::get_particles()
+{
+    return particle;
+}
+
+void Particles::define_para(const Vector<Real>& x,
+                            const Vector<Real>& y,
+                            const Vector<Real>& z,
+                            Real rho_s,
+                            Real radious,
+                            Real rho_f, 
+                            int force_index, 
+                            int velocity_index,
+                            int finest_level)
+{
+    std::copy(x.begin(), x.end(), std::back_inserter(_x));
+    std::copy(y.begin(), y.end(), std::back_inserter(_y));
+    std::copy(z.begin(), z.end(), std::back_inserter(_z));
+
+    euler_fluid_rho = rho_f;
+    euler_solid_rho = rho_s;
+
+    particle_radious = radious;
+
+    euler_finest_level = finest_level;
+    euler_velocity_index = velocity_index;
+    euler_force_index = force_index;
+}
+
+void Particles::init_particle()
+{
+    if(particle != nullptr){
+        particle->InitParticles(_x, _y, _z, euler_solid_rho, particle_radious, euler_fluid_rho,
+         euler_force_index, euler_velocity_index, euler_finest_level);
+    }
 }
