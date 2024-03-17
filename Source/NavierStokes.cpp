@@ -2421,6 +2421,7 @@ NavierStokes::advance_semistaggered_twophase_ls (Real time,
     return dt_test;  // Return estimate of best new timestep.
 }
 
+#ifdef AMREX_PARTICLES
 Real
 NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
                        Real dt,
@@ -2730,6 +2731,7 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
 
     return dt_test;  // Return estimate of best new timestep.
 }
+#endif
 
 //
 // clsvof
