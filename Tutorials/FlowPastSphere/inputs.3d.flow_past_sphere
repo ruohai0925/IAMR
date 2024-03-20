@@ -31,9 +31,9 @@ amr.blocking_factor     = 8
 #*******************************************************************************
 
 # Number of cells in each coordinate direction at the coarsest level
-amr.n_cell 		= 300 120 120 
-
-amr.max_grid_size	= 64
+amr.n_cell 		= 144 64 64 
+# amr.n_cell 		= 288 128 128 
+amr.max_grid_size	= 32
 
 #*******************************************************************************
 
@@ -48,9 +48,9 @@ amr.ref_ratio		= 2 2 2 2
 #*******************************************************************************
 
 # Sets the "NavierStokes" code to be verbose
-ns.v                    = 0
-nodal_proj.verbose      = 0
-mac_proj.verbose        = 0
+ns.v                    = 1
+nodal_proj.verbose      = 1
+mac_proj.verbose        = 1
 
 # mac_proj.mac_tol        = 0.1
 # mac_proj.mac_abs_tol    = 0.1
@@ -75,7 +75,7 @@ amr.plot_int		= 1
 #*******************************************************************************
 
 # Viscosity coefficient 
-ns.vel_visc_coef        = 0.1
+ns.vel_visc_coef        = 0.01
 
 #*******************************************************************************
 
@@ -108,7 +108,7 @@ geometry.coord_sys   =  0
 geometry.prob_lo     =  0. 0. 0.
 
 # Physical dimensions of the high end of the domain.
-geometry.prob_hi     =  15. 6. 6.
+geometry.prob_hi     =  13.5 6. 6.
 
 #*******************************************************************************
 
@@ -133,9 +133,7 @@ xlo.velocity            =   1.  0.  0.
 #*******************************************************************************
 
 # Problem parameters
-prob.probtype = 98
-prob.blob_center = 1. 1. 1. 
-prob.blob_radius = 0.4
+prob.probtype = 1
 
 #*******************************************************************************
 

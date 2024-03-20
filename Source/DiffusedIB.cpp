@@ -95,7 +95,7 @@ void ForceSpreading_cic (P const& p,
                   ParticleReal fyP,
                   ParticleReal fzP,
                   Array4<Real> const& E,
-                  int EularFIndex,
+                  int EulerFIndex,
                   GpuArray<Real,AMREX_SPACEDIM> const& plo,
                   GpuArray<Real,AMREX_SPACEDIM> const& dx,
                   DELTA_FUNCTION_TYPE type)
@@ -122,9 +122,9 @@ void ForceSpreading_cic (P const& p,
                 deltaFunction( p.pos(1), yj, dx[1], tV, type);
                 deltaFunction( p.pos(2), kz, dx[2], tW, type);
                 Real delta_value = tU * tV * tW;
-                Gpu::Atomic::AddNoRet(&E(i + ii, j + jj, k + kk, EularFIndex  ), delta_value * fxP * d);
-                Gpu::Atomic::AddNoRet(&E(i + ii, j + jj, k + kk, EularFIndex+1), delta_value * fyP * d);
-                Gpu::Atomic::AddNoRet(&E(i + ii, j + jj, k + kk, EularFIndex+2), delta_value * fzP * d);
+                Gpu::Atomic::AddNoRet(&E(i + ii, j + jj, k + kk, EulerFIndex  ), delta_value * fxP * d);
+                Gpu::Atomic::AddNoRet(&E(i + ii, j + jj, k + kk, EulerFIndex+1), delta_value * fyP * d);
+                Gpu::Atomic::AddNoRet(&E(i + ii, j + jj, k + kk, EulerFIndex+2), delta_value * fzP * d);
             }
         }
     }
@@ -133,7 +133,7 @@ void ForceSpreading_cic (P const& p,
 template <typename P = Particle<numAttri>>
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void VelocityInterpolation_cir(P const& p, Real& Up, Real& Vp, Real& Wp,
-                     Array4<Real const> const& E, int EularVIndex,
+                     Array4<Real const> const& E, int EulerVIndex,
                      GpuArray<Real, AMREX_SPACEDIM> const& plo,
                      GpuArray<Real, AMREX_SPACEDIM> const& dx,
                      DELTA_FUNCTION_TYPE type)
@@ -163,9 +163,9 @@ void VelocityInterpolation_cir(P const& p, Real& Up, Real& Vp, Real& Wp,
                 deltaFunction( p.pos(1), yj, dx[1], tV, type);
                 deltaFunction( p.pos(2), kz, dx[2], tW, type);
                 const Real delta_value = tU * tV * tW;
-                Gpu::Atomic::AddNoRet( &Up, delta_value * E(i + ii, j + jj, k + kk, EularVIndex  ) * d );
-                Gpu::Atomic::AddNoRet( &Vp, delta_value * E(i + ii, j + jj, k + kk, EularVIndex+1) * d );
-                Gpu::Atomic::AddNoRet( &Wp, delta_value * E(i + ii, j + jj, k + kk, EularVIndex+2) * d );
+                Gpu::Atomic::AddNoRet( &Up, delta_value * E(i + ii, j + jj, k + kk, EulerVIndex  ) * d );
+                Gpu::Atomic::AddNoRet( &Vp, delta_value * E(i + ii, j + jj, k + kk, EulerVIndex+1) * d );
+                Gpu::Atomic::AddNoRet( &Wp, delta_value * E(i + ii, j + jj, k + kk, EulerVIndex+2) * d );
             }
         }
     }
@@ -175,34 +175,21 @@ void VelocityInterpolation_cir(P const& p, Real& Up, Real& Vp, Real& Wp,
 /*                    mParticle member function                  */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 //loop all particels
-void mParticle::InteractWithEuler(MultiFab &Euler, int loop_time, Real dt, Real alpha_k, DELTA_FUNCTION_TYPE type){
+void mParticle::InteractWithEuler(MultiFab &EulerVel, MultiFab &EulerForce, int loop_time, Real dt, Real alpha_k, DELTA_FUNCTION_TYPE type){
 
     for(kernel& kernel : particle_kernels){
-        //switch particles
-        InitialWithLargrangianPoints(kernel);
         
-        UpdateParticles(Euler, kernel, dt, alpha_k);
+        InitialWithLargrangianPoints(kernel); // Initialize markers for a specific particle
+        
+        //UpdateParticles(Euler, kernel, dt, alpha_k);
         const int EulerForceIndex = euler_force_index;
         //for 1 -> Ns
         while(loop_time > 0){
-            //clear Euler force
-            for(amrex::MFIter mfi(Euler); mfi.isValid(); ++mfi){
-                const auto& bx = mfi.validbox();
-                const auto& mf_array = Euler.array(mfi);
-
-                amrex::ParallelFor(bx, [mf_array, EulerForceIndex] 
-                AMREX_GPU_DEVICE(int i, int j, int k){
-                    mf_array(i,j,k,EulerForceIndex  ) = 0.0;//+ std::exp(-r_squared);
-                    mf_array(i,j,k,EulerForceIndex+1) = 0.0;
-                    mf_array(i,j,k,EulerForceIndex+2) = 0.0;
-                });
-            }
-            //correction
-            VelocityInterpolation(Euler, type);
+            EulerForce.setVal(0.0, EulerForceIndex, 3, EulerForce.nGrow()); //clear Euler force
+            VelocityInterpolation(EulerVel, type);
             ComputeLagrangianForce(dt, kernel);
-            ForceSpreading(Euler, type);
-            //VelocityCorrection
-            MultiFab::Saxpy(Euler, dt, Euler, euler_force_index, euler_velocity_index, 3, 0);
+            ForceSpreading(EulerForce, type);
+            MultiFab::Saxpy(EulerVel, dt, EulerForce, euler_force_index, euler_velocity_index, 3, 0); //VelocityCorrection
             loop_time--;
         };
     }
@@ -236,7 +223,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
         kernel mKernel;
         mKernel.location[0] = x[index];
         mKernel.location[1] = y[index];
-        mKernel.location[2] =  z[index];
+        mKernel.location[2] = z[index];
         mKernel.velocity[0] = 0.0;
         mKernel.velocity[1] = 0.0;
         mKernel.velocity[2] = 0.0;
@@ -303,15 +290,13 @@ void mParticle::InitialWithLargrangianPoints(const kernel& current_kernel){
     }
 }
 
-void mParticle::VelocityInterpolation(const MultiFab &Euler,
+void mParticle::VelocityInterpolation(const MultiFab &EulerVel,
                                       DELTA_FUNCTION_TYPE type)//
 {
     const auto& gm = m_gdb->Geom(euler_finest_level);
     auto plo = gm.ProbLoArray();
     auto dx = gm.CellSizeArray();
     const int EulerVelocityIndex = euler_velocity_index;
-    //assert
-    //AMREX_ASSERT(OnSameGrids(euler_finest_level, *Euler[0]));
 
     for(mParIter pti(*this, euler_finest_level); pti.isValid(); ++pti){
         auto& particles = pti.GetArrayOfStructs();
@@ -322,7 +307,7 @@ void mParticle::VelocityInterpolation(const MultiFab &Euler,
         auto* Up = attri[P_ATTR::U_Marker].data();
         auto* Vp = attri[P_ATTR::V_Marker].data();
         auto* Wp = attri[P_ATTR::W_Marker].data();
-        const auto& E = Euler[pti].array();
+        const auto& E = EulerVel[pti].array();
 
         amrex::ParallelFor(np, [=] 
         AMREX_GPU_DEVICE (int i) noexcept{
@@ -332,7 +317,7 @@ void mParticle::VelocityInterpolation(const MultiFab &Euler,
     WriteAsciiFile(amrex::Concatenate("particle", 1));
 }
 
-void mParticle::ForceSpreading(MultiFab & Euler, 
+void mParticle::ForceSpreading(MultiFab & EulerForce, 
                                DELTA_FUNCTION_TYPE type){
     int index = 0;
     const auto& gm = m_gdb->Geom(euler_finest_level);
@@ -346,7 +331,7 @@ void mParticle::ForceSpreading(MultiFab & Euler,
         const auto& fzP = pti.GetStructOfArrays().GetRealData(P_ATTR::W_Marker);//Fz_Marker 
         const auto& particles = pti.GetArrayOfStructs();
 
-        auto Uarray = Euler[pti].array();
+        auto Uarray = EulerForce[pti].array();
 
         const auto& fxP_ptr = fxP.data();
         const auto& fyP_ptr = fyP.data();

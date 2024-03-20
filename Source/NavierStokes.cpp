@@ -55,7 +55,7 @@ NavierStokes::Initialize ()
     if (do_phi)
         phicomp = NUM_STATE++;
     if (verbose) 
-        amrex::Print() << "phicomp, NUM_STATE " << phicomp << " " << NUM_STATE << std::endl;
+        amrex::Print() << "do_phi, phicomp, NUM_STATE " << do_phi << " " << phicomp << " " << NUM_STATE << std::endl;
 
     //
     // ls related
@@ -70,24 +70,6 @@ NavierStokes::Initialize ()
 
     NavierStokes::Initialize_diffusivities();
 
-#ifdef AMREX_PARTICLES
-    // 
-    // diffused ib
-    //
-    if (do_diffused_ib) {
-        
-        // if (level == parent->finestLevel()) {
-        // void InitParticles(const Vector<Real>& x,
-        //                 const Vector<Real>& y,
-        //                 const Vector<Real>& z,
-        //                 Real rho_s,
-        //                 int radious);
-        amrex::Vector<amrex::Real> x {0.0};
-        // mParticle_obj->InitParticles(x,x,x,1.0,1.0); // static function can not use un-static members;
-        // }
-        // InitParticlesAndMarkers()
-    }    
-#endif
     amrex::ExecOnFinalize(NavierStokes::Finalize);
 
     initialized = true;
@@ -2662,23 +2644,12 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
         velocity_update(dt);
         
 #ifdef AMREX_PARTICLES
-        // mParticle::InteractWithEuler(MultiFab &Euler, int loop_time, Real dt, Real alpha_k, DELTA_FUNCTION_TYPE type)
         if (level == parent->finestLevel())
         {
             MultiFab&  S_new    = get_new_data(State_Type);
-            // re-construct a new multifab aliasing with S_new;
-            // build a new multifab F_new (0,1,2);
-            // combine the address of vel in S_new and F_new to be vel_eulerforce
-            // vel_eulerforce(xvel, yvel, zvel, xforace, yforce, zforce);
-            Particles::get_particles()->InteractWithEuler(S_new, 10, dt, 0.5);
+            MultiFab EulerForce(S_new.boxArray(), S_new.DistributionMap(), 3, S_new.nGrow());            
+            Particles::get_particles()->InteractWithEuler(S_new, EulerForce, 2, dt, 0.5);
         }
-        /*
-        for i = 1:Ns:
-            VelocityInterpolation(u*);
-            ComputeLagrangianForce();
-            ForceSpreading();
-            VelocityCorrection(u^(Ns));
-        */
 #endif
         //
         // Increment rho average.

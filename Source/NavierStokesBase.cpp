@@ -350,19 +350,14 @@ void NavierStokesBase::define_workspace()
         phi_nodal.define(nba,dmap,1,2,MFInfo(),Factory());
         pvf.define(grids,dmap,1,2,MFInfo(),Factory());
 #ifdef AMREX_PARTICLES
-        // Class constructor
-        // if (level == parent->finestLevel()) {
-        Particles::create_particles(geom, dmap, grids);            
-        if (do_diffused_ib) {
+        if (level == parent->finestLevel()) {
+            Particles::create_particles(geom, dmap, grids); // Class constructor           
             Vector<Real> x {7.5};
             Vector<Real> y {3.0};
             Vector<Real> z {3.0};
-            Particles::define_para(x, y, z, 1.0, 0.5, 1.0, 3, 0, level);
+            Particles::define_para(x, y, z, 1.0, 0.5, 1.0, 0, 0, level);
             Particles::init_particle();
         }
-        // mParticle_obj = new mParticle(geom, dmap, grids, level);
-        // }
-        // InitParticlesAndMarkers()
 #endif
     }
 

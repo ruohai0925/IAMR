@@ -100,7 +100,7 @@ public:
                        int velocity_index,
                        int finest_level);
 
-    void InteractWithEuler(MultiFab &Euler, int loop_time = 20, Real dt = 0.1, Real alpha_k = 0.5, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
+    void InteractWithEuler(MultiFab &EulerVel, MultiFab &EulerForce, int loop_time = 20, Real dt = 0.1, Real alpha_k = 0.5, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
 
     void WriteParticleFile(int index);
 
