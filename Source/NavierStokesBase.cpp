@@ -351,6 +351,7 @@ void NavierStokesBase::define_workspace()
         pvf.define(grids,dmap,1,2,MFInfo(),Factory());
 #ifdef AMREX_PARTICLES
         if (level == parent->finestLevel()) {
+            amrex::Print() << "Check grids " << grids << " " << level << " " << parent->finestLevel() << std::endl;
             Particles::create_particles(geom, dmap, grids); // Class constructor           
             Vector<Real> x {7.5};
             Vector<Real> y {3.0};

@@ -5,6 +5,7 @@
 #include <AMReX_MultiFabUtil.H>
 
 #include <AMReX_RealVect.H>
+#include <fstream>
 
 using namespace amrex;
 // using deltaFuncType = std::function<AMREX_GPU_HOST_DEVICE void(Real, Real, Real, Real&)>;
@@ -124,6 +125,8 @@ public:
     void UpdateParticles(const amrex::MultiFab& Euler, kernel& kernel, Real dt, Real alpha_k );
 
     void ComputeLagrangianForce(Real dt, const kernel& kernel);
+
+    int verbose = 1;
 };
 
 class Particles{
