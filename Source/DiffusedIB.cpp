@@ -420,6 +420,7 @@ void mParticle::ForceSpreading(MultiFab & EulerForce,
     std::ofstream outFile("EulerForce.txt");
 
     // Check the Multifab
+    // for (MFIter mfi(EulerForce, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     for (MFIter mfi(EulerForce, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box& bx = mfi.validbox();

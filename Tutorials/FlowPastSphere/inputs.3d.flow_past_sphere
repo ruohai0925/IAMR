@@ -34,7 +34,7 @@ amr.blocking_factor     = 16
 amr.n_cell 		= 32 16 16 
 # amr.n_cell 		= 144 64 64 
 # amr.n_cell 		= 288 128 128 
-amr.max_grid_size	= 16
+amr.max_grid_size	= 32
 # amr.max_grid_size	= 32
 
 #*******************************************************************************
