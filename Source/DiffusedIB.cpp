@@ -202,7 +202,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
             particleTileTmp.push_back_real(Marker_attr);
         }
     }
-    Redistribute(); // No need to redistribute here! 
+    //Redistribute(); // No need to redistribute here! 
     WriteAsciiFile(amrex::Concatenate("particle", 0));
 }
 
@@ -211,7 +211,7 @@ void mParticle::InitialWithLargrangianPoints(const kernel& current_kernel){
     if (verbose) amrex::Print() << "mParticle::InitialWithLargrangianPoints " << std::endl;
 
     // Update the markers' locations
-    {
+    if ( ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber() ) {
         mParIter pti(*this, euler_finest_level);
         auto *particles = pti.GetArrayOfStructs().data();
 
@@ -511,6 +511,7 @@ void mParticle::UpdateParticles(const amrex::MultiFab& Euler, kernel& kernel, Re
             p_ptr[i].pos(2) += deltaX[2];
         });
     }
+    Redistribute();
     WriteAsciiFile(amrex::Concatenate("particle", 4));
 }
 
