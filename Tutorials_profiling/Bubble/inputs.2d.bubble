@@ -10,7 +10,7 @@
 max_step 		= 200
 
 # Time at which calculation stops, if max_step is not reached first.
-stop_time 		= 1.0
+stop_time 		= 5.0
 
 # Refinement criterion, use vorticity and presence of tracer
 amr.refinement_indicators = tracer vorticity

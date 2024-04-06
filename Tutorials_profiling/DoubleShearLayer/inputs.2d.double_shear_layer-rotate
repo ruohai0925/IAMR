@@ -43,8 +43,8 @@ ns.scal_diff_coefs   	= 0.0
 # Number of cells in each coordinate direction at the coarsest level
 amr.n_cell 			= 128 128
 
-amr.max_grid_size	= 16 # max_grid_size
-amr.max_level		= 1
+amr.max_grid_size	= 8 # max_grid_size
+amr.max_level		= 0 # max_level
 amr.regrid_int		= 4 # regrid_int
 ns.skip_level_projector = 0 # skip_level_projector
 amr.subcycling_mode     = Auto # subcycling_mode

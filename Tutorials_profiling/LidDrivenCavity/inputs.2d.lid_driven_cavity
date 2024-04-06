@@ -22,7 +22,7 @@ ns.init_dt              = 0.0140625
 
 # Number of cells in each coordinate direction at the coarsest level
 amr.n_cell			= 64 64
-#amr.max_grid_size		= 8 # max_grid_size
+amr.max_grid_size		= 8 # max_grid_size
 
 #*******************************************************************************
 

@@ -10,7 +10,7 @@
 
 # Maximum number of coarse grid timesteps to be taken, if stop_time is
 #  not reached first.
-max_step 		= 200
+max_step 		= 25000
 
 # Time at which calculation stops, if max_step is not reached first.
 stop_time 		= 0.2
