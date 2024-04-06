@@ -2653,7 +2653,7 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
             MultiFab EulerForce(S_new.boxArray(), S_new.DistributionMap(), 3, S_new.nGrow());            
             Particles::get_particles()->InteractWithEuler(S_new, EulerForce, 1, dt, 0.5);
         }
-        amrex::Abort("Stop here!");
+        //amrex::Abort("Stop here!");
 #endif
         //
         // Increment rho average.

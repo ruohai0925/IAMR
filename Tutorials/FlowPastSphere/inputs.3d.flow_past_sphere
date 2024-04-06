@@ -26,15 +26,15 @@ amr.tracer.field_name = tracer
 amr.tracer.in_box_lo = 0.5 0.5 0.5
 amr.tracer.in_box_hi = 1.5 1.5 1.5
 
-amr.blocking_factor     = 16
+amr.blocking_factor     = 8
 
 #*******************************************************************************
 
 # Number of cells in each coordinate direction at the coarsest level
-amr.n_cell 		= 32 16 16 
+amr.n_cell 		= 16 8 8 
 # amr.n_cell 		= 144 64 64 
 # amr.n_cell 		= 288 128 128 
-amr.max_grid_size	= 32
+amr.max_grid_size	= 8
 # amr.max_grid_size	= 32
 
 #*******************************************************************************
