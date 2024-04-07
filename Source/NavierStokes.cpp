@@ -2647,9 +2647,9 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
         if (level == parent->finestLevel())
         {
             MultiFab&  S_new    = get_new_data(State_Type);
-            S_new.setVal(1.0, 0, 1, S_new.nGrow()); // u = 1
-            S_new.setVal(2.0, 1, 1, S_new.nGrow()); // v = 2
-            S_new.setVal(3.0, 2, 1, S_new.nGrow()); // w = 3
+            // S_new.setVal(1.0, 0, 1, S_new.nGrow()); // u = 1
+            // S_new.setVal(2.0, 1, 1, S_new.nGrow()); // v = 2
+            // S_new.setVal(3.0, 2, 1, S_new.nGrow()); // w = 3
             MultiFab EulerForce(S_new.boxArray(), S_new.DistributionMap(), 3, S_new.nGrow());            
             Particles::get_particles()->InteractWithEuler(S_new, EulerForce, 1, dt, 0.5);
         }

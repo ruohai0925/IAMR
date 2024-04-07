@@ -126,7 +126,7 @@ public:
 
     void ComputeLagrangianForce(Real dt, const kernel& kernel);
 
-    int verbose = 1;
+    int verbose = 0;
 };
 
 class Particles{

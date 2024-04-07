@@ -31,10 +31,10 @@ amr.blocking_factor     = 8
 #*******************************************************************************
 
 # Number of cells in each coordinate direction at the coarsest level
-amr.n_cell 		= 16 8 8 
-# amr.n_cell 		= 144 64 64 
+# amr.n_cell 		= 16 8 8 
+amr.n_cell 		= 160 64 64 
 # amr.n_cell 		= 288 128 128 
-amr.max_grid_size	= 8
+amr.max_grid_size	= 32
 # amr.max_grid_size	= 32
 
 #*******************************************************************************
@@ -110,7 +110,7 @@ geometry.coord_sys   =  0
 geometry.prob_lo     =  0. 0. 0.
 
 # Physical dimensions of the high end of the domain.
-geometry.prob_hi     =  12. 6. 6.
+geometry.prob_hi     =  15. 6. 6.
 
 #*******************************************************************************
 

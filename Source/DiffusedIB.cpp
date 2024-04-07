@@ -203,7 +203,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
         }
     }
     //Redistribute(); // No need to redistribute here! 
-    WriteAsciiFile(amrex::Concatenate("particle", 0));
+    if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 0));
 }
 
 void mParticle::InitialWithLargrangianPoints(const kernel& current_kernel){
@@ -232,7 +232,7 @@ void mParticle::InitialWithLargrangianPoints(const kernel& current_kernel){
     }
     // Redistribute the markers after updating their locations
     Redistribute();
-    WriteAsciiFile(amrex::Concatenate("particle", 1));
+    if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 1));
 }
 
 template <typename P = Particle<numAttri>>
@@ -339,7 +339,7 @@ void mParticle::VelocityInterpolation(const MultiFab &EulerVel,
             VelocityInterpolation_cir(i, p_ptr[i], Up[i], Vp[i], Wp[i], E, EulerVelocityIndex, box.loVect(), box.hiVect(), plo, dx, type);
         });
     }
-    WriteAsciiFile(amrex::Concatenate("particle", 2));
+    if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 2));
     //amrex::Abort("stop here!");
 }
 
@@ -415,34 +415,36 @@ void mParticle::ForceSpreading(MultiFab & EulerForce,
     }
     EulerForce.SumBoundary(EulerForceIndex, 3, gm.periodicity());
     
-    // Check the Multifab
-    // Open a file stream for output
-    std::ofstream outFile("EulerForce.txt");
+    if (verbose) {
+        // Check the Multifab
+        // Open a file stream for output
+        std::ofstream outFile("EulerForce.txt");
 
-    // Check the Multifab
-    // for (MFIter mfi(EulerForce, TilingIfNotGPU()); mfi.isValid(); ++mfi)
-    for (MFIter mfi(EulerForce, TilingIfNotGPU()); mfi.isValid(); ++mfi)
-    {
-        const Box& bx = mfi.validbox();
-        outFile << "Box: " << bx << "\n"
-                << "From: (" << bx.smallEnd(0) << ", " << bx.smallEnd(1) << ", " << bx.smallEnd(2) << ") "
-                << "To: (" << bx.bigEnd(0) << ", " << bx.bigEnd(1) << ", " << bx.bigEnd(2) << ")\n";
+        // Check the Multifab
+        // for (MFIter mfi(EulerForce, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        for (MFIter mfi(EulerForce, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const Box& bx = mfi.validbox();
+            outFile << "Box: " << bx << "\n"
+                    << "From: (" << bx.smallEnd(0) << ", " << bx.smallEnd(1) << ", " << bx.smallEnd(2) << ") "
+                    << "To: (" << bx.bigEnd(0) << ", " << bx.bigEnd(1) << ", " << bx.bigEnd(2) << ")\n";
 
-        Array4<Real> const& a = EulerForce[mfi].array();
+            Array4<Real> const& a = EulerForce[mfi].array();
 
-        // CPU context or illustrative purposes only
-        for (int k = bx.smallEnd(2); k <= bx.bigEnd(2); ++k) {
-            for (int j = bx.smallEnd(1); j <= bx.bigEnd(1); ++j) {
-                for (int i = bx.smallEnd(0); i <= bx.bigEnd(0); ++i) {
-                    // This print statement is for demonstration and should not be used in actual GPU code.
-                    outFile << "Processing i: " << i << ", j: " << j << ", k: " << k << " " << a(i,j,k,0) << " " << a(i,j,k,1) << " " << a(i,j,k,2) << std::endl;
+            // CPU context or illustrative purposes only
+            for (int k = bx.smallEnd(2); k <= bx.bigEnd(2); ++k) {
+                for (int j = bx.smallEnd(1); j <= bx.bigEnd(1); ++j) {
+                    for (int i = bx.smallEnd(0); i <= bx.bigEnd(0); ++i) {
+                        // This print statement is for demonstration and should not be used in actual GPU code.
+                        outFile << "Processing i: " << i << ", j: " << j << ", k: " << k << " " << a(i,j,k,0) << " " << a(i,j,k,1) << " " << a(i,j,k,2) << std::endl;
+                    }
                 }
             }
         }
-    }
 
-    // Close the file when done
-    outFile.close();
+        // Close the file when done
+        outFile.close();
+    }
 
 }
 
@@ -513,7 +515,7 @@ void mParticle::UpdateParticles(const amrex::MultiFab& Euler, kernel& kernel, Re
         });
     }
     Redistribute();
-    WriteAsciiFile(amrex::Concatenate("particle", 4));
+    if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 4));
 }
 
 void mParticle::ComputeLagrangianForce(Real dt, const kernel& kernel)
@@ -544,7 +546,7 @@ void mParticle::ComputeLagrangianForce(Real dt, const kernel& kernel)
             FzP[i] = (Wb - Wp[i])/dt; //
         });
     }
-    WriteAsciiFile(amrex::Concatenate("particle", 3));
+    if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 3));
 }
 
 void mParticle::WriteParticleFile(int index)
