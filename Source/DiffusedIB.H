@@ -49,7 +49,7 @@ struct kernel{
     RealVect varphi;
     Real radious;
     Real rho;
-    Real ml;
+    int ml;
     Real dv;
 };
 
@@ -118,7 +118,7 @@ public:
 
     void InitialWithLargrangianPoints(const kernel& current_kernel);
 
-    void VelocityInterpolation(const amrex::MultiFab &Euler, DELTA_FUNCTION_TYPE type);
+    void VelocityInterpolation(amrex::MultiFab &Euler, DELTA_FUNCTION_TYPE type);
 
     void ForceSpreading(amrex::MultiFab &Euler, DELTA_FUNCTION_TYPE type);
 
@@ -126,7 +126,7 @@ public:
 
     void ComputeLagrangianForce(Real dt, const kernel& kernel);
 
-    int verbose = 0;
+    int verbose = 1;
 };
 
 class Particles{
