@@ -66,7 +66,7 @@ void deltaFunction(Real xf, Real xp, Real h, Real& value, DELTA_FUNCTION_TYPE ty
 
     switch (type) {
     case DELTA_FUNCTION_TYPE::FOUR_POINT_IB:
-        if(rr >= 0 && rr < 0.5 ){
+        if(rr >= 0 && rr < 1 ){
             value = 1.0 / 8.0 * ( 3.0 - 2.0 * rr + std::sqrt( 1.0 + 4.0 * rr - 4 * Math::powi<2>(rr))) / h;
         }else if (rr >= 1 && rr < 2) {
             value = 1.0 / 8.0 * ( 5.0 - 2.0 * rr - std::sqrt( -7.0 + 12.0 * rr - 4 * Math::powi<2>(rr))) / h;
@@ -75,9 +75,9 @@ void deltaFunction(Real xf, Real xp, Real h, Real& value, DELTA_FUNCTION_TYPE ty
         }
         break;
     case DELTA_FUNCTION_TYPE::THREE_POINT_IB:
-        if(rr >= 0 && rr < 1){
+        if(rr >= 0 && rr < 0.5){
             value = 1.0 / 6.0 * ( 5.0 - 3.0 * rr + std::sqrt( - 3.0 * ( 1 - Math::powi<2>(rr)) + 1.0 )) / h;
-        }else if (rr >= 1 && rr < 2) {
+        }else if (rr >= 0.5 && rr < 1.5) {
             value = 1.0 / 3.0 * ( 1.0 + std::sqrt( 1.0 - 3 * Math::powi<2>(rr))) / h;
         }else {
             value = 0;
@@ -101,13 +101,14 @@ void mParticle::InteractWithEuler(MultiFab &EulerVel, MultiFab &EulerForce, int 
         Redistribute();
         //UpdateParticles(Euler, kernel, dt, alpha_k);
         //for 1 -> Ns
-        while(loop_time > 0){
+        int loop = loop_time;
+        while(loop > 0){
             EulerForce.setVal(0.0, euler_force_index, 3, EulerForce.nGrow()); //clear Euler force
             VelocityInterpolation(EulerVel, type);
             ComputeLagrangianForce(dt, kernel);
             ForceSpreading(EulerForce, type);
             MultiFab::Saxpy(EulerVel, dt, EulerForce, euler_force_index, euler_velocity_index, 3, 0); //VelocityCorrection
-            loop_time--;
+            loop--;
         }
     }
 }
