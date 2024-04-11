@@ -51,6 +51,8 @@ struct kernel{
     Real rho;
     int ml;
     Real dv;
+    std::vector<amrex::Real> thetaK;
+    std::vector<amrex::Real> phiK;
 };
 
 class mParIter : public ParIter<0, 0, numAttri>{
@@ -120,7 +122,7 @@ public:
 
     void VelocityInterpolation(amrex::MultiFab &Euler, DELTA_FUNCTION_TYPE type);
 
-    void ForceSpreading(amrex::MultiFab &Euler, DELTA_FUNCTION_TYPE type);
+    void ForceSpreading(amrex::MultiFab &Euler, Real dv, DELTA_FUNCTION_TYPE type);
 
     void UpdateParticles(const amrex::MultiFab& Euler, kernel& kernel, Real dt, Real alpha_k );
 
