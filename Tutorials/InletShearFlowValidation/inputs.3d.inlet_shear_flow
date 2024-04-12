@@ -7,12 +7,12 @@
 
 # Maximum number of coarse grid timesteps to be taken, if stop_time is
 #  not reached first.
-max_step 		= 1
+max_step 		= 2000
 
 # Time at which calculation stops, if max_step is not reached first.
-stop_time 		= 4.0
+stop_time 		= 10.0
 
-ns.fixed_dt     = 0.001
+ns.fixed_dt     = 0.1
 ns.cfl = 0.3
 ns.init_iter = 0
 
@@ -51,13 +51,13 @@ amr.v                   = 1
 #*******************************************************************************
 
 # Interval (in number of coarse timesteps) between checkpoint(restart) files
-amr.check_int		= 1 
+amr.check_int		= 5 
 #amr.restart             = chk01400
 
 #*******************************************************************************
 
 # Interval (in number of coarse timesteps) between plot files
-amr.plot_int		= 1
+amr.plot_int		= 5
 
 
 #*******************************************************************************
@@ -101,15 +101,15 @@ geometry.prob_hi     =  16. 8. 8.
 #*******************************************************************************
 
 #Set to 1 if periodic in that direction
-geometry.is_periodic =  0 1 1
+geometry.is_periodic =  0 0 0
 
 #*******************************************************************************
 
 # Boundary conditions on the low end of the domain.
-ns.lo_bc             = 1 0 0
+ns.lo_bc             = 1 4 4
 
 # Boundary conditions on the high end of the domain.
-ns.hi_bc             = 2 0 0
+ns.hi_bc             = 2 4 4
 
 # 0 = Interior/Periodic  3 = Symmetry
 # 1 = Inflow             4 = SlipWall
@@ -128,7 +128,7 @@ prob.shearrate = 0.01
 #*******************************************************************************
 
 # Add vorticity to the variables in the plot files.
-# amr.derive_plot_vars    = avg_pressure
+amr.derive_plot_vars    = avg_pressure
 
 #*******************************************************************************
 ns.isolver            = 0
@@ -136,8 +136,8 @@ ns.do_diffused_ib     = 0
 
 particles.do_nspc_particles = 0
 
-nodal_proj.proj_tol = 1.e-1
-nodal_proj.proj_abs_tol = 1.e-2
+nodal_proj.proj_tol = 1.e-4
+nodal_proj.proj_abs_tol = 1.e-5
 
 mac_proj.mac_tol = 1.e-4
 mac_proj.mac_abs_tol = 1.e-5
