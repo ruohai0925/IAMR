@@ -92,7 +92,7 @@ void deltaFunction(Real xf, Real xp, Real h, Real& value, DELTA_FUNCTION_TYPE ty
 /*                    mParticle member function                  */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 //loop all particels
-void mParticle::InteractWithEuler(MultiFab &EulerVel, MultiFab &EulerForce, int loop_time, Real dt, Real alpha_k, DELTA_FUNCTION_TYPE type){
+void mParticle::InteractWithEuler(amrex::Real time, MultiFab &EulerVel, MultiFab &EulerForce, int loop_time, Real dt, Real alpha_k, DELTA_FUNCTION_TYPE type){
 
     if (verbose) amrex::Print() << "mParticle::InteractWithEuler " << std::endl;
 
@@ -106,11 +106,13 @@ void mParticle::InteractWithEuler(MultiFab &EulerVel, MultiFab &EulerForce, int 
             EulerForce.setVal(0.0, euler_force_index, 3, EulerForce.nGrow()); //clear Euler force
             VelocityInterpolation(EulerVel, type);
             ComputeLagrangianForce(dt, kernel);
-            ForceSpreading(EulerForce, kernel.dv, type);
+            ForceSpreading(EulerForce, kernel.ib_forece, kernel.dv, type);
             MultiFab::Saxpy(EulerVel, dt, EulerForce, euler_force_index, euler_velocity_index, 3, EulerForce.nGrow()); //VelocityCorrection
             loop--;
         }
     }
+
+    WriteIBForce(time);
 }
 
 void mParticle::InitParticles(const Vector<Real>& x,
@@ -242,9 +244,10 @@ void mParticle::InitialWithLargrangianPoints(const kernel& current_kernel){
         auto np = pti.numParticles();
         amrex::ParallelFor( np, [=]
             AMREX_GPU_DEVICE (int i) noexcept {
+                int id = static_cast<int>(particles[i].id() - 1);
                 InitalLargrangianPointsLoc(particles[i].pos(0),particles[i].pos(1),particles[i].pos(2),
-                                           current_kernel.thetaK.at(i),
-                                           current_kernel.phiK.at(i),
+                                           current_kernel.thetaK.at(id),
+                                           current_kernel.phiK.at(id),
                                            current_kernel.location,
                                            current_kernel.radious,
                                            current_kernel.ml);
@@ -408,10 +411,15 @@ void ForceSpreading_cic (P const& p,
 }
 
 void mParticle::ForceSpreading(MultiFab & EulerForce, 
+                               RealVect& ib_forece,
                                Real dv,
                                DELTA_FUNCTION_TYPE type){
 
     if (verbose) amrex::Print() << "mParticle::ForceSpreading " << std::endl;
+
+    Real fx = 0;
+    Real fy = 0;
+    Real fz = 0;
 
     const auto& gm = m_gdb->Geom(euler_finest_level);
     auto plo = gm.ProbLoArray();
@@ -427,13 +435,18 @@ void mParticle::ForceSpreading(MultiFab & EulerForce,
         const auto& fyP_ptr = attri[P_ATTR::Fy_Marker].data();
         const auto& fzP_ptr = attri[P_ATTR::Fz_Marker].data();
         const auto& p_ptr = particles().data();
-        amrex::ParallelFor(np, [=] 
+        amrex::ParallelFor(np, [=, &fx, &fy, &fz] 
         AMREX_GPU_DEVICE (int i) noexcept{
+            fx += fxP_ptr[i] * dv;
+            fy += fyP_ptr[i] * dv;
+            fz += fzP_ptr[i] * dv;            
             ForceSpreading_cic(p_ptr[i], fxP_ptr[i], fyP_ptr[i], fzP_ptr[i], Uarray, EulerForceIndex, dv, plo, dxi, type);
         });
     }
     EulerForce.SumBoundary(EulerForceIndex, 3, gm.periodicity());
-    
+
+    ib_forece = RealVect(fx, fy, fz);
+
     if (verbose) {
         // Check the Multifab
         // Open a file stream for output
@@ -566,6 +579,25 @@ void mParticle::ComputeLagrangianForce(Real dt, const kernel& kernel)
 void mParticle::WriteParticleFile(int index)
 {
     WriteAsciiFile(amrex::Concatenate("particle", index));
+}
+
+void mParticle::WriteIBForce(amrex::Real time)
+{
+    //
+    std::ofstream out_ib_force("IB_Force_" + std::to_string(++ib_forece_file_index) + ".csv");
+    int index = 1;
+    out_ib_force << "# This document collects all IB force information\n"
+                 << "# you can deal this with csv format\n"
+                 << "# time " << std::to_string(time) << "\n\n";
+    out_ib_force << "particle_num,X,Y,Z,Vx,Vy,Vz,Fx,Fy,Fz\n";
+    for(auto const& kernel : particle_kernels){
+        out_ib_force << "particle" << index++ << ","
+                     << std::to_string(kernel.location[0]) << "," << std::to_string(kernel.location[1]) << "," << std::to_string(kernel.location[2]) << ","
+                     << std::to_string(kernel.velocity[0]) << "," << std::to_string(kernel.velocity[1]) << "," << std::to_string(kernel.velocity[2]) << ","
+                     << std::to_string(kernel.ib_forece[0]) << "," << std::to_string(kernel.ib_forece[1]) << "," << std::to_string(kernel.ib_forece[2])
+                     << "\n";
+    }
+    out_ib_force.close();
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
