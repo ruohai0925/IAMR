@@ -289,3 +289,16 @@ MLCellLinOpT<MF>::compGrad (int amrlev, const Array<MF*,AMREX_SPACEDIM>& grad,
 //         });
 //     }
 
+
+    amrex::Print() << "Box details: " << bx << "\n";
+    amrex::Print() << "Data array dimensions: " << data.box() << "\n";
+    amrex::Print() << "Data starting component index: " << dcomp << "\n";
+    amrex::Print() << "Number of components: " << numcomp << "\n";
+    amrex::Print() << "Geometry details: " << geom.ProbDomain() << "\n";
+    amrex::Print() << "Simulation time: " << time << "\n";
+    for (const auto& bc : bcr) {
+        amrex::Print() << "Boundary condition: " << bc << "\n";  // 需要实现BCRec的打印支持
+    }
+    amrex::Print() << "Boundary component index: " << bcomp << "\n";
+    amrex::Print() << "Source component index: " << scomp << "\n";
+

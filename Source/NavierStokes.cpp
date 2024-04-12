@@ -521,9 +521,11 @@ NavierStokes::post_restart ()
 {
     NavierStokesBase::post_restart();
 
-    //Get probtype; NS_bcfill.H may expect it.
+    //Get probtype, ub, and shearrate; NS_bcfill.H may expect them.
     ParmParse pp("prob");
     pp.query("probtype",probtype);
+    pp.query("ub",ub);
+    pp.query("shearrate",shearrate);
 }
 
 //

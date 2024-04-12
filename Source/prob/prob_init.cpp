@@ -4,6 +4,8 @@
 using namespace amrex;
 
 int NavierStokes::probtype = -1;
+amrex::Real NavierStokes::ub = 2.0;
+amrex::Real NavierStokes::shearrate = 3.0;
 
 // For now, define pi here, but maybe later make iamr_constants.H
 namespace {
@@ -28,6 +30,8 @@ void NavierStokes::prob_initData ()
     ParmParse pp("prob");
 
     pp.query("probtype",probtype);
+    pp.query("ub",ub);
+    pp.query("shearrate",shearrate);
     pp.query("density_ic",IC.density);
     pp.query("direction",IC.direction);
     pp.query("interface_width",IC.interface_width);

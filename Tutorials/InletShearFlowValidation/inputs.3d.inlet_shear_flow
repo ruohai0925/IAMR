@@ -1,6 +1,6 @@
 
 #*******************************************************************************
-# INPUTS.3D.FLOW_PAST_SPHERE
+# INPUTS.3D.INLET_SHEAR_FLOW
 #*******************************************************************************
 
 #NOTE: You may set *either* max_step or stop_time, or you may set them both.
@@ -12,30 +12,19 @@ max_step 		= 1
 # Time at which calculation stops, if max_step is not reached first.
 stop_time 		= 4.0
 
-ns.fixed_dt     = 1.0
+ns.fixed_dt     = 0.001
 ns.cfl = 0.3
 ns.init_iter = 0
 
-# Refinement criterion, use vorticity and presence of tracer
-amr.refinement_indicators = tracer
-
 amr.max_level		= 0 # maximum number of levels of refinement
-# amr.tracer.value_greater = 0.1
-# amr.tracer.value_less = 1.1
-amr.tracer.field_name = tracer
-amr.tracer.in_box_lo = 0.5 0.5 0.5
-amr.tracer.in_box_hi = 1.5 1.5 1.5
 
 amr.blocking_factor     = 8
 
 #*******************************************************************************
 
 # Number of cells in each coordinate direction at the coarsest level
-# amr.n_cell 		= 16 8 8 
-amr.n_cell 		= 32 16 16 
-# amr.n_cell 		= 288 128 128 
+amr.n_cell 		= 16 8 8  
 amr.max_grid_size	= 16
-# amr.max_grid_size	= 32
 
 #*******************************************************************************
 
@@ -53,9 +42,6 @@ amr.ref_ratio		= 2 2 2 2
 ns.v                    = 1
 nodal_proj.verbose      = 1
 mac_proj.verbose        = 1
-
-# mac_proj.mac_tol        = 0.1
-# mac_proj.mac_abs_tol    = 0.1
 
 #*******************************************************************************
 
@@ -110,7 +96,7 @@ geometry.coord_sys   =  0
 geometry.prob_lo     =  0. 0. 0.
 
 # Physical dimensions of the high end of the domain.
-geometry.prob_hi     =  12. 6. 6.
+geometry.prob_hi     =  16. 8. 8.
 
 #*******************************************************************************
 
@@ -130,12 +116,14 @@ ns.hi_bc             = 2 0 0
 # 2 = Outflow            5 = NoSlipWall
 
 # Boundary condition
-xlo.velocity            =   1.  0.  0.
+xlo.velocity            =   0.  0.  0.
 
 #*******************************************************************************
 
 # Problem parameters
 prob.probtype = 1
+prob.ub = 1.2
+prob.shearrate = 0.01
 
 #*******************************************************************************
 
@@ -143,15 +131,13 @@ prob.probtype = 1
 # amr.derive_plot_vars    = avg_pressure
 
 #*******************************************************************************
-ns.isolver            = 1
-ns.do_diffused_ib     = 1
-
-#ns.sum_interval       = 1
+ns.isolver            = 0
+ns.do_diffused_ib     = 0
 
 particles.do_nspc_particles = 0
 
-nodal_proj.proj_tol = 1.e-4
-nodal_proj.proj_abs_tol = 1.e-5
+nodal_proj.proj_tol = 1.e-1
+nodal_proj.proj_abs_tol = 1.e-2
 
 mac_proj.mac_tol = 1.e-4
 mac_proj.mac_abs_tol = 1.e-5

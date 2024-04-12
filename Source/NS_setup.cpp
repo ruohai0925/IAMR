@@ -259,6 +259,9 @@ NavierStokes::variableSetUp ()
     set_z_vel_bc(bc,phys_bc);
     desc_lst.setComponent(State_Type,Zvel,"z_velocity",bc,vel_bf);
 #endif
+    // Note: the vel_bf will nor directly call vel_fill within the setComponent function.
+    // It calls when needed. See the amr_level.setPhysBoundaryValues(S_new[mfi],State_Type,curr_time,Xvel,Xvel,AMREX_SPACEDIM) function
+    // in the Projection::initialVelocityProject function.
     //
     // **************  DEFINE SCALAR VARIABLES  ********************
     //

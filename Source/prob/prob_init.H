@@ -219,6 +219,8 @@ static void init_ConvectedVortex (amrex::Box const& vbx,
 // Problems parameters, to be read from inputs file
 //
 static int probtype;
+static amrex::Real ub;
+static amrex::Real shearrate;
 
 //
 // ls related
