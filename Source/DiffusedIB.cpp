@@ -9,6 +9,9 @@
 #include <AMReX_FillPatchUtil.H>
 #include <iamr_constants.H>
 
+#include <filesystem>
+namespace fs = std::filesystem;
+
 using namespace amrex;
 
 void nodal_phi_to_pvf(MultiFab& pvf, const MultiFab& phi_nodal)
@@ -92,7 +95,7 @@ void deltaFunction(Real xf, Real xp, Real h, Real& value, DELTA_FUNCTION_TYPE ty
 /*                    mParticle member function                  */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 //loop all particels
-void mParticle::InteractWithEuler(amrex::Real time, MultiFab &EulerVel, MultiFab &EulerForce, int loop_time, Real dt, Real alpha_k, DELTA_FUNCTION_TYPE type){
+void mParticle::InteractWithEuler(int iStep, amrex::Real time, MultiFab &EulerVel, MultiFab &EulerForce, int loop_time, Real dt, Real alpha_k, DELTA_FUNCTION_TYPE type){
 
     if (verbose) amrex::Print() << "mParticle::InteractWithEuler " << std::endl;
 
@@ -110,9 +113,8 @@ void mParticle::InteractWithEuler(amrex::Real time, MultiFab &EulerVel, MultiFab
             MultiFab::Saxpy(EulerVel, dt, EulerForce, euler_force_index, euler_velocity_index, 3, EulerForce.nGrow()); //VelocityCorrection
             loop--;
         }
+        WriteIBForce(iStep, time, kernel);
     }
-
-    WriteIBForce(time);
 }
 
 void mParticle::InitParticles(const Vector<Real>& x,
@@ -152,6 +154,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
 
     for(int index = 0; index < x.size(); index++){
         kernel mKernel;
+        mKernel.id = index + 1;
         mKernel.location[0] = x[index];
         mKernel.location[1] = y[index];
         mKernel.location[2] = z[index];
@@ -373,6 +376,9 @@ void ForceSpreading_cic (P const& p,
                   ParticleReal fxP,
                   ParticleReal fyP,
                   ParticleReal fzP,
+                  Real & ib_fx,
+                  Real & ib_fy,
+                  Real & ib_fz,
                   Array4<Real> const& E,
                   int EulerForceIndex,
                   Real dv,
@@ -389,6 +395,12 @@ void ForceSpreading_cic (P const& p,
     int i = static_cast<int>(Math::floor(lx));
     int j = static_cast<int>(Math::floor(ly));
     int k = static_cast<int>(Math::floor(lz));
+    Real Fx = fxP * dv;
+    Real Fy = fyP * dv;
+    Real Fz = fzP * dv;
+    ib_fx += Fx;
+    ib_fy += Fy;
+    ib_fz += Fz;
     // calc_delta(i, j, k, dxi, rho);
     //lagrangian to Euler
     for(int ii = -2; ii < +3; ii++){
@@ -402,9 +414,9 @@ void ForceSpreading_cic (P const& p,
                 deltaFunction( p.pos(1), yj, dx[1], tV, type);
                 deltaFunction( p.pos(2), kz, dx[2], tW, type);
                 Real delta_value = tU * tV * tW;
-                Gpu::Atomic::AddNoRet(&E(i + ii, j + jj, k + kk, EulerForceIndex  ), delta_value * fxP * dv);
-                Gpu::Atomic::AddNoRet(&E(i + ii, j + jj, k + kk, EulerForceIndex+1), delta_value * fyP * dv);
-                Gpu::Atomic::AddNoRet(&E(i + ii, j + jj, k + kk, EulerForceIndex+2), delta_value * fzP * dv);
+                Gpu::Atomic::AddNoRet(&E(i + ii, j + jj, k + kk, EulerForceIndex  ), delta_value * Fx);
+                Gpu::Atomic::AddNoRet(&E(i + ii, j + jj, k + kk, EulerForceIndex+1), delta_value * Fy);
+                Gpu::Atomic::AddNoRet(&E(i + ii, j + jj, k + kk, EulerForceIndex+2), delta_value * Fz);
             }
         }
     }
@@ -416,11 +428,7 @@ void mParticle::ForceSpreading(MultiFab & EulerForce,
                                DELTA_FUNCTION_TYPE type){
 
     if (verbose) amrex::Print() << "mParticle::ForceSpreading " << std::endl;
-
-    Real fx = 0;
-    Real fy = 0;
-    Real fz = 0;
-
+    ib_forece.scale(0);
     const auto& gm = m_gdb->Geom(euler_finest_level);
     auto plo = gm.ProbLoArray();
     auto dxi = gm.CellSizeArray();
@@ -435,17 +443,12 @@ void mParticle::ForceSpreading(MultiFab & EulerForce,
         const auto& fyP_ptr = attri[P_ATTR::Fy_Marker].data();
         const auto& fzP_ptr = attri[P_ATTR::Fz_Marker].data();
         const auto& p_ptr = particles().data();
-        amrex::ParallelFor(np, [=, &fx, &fy, &fz] 
-        AMREX_GPU_DEVICE (int i) noexcept{
-            fx += fxP_ptr[i] * dv;
-            fy += fyP_ptr[i] * dv;
-            fz += fzP_ptr[i] * dv;            
-            ForceSpreading_cic(p_ptr[i], fxP_ptr[i], fyP_ptr[i], fzP_ptr[i], Uarray, EulerForceIndex, dv, plo, dxi, type);
+        amrex::ParallelFor(np, [=, &ib_forece]
+        AMREX_GPU_DEVICE (int i) noexcept{          
+            ForceSpreading_cic(p_ptr[i], fxP_ptr[i], fyP_ptr[i], fzP_ptr[i], ib_forece[0], ib_forece[1], ib_forece[2], Uarray, EulerForceIndex, dv, plo, dxi, type);
         });
     }
     EulerForce.SumBoundary(EulerForceIndex, 3, gm.periodicity());
-
-    ib_forece = RealVect(fx, fy, fz);
 
     if (verbose) {
         // Check the Multifab
@@ -581,21 +584,40 @@ void mParticle::WriteParticleFile(int index)
     WriteAsciiFile(amrex::Concatenate("particle", index));
 }
 
-void mParticle::WriteIBForce(amrex::Real time)
+void mParticle::WriteIBForce(int step, amrex::Real time, kernel& current_kernel)
 {
-    //
-    std::ofstream out_ib_force("IB_Force_" + std::to_string(++ib_forece_file_index) + ".csv");
-    int index = 1;
-    out_ib_force << "# This document collects all IB force information\n"
-                 << "# you can deal this with csv format\n"
-                 << "# time " << std::to_string(time) << "\n\n";
-    out_ib_force << "particle_num,X,Y,Z,Vx,Vy,Vz,Fx,Fy,Fz\n";
-    for(auto const& kernel : particle_kernels){
-        out_ib_force << "particle" << index++ << ","
-                     << std::to_string(kernel.location[0]) << "," << std::to_string(kernel.location[1]) << "," << std::to_string(kernel.location[2]) << ","
-                     << std::to_string(kernel.velocity[0]) << "," << std::to_string(kernel.velocity[1]) << "," << std::to_string(kernel.velocity[2]) << ","
-                     << std::to_string(kernel.ib_forece[0]) << "," << std::to_string(kernel.ib_forece[1]) << "," << std::to_string(kernel.ib_forece[2])
-                     << "\n";
+    {//reduce all kernel data
+        amrex::ParallelAllReduce::Sum(current_kernel.velocity[0], ParallelDescriptor::Communicator());
+        amrex::ParallelAllReduce::Sum(current_kernel.velocity[1], ParallelDescriptor::Communicator());
+        amrex::ParallelAllReduce::Sum(current_kernel.velocity[2], ParallelDescriptor::Communicator());
+        amrex::ParallelAllReduce::Sum(current_kernel.omega[0], ParallelDescriptor::Communicator());
+        amrex::ParallelAllReduce::Sum(current_kernel.omega[1], ParallelDescriptor::Communicator());
+        amrex::ParallelAllReduce::Sum(current_kernel.omega[2], ParallelDescriptor::Communicator());
+        amrex::ParallelAllReduce::Sum(current_kernel.ib_forece[0], ParallelDescriptor::Communicator());
+        amrex::ParallelAllReduce::Sum(current_kernel.ib_forece[1], ParallelDescriptor::Communicator());
+        amrex::ParallelAllReduce::Sum(current_kernel.ib_forece[2], ParallelDescriptor::Communicator());
+    }
+    if(amrex::ParallelDescriptor::MyProc() != ParallelDescriptor::IOProcessorNumber()) return; 
+
+    std::string file("IB_Force_Particle_" + std::to_string(current_kernel.id) + ".csv");
+    std::ofstream out_ib_force;
+
+    std::string head;
+    if(!fs::exists(file)){
+        head = "iStep,time,X,Y,Z,Vx,Vy,Vz,OmegaX,OmegaY,OmegaZ,Fx,Fy,Fz\n";
+    }else{
+        head = "";
+    }
+
+    out_ib_force.open(file, std::ios::app);
+    if(!out_ib_force.is_open()){
+        amrex::Print() << "[diffused IB output] write particle file error , step: " << step;
+    }else{
+        out_ib_force << head << step << "," << time << "," 
+                     << current_kernel.location[0] << "," << current_kernel.location[1] << "," << current_kernel.location[2] << ","
+                     << current_kernel.velocity[0] << "," << current_kernel.velocity[1] << "," << current_kernel.velocity[2] << ","
+                     << current_kernel.omega[0] << "," << current_kernel.omega[1] << "," << current_kernel.omega[2] << ","
+                     << current_kernel.ib_forece[0] << "," << current_kernel.ib_forece[1] << "," << current_kernel.ib_forece[2] << "\n";
     }
     out_ib_force.close();
 }

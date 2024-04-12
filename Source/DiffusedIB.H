@@ -43,6 +43,7 @@ enum DELTA_FUNCTION_TYPE{
 };
 
 struct kernel{
+    int id;
     RealVect velocity;
     RealVect location;
     RealVect omega;
@@ -104,7 +105,7 @@ public:
                        int velocity_index,
                        int finest_level);
 
-    void InteractWithEuler(amrex::Real time, MultiFab &EulerVel, MultiFab &EulerForce, int loop_time = 20, Real dt = 0.1, Real alpha_k = 0.5, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
+    void InteractWithEuler(int iStep, amrex::Real time, MultiFab &EulerVel, MultiFab &EulerForce, int loop_time = 20, Real dt = 0.1, Real alpha_k = 0.5, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
 
     void WriteParticleFile(int index);
 
@@ -129,7 +130,7 @@ private:
 
     void ComputeLagrangianForce(Real dt, const kernel& kernel);
 
-    void WriteIBForce(amrex::Real time);
+    static void WriteIBForce(int step, amrex::Real time, kernel& current_kernel);
 
     uint32_t ib_forece_file_index = 0;
 
