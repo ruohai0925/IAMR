@@ -43,14 +43,18 @@ enum DELTA_FUNCTION_TYPE{
 };
 
 struct kernel{
+    int id;
     RealVect velocity;
     RealVect location;
     RealVect omega;
     RealVect varphi;
     Real radious;
     Real rho;
-    Real ml;
+    int ml;
     Real dv;
+    RealVect ib_forece;
+    std::vector<amrex::Real> thetaK;
+    std::vector<amrex::Real> phiK;
 };
 
 class mParIter : public ParIter<0, 0, numAttri>{
@@ -101,11 +105,11 @@ public:
                        int velocity_index,
                        int finest_level);
 
-    void InteractWithEuler(MultiFab &EulerVel, MultiFab &EulerForce, int loop_time = 20, Real dt = 0.1, Real alpha_k = 0.5, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
+    void InteractWithEuler(int iStep, amrex::Real time, MultiFab &EulerVel, MultiFab &EulerForce, int loop_time = 20, Real dt = 0.1, Real alpha_k = 0.5, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
 
     void WriteParticleFile(int index);
 
-// private:
+private:
     int euler_finest_level;
 
     int euler_force_index;
@@ -118,13 +122,17 @@ public:
 
     void InitialWithLargrangianPoints(const kernel& current_kernel);
 
-    void VelocityInterpolation(const amrex::MultiFab &Euler, DELTA_FUNCTION_TYPE type);
+    void VelocityInterpolation(amrex::MultiFab &Euler, DELTA_FUNCTION_TYPE type);
 
-    void ForceSpreading(amrex::MultiFab &Euler, DELTA_FUNCTION_TYPE type);
+    void ForceSpreading(amrex::MultiFab &Euler, RealVect& ib_forece, Real dv, DELTA_FUNCTION_TYPE type);
 
     void UpdateParticles(const amrex::MultiFab& Euler, kernel& kernel, Real dt, Real alpha_k );
 
     void ComputeLagrangianForce(Real dt, const kernel& kernel);
+
+    static void WriteIBForce(int step, amrex::Real time, kernel& current_kernel);
+
+    uint32_t ib_forece_file_index = 0;
 
     int verbose = 0;
 };
