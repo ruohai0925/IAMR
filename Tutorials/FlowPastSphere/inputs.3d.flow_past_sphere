@@ -16,6 +16,9 @@ ns.fixed_dt     = 1.0
 ns.cfl = 0.3
 ns.init_iter = 0
 
+# Diffused IB input file
+particle.input = particle_inputs
+
 # Refinement criterion, use vorticity and presence of tracer
 amr.refinement_indicators = tracer
 
@@ -155,3 +158,50 @@ nodal_proj.proj_abs_tol = 1.e-5
 
 mac_proj.mac_tol = 1.e-4
 mac_proj.mac_abs_tol = 1.e-5
+
+
+############################
+#                          #
+#  Diffused IB cfg file    #
+#                          #
+############################
+
+# particle's location 
+# x = p1x p2x p3x ...
+particle_inputs.x = 7.5
+particle_inputs.y = 3.0
+particle_inputs.z = 3.0
+
+# particle's density
+# rho = p1r p2r p3r ...
+particle_inputs.rho = 1.0
+
+# particle's radius
+# single
+particle_inputs.radius = 0.5
+
+# particle's velocity
+# vx = p1vx p2vx p3vx ...
+particle_inputs.velocity_x = 0.0
+particle_inputs.velocity_y = 0.0
+particle_inputs.velocity_z = 0.0
+
+# particle's 6DOF
+# TLX = p1tl p2tl ...
+particle_inputs.TLX = 0
+particle_inputs.TLY = 0
+particle_inputs.TLZ = 0
+particle_inputs.RLX = 0
+particle_inputs.RLY = 0
+particle_inputs.RLZ = 0
+
+# Ns loop time
+particle_inputs.LOOP = 15
+
+# msg print
+particle_inputs.verbose = 1
+
+# Euler cfg
+particle_inputs.euler_velocity_index = 0
+particle_inputs.euler_force_index = 0
+particle_inputs.euler_fluid_rho = 1.0

@@ -16,6 +16,9 @@
 #include <hydro_bds.H>
 #include <hydro_utils.H>
 
+#ifdef AMREX_PARTICLES
+#include <DiffusedIB.H>
+#endif
 #ifdef AMREX_USE_EB
 #include <AMReX_EBAmrUtil.H>
 #include <AMReX_EBInterpolater.H>
@@ -24,7 +27,6 @@
 #include <AMReX_EB_Redistribution.H>
 #include <AMReX_EBMultiFabUtil_C.H>
 #endif
-
 #ifdef AMREX_USE_TURBULENT_FORCING
 #include <TurbulentForcing_params.H>
 #endif
@@ -352,12 +354,9 @@ void NavierStokesBase::define_workspace()
 #ifdef AMREX_PARTICLES
         if (level == parent->finestLevel()) {
             // amrex::Print() << "Check grids " << grids << " " << level << " " << parent->finestLevel() << std::endl;
-            Particles::create_particles(geom, dmap, grids); // Class constructor           
-            Vector<Real> x {7.5}; // 7.5
-            Vector<Real> y {3.0};
-            Vector<Real> z {3.0};
-            Particles::define_para(x, y, z, 1.0, 0.5, 1.0, 0, 0, level);
-            Particles::init_particle();
+            Particles::Initialize();
+            Particles::create_particles(geom, dmap, grids); // Class constructor
+            Particles::init_particle( level, gravity);
         }
 #endif
     }
