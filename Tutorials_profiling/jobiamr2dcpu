@@ -64,7 +64,7 @@ do
     sed -i "s/4 # regrid_int/${regrid_int} # regrid_int/g" ${Cases[$i]}
 
     # run the simulation
-    OMP_NUM_THREADS=2 mpiexec -n 4 ./amr2d.gnu.PROF.MPI.ex ${Cases[$i]}
+    OMP_NUM_THREADS=2 mpiexec -n 4 ./amr2d.gnu.PROF.MPI.ex ${Cases[$i]} > log.txt
     # OMP_NUM_THREADS=2 mpirun -n 4 ./amr2d.gnu.PROF.MPI.ex ${Cases[$i]} > log.txt
 
     results_saveddir=$new_case_dir/case_results_cpu2d/cpu2d_skip${skip_level_projector}_${cycling}_mgs${max_grid_size}_$maxlev${max_level}_regrid${regrid_int}
