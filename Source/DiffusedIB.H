@@ -153,7 +153,7 @@ private:
 
     void ForceSpreading(amrex::MultiFab &Euler, RealVect& ib_forece, Real dv, DELTA_FUNCTION_TYPE type);
 
-    void VelocityCorrection(amrex::MultiFab &Euler, amrex::MultiFab &EulerForce, Real dt);
+    void VelocityCorrection(amrex::MultiFab &Euler, amrex::MultiFab &EulerForce, Real dt) const;
 
     void UpdateParticles(const MultiFab& Euler_old, const MultiFab& Euler, const MultiFab& pvf, kernel& kernel, Real dt);
 
