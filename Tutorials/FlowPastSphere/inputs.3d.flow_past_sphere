@@ -12,7 +12,7 @@ max_step 		= 10
 # Time at which calculation stops, if max_step is not reached first.
 stop_time 		= 10.0
 
-ns.fixed_dt     = 0.01
+ns.fixed_dt     = 0.005
 ns.cfl = 0.3
 ns.init_iter = 0
 
@@ -153,11 +153,11 @@ ns.do_diffused_ib     = 1
 
 particles.do_nspc_particles = 0
 
-nodal_proj.proj_tol = 1.e-4
-nodal_proj.proj_abs_tol = 1.e-5
+nodal_proj.proj_tol = 1.e-7
+nodal_proj.proj_abs_tol = 1.e-8
 
-mac_proj.mac_tol = 1.e-4
-mac_proj.mac_abs_tol = 1.e-5
+mac_proj.mac_tol = 1.e-7
+mac_proj.mac_abs_tol = 1.e-8
 
 
 ############################
