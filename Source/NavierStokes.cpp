@@ -1155,6 +1155,12 @@ NavierStokes::writePlotFilePost (const std::string& dir,
     }
 #endif
 
+#ifdef AMREX_PARTICLES
+    if(level == parent->finestLevel()){
+        Particles::get_particles()->Checkpoint(dir, "particles");
+    }
+#endif
+
 #ifdef AMREX_USE_EB
     if ( set_plot_coveredCell_val )
     {

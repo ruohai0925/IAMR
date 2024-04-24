@@ -189,7 +189,7 @@ void mParticle::InteractWithEuler(int iStep,
         BL_ASSERT(loop > 0);
         while(loop > 0){
             if(verbose) amrex::Print() << "[Particle] Ns loop index : " << loop << "\n";
-            
+
             VelocityInterpolation(EulerVel, type);
             ComputeLagrangianForce(dt, kernel);
             
@@ -604,7 +604,7 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
     {//reduce all kernel data
         amrex::ParallelAllReduce::Sum(&kernel.sum_t[0], 3, ParallelDescriptor::Communicator());
         amrex::ParallelAllReduce::Sum(&kernel.sum_u[0], 3, ParallelDescriptor::Communicator());
-        amrex::ParallelAllReduce::Sum(&kernel.ib_force[0], 3, ParallelDescriptor::Communicator());
+        amrex::ParallelAllReduce::Sum(&kernel.ib_forece[0], 3, ParallelDescriptor::Communicator());
     }
     //continue condition 6DOF
     if((kernel.TLX + kernel.TLY + kernel.TLZ + kernel.RLX + kernel.RLY + kernel.RLZ) == 0) return;
