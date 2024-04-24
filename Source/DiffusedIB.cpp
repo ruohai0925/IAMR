@@ -183,20 +183,28 @@ void mParticle::InteractWithEuler(int iStep,
 
     for(kernel& kernel : particle_kernels){
         InitialWithLargrangianPoints(kernel); // Initialize markers for a specific particle
-        Redistribute();
-        UpdateMarkers(kernel, dt);
+        //UpdateMarkers(kernel, dt);
         //for 1 -> Ns
         int loop = loop_time;
+        BL_ASSERT(loop > 0);
         while(loop > 0){
             if(verbose) amrex::Print() << "[Particle] Ns loop index : " << loop << "\n";
-            EulerForce.setVal(0.0, euler_force_index, 3, GHOST_CELLS); //clear Euler force
+
             VelocityInterpolation(EulerVel, type);
             ComputeLagrangianForce(dt, kernel);
-            ForceSpreading(EulerForce, kernel.ib_forece, kernel.dv, type);
+            
+            EulerForce.setVal(0.0, euler_force_index, 3, GHOST_CELLS); // clear Euler force
+            kernel.ib_force.scale(0); // clear kernel ib_force
+            ForceSpreading(EulerForce, kernel.ib_force, kernel.dv, type);
+            
+            if (loop == loop_time) {
+                WriteIBForce(iStep, time, kernel);
+            }
             VelocityCorrection(EulerVel, EulerForce, dt);
+            
             loop--;
         }
-        WriteIBForce(iStep, time, kernel);
+        // WriteIBForce(iStep, time, kernel);
     }
 }
 
@@ -316,7 +324,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
             particleTileTmp.push_back_real(Marker_attr);
         }
     }
-    // Redistribute(); // No need to redistribute here! 
+    Redistribute(); // Still needs to redistribute here! 
     if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 0));
 }
 
@@ -357,6 +365,7 @@ void mParticle::InitialWithLargrangianPoints(const kernel& current_kernel){
         );
     }
     // Redistribute the markers after updating their locations
+    Redistribute();
     if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 1));
 }
 
@@ -485,7 +494,7 @@ void ForceSpreading_cic (P const& p,
                          GpuArray<Real,AMREX_SPACEDIM> const& dx,
                          DELTA_FUNCTION_TYPE type)
 {
-    const Real d = AMREX_D_TERM(dx[0], *dx[1], *dx[2]);
+    //const Real d = AMREX_D_TERM(dx[0], *dx[1], *dx[2]);
     //plo to ii jj kk
     Real lx = (p.pos(0) - plo[0]) / dx[0];
     Real ly = (p.pos(1) - plo[1]) / dx[1];
@@ -522,12 +531,11 @@ void ForceSpreading_cic (P const& p,
 }
 
 void mParticle::ForceSpreading(MultiFab & EulerForce, 
-                               RealVect& ib_forece,
+                               RealVect& ib_force,
                                Real dv,
                                DELTA_FUNCTION_TYPE type){
 
     if (verbose) amrex::Print() << "\tmParticle::ForceSpreading\n";
-    ib_forece.scale(0);
     const auto& gm = m_gdb->Geom(euler_finest_level);
     auto plo = gm.ProbLoArray();
     auto dxi = gm.CellSizeArray();
@@ -544,7 +552,7 @@ void mParticle::ForceSpreading(MultiFab & EulerForce,
         const auto& p_ptr = particles().data();
         amrex::ParallelFor(np, [&]
         AMREX_GPU_DEVICE (int i) noexcept{          
-            ForceSpreading_cic(p_ptr[i], fxP_ptr[i], fyP_ptr[i], fzP_ptr[i], ib_forece[0], ib_forece[1], ib_forece[2], Uarray, euler_force_index, dv, plo, dxi, type);
+            ForceSpreading_cic(p_ptr[i], fxP_ptr[i], fyP_ptr[i], fzP_ptr[i], ib_force[0], ib_force[1], ib_force[2], Uarray, euler_force_index, dv, plo, dxi, type);
         });
     }
     EulerForce.SumBoundary(euler_force_index, 3, gm.periodicity());
@@ -612,7 +620,7 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
         //update kernel velocity
         kernel.velocity = (kernel.velocity
                         + kernel.sum_u * euler_fluid_rho / dt 
-                        - euler_fluid_rho * kernel.ib_forece * kernel.dv
+                        - euler_fluid_rho * kernel.ib_force * kernel.dv
                         + m_gravity * (kernel.rho - euler_fluid_rho) * Vp
                         + kernel.Fcp) * dt / kernel.rho * Vp;
         //kernel.omega = ;
@@ -662,7 +670,7 @@ void mParticle::ComputeLagrangianForce(Real dt,
 void mParticle::VelocityCorrection(amrex::MultiFab &Euler, amrex::MultiFab &EulerForce, Real dt) const
 {
     if(verbose) amrex::Print() << "\tmParticle::VelocityCorrection\n";
-    MultiFab::Saxpy(Euler, dt, EulerForce, ParticleProperties::euler_force_index, ParticleProperties::euler_velocity_index, 3, GHOST_CELLS); //VelocityCorrection
+    MultiFab::Saxpy(Euler, dt, EulerForce, ParticleProperties::euler_force_index, ParticleProperties::euler_velocity_index, 3, 0); //VelocityCorrection
 }
 
 void mParticle::WriteParticleFile(int index)
@@ -672,7 +680,7 @@ void mParticle::WriteParticleFile(int index)
 
 void mParticle::WriteIBForce(int step, amrex::Real time, kernel& current_kernel)
 {
-    amrex::ParallelAllReduce::Sum(&current_kernel.ib_forece[0], 3, ParallelDescriptor::Communicator());
+    amrex::ParallelAllReduce::Sum(&current_kernel.ib_force[0], 3, ParallelDescriptor::Communicator());
 
     if(amrex::ParallelDescriptor::MyProc() != ParallelDescriptor::IOProcessorNumber()) return; 
 
@@ -694,7 +702,7 @@ void mParticle::WriteIBForce(int step, amrex::Real time, kernel& current_kernel)
                      << current_kernel.location[0] << "," << current_kernel.location[1] << "," << current_kernel.location[2] << ","
                      << current_kernel.velocity[0] << "," << current_kernel.velocity[1] << "," << current_kernel.velocity[2] << ","
                      << current_kernel.omega[0] << "," << current_kernel.omega[1] << "," << current_kernel.omega[2] << ","
-                     << current_kernel.ib_forece[0] << "," << current_kernel.ib_forece[1] << "," << current_kernel.ib_forece[2] << "\n";
+                     << current_kernel.ib_force[0] << "," << current_kernel.ib_force[1] << "," << current_kernel.ib_force[2] << "\n";
     }
     out_ib_force.close();
 }

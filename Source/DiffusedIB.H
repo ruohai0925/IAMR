@@ -52,7 +52,7 @@ struct kernel{
     Real rho{0.0};
     int ml{0};
     Real dv{0.0};
-    RealVect ib_forece{0.0,0.0,0.0};
+    RealVect ib_force{0.0,0.0,0.0};
 
     std::vector<amrex::Real> thetaK;
     std::vector<amrex::Real> phiK;
@@ -151,7 +151,7 @@ private:
 
     void ComputeLagrangianForce(Real dt, const kernel& kernel);
 
-    void ForceSpreading(amrex::MultiFab &Euler, RealVect& ib_forece, Real dv, DELTA_FUNCTION_TYPE type);
+    void ForceSpreading(amrex::MultiFab &Euler, RealVect& ib_force, Real dv, DELTA_FUNCTION_TYPE type);
 
     void VelocityCorrection(amrex::MultiFab &Euler, amrex::MultiFab &EulerForce, Real dt) const;
 
@@ -159,7 +159,7 @@ private:
 
     static void WriteIBForce(int step, amrex::Real time, kernel& current_kernel);
 
-    uint32_t ib_forece_file_index = 0;
+    uint32_t ib_force_file_index = 0;
 
     RealVect m_gravity{0.0,0.0,0.0};
 
