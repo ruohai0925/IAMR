@@ -186,6 +186,7 @@ void mParticle::InteractWithEuler(int iStep,
         //UpdateMarkers(kernel, dt);
         //for 1 -> Ns
         int loop = loop_time;
+        BL_ASSERT(loop > 0);
         while(loop > 0){
             if(verbose) amrex::Print() << "[Particle] Ns loop index : " << loop << "\n";
             
@@ -196,7 +197,9 @@ void mParticle::InteractWithEuler(int iStep,
             kernel.ib_force.scale(0); // clear kernel ib_force
             ForceSpreading(EulerForce, kernel.ib_force, kernel.dv, type);
             
-            WriteIBForce(iStep, time, kernel);
+            if (loop == loop_time) {
+                WriteIBForce(iStep, time, kernel);
+            }
             VelocityCorrection(EulerVel, EulerForce, dt);
             
             loop--;
@@ -321,7 +324,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
             particleTileTmp.push_back_real(Marker_attr);
         }
     }
-    // Redistribute(); // No need to redistribute here! 
+    Redistribute(); // Still needs to redistribute here! 
     if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 0));
 }
 
