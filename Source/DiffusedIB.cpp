@@ -12,12 +12,37 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
+#define GHOST_CELLS 2
+
 using namespace amrex;
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/*                     global variable                           */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+namespace ParticleProperties{
+    Vector<Real> _x{}, _y{}, _z{}, _rho{};
+    Vector<Real> Vx{}, Vy{}, Vz{};
+    Real _radius;
+    Vector<int> TLX{}, TLY{},TLZ{},RLX{},RLY{},RLZ{};
+    int euler_finest_level{0};
+    int euler_velocity_index{0};
+    int euler_force_index{0};
+    Real euler_fluid_rho{0.0};
+    int verbose{0};
+    int loop_time{0};
+
+    GpuArray<Real, 3> plo{0.0,0.0,0.0}, phi{0.0,0.0,0.0}, dx{0.0, 0.0, 0.0};
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/*                     other function                            */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 void nodal_phi_to_pvf(MultiFab& pvf, const MultiFab& phi_nodal)
 {
 
-    amrex::Print() << "In the nodal_phi_to_pvf " << std::endl;
+    amrex::Print() << "In the nodal_phi_to_pvf\n";
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -52,14 +77,66 @@ void nodal_phi_to_pvf(MultiFab& pvf, const MultiFab& phi_nodal)
 
 }
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/*                     other function                            */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+void calculate_phi_nodal(MultiFab& phi_nodal, kernel& current_kernel)
+{
+    phi_nodal.setVal(0.0);
+
+    Real Xp2 = Math::powi<2>(current_kernel.location[0]);
+    Real Yp2 = Math::powi<2>(current_kernel.location[1]);
+    Real Zp2 = Math::powi<2>(current_kernel.location[2]);
+    Real Rp2 = Math::powi<2>(current_kernel.radius);
+
+    for (MFIter mfi(phi_nodal,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.tilebox();
+        auto const& pnfab = phi_nodal.array(mfi);
+        amrex::ParallelFor(bx, [=, &pnfab]
+            AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+            {
+                Real Xn = i * ParticleProperties::dx[0] + ParticleProperties::plo[0];
+                Real Yn = j * ParticleProperties::dx[1] + ParticleProperties::plo[1];
+                Real Zn = k * ParticleProperties::dx[2] + ParticleProperties::plo[2];
+
+                pnfab(i,j,k) = std::sqrt((Math::powi<2>(Xn) - Xp2)/Rp2 
+                             + (Math::powi<2>(Yn) - Yp2)/Rp2 
+                             + (Math::powi<2>(Zn) - Zp2)/Rp2
+                ) - 1.0;
+            }
+        );
+    }
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void CalculateSum_cir (RealVect& sum,
+                       const MultiFab& E_old,
+                       const MultiFab& E,
+                       const MultiFab& pvf,
+                       int EulerVelIndex)
+{
+    const Real d = Math::powi<3>(ParticleProperties::dx[0]);
+
+    for (MFIter mfi(E,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.tilebox();
+        auto const& uarray_old = E_old.array(mfi);
+        auto const& uarray = E.array(mfi);
+        auto const& pvffab = pvf.array(mfi);
+        amrex::ParallelFor(bx, [&, d]
+            AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+            {
+                Gpu::Atomic::AddNoRet(&sum[0], (uarray(i, j, k, EulerVelIndex    ) - uarray_old(i, j, k, EulerVelIndex    )) * d * pvffab(i, j, k));
+                Gpu::Atomic::AddNoRet(&sum[1], (uarray(i, j, k, EulerVelIndex + 1) - uarray_old(i, j, k, EulerVelIndex + 1)) * d * pvffab(i, j, k));
+                Gpu::Atomic::AddNoRet(&sum[2], (uarray(i, j, k, EulerVelIndex + 2) - uarray_old(i, j, k, EulerVelIndex + 2)) * d * pvffab(i, j, k));
+            }
+        );
+    }
+
+}
 
 [[nodiscard]] AMREX_FORCE_INLINE
-Real cal_momentum(Real rho, Real radious)
+Real cal_momentum(Real rho, Real radius)
 {
-    return 8.0 * Math::pi<Real>() * rho * Math::powi<5>(radious) / 15.0;
+    return 8.0 * Math::pi<Real>() * rho * Math::powi<5>(radius) / 15.0;
 }
 
 AMREX_FORCE_INLINE
@@ -95,44 +172,73 @@ void deltaFunction(Real xf, Real xp, Real h, Real& value, DELTA_FUNCTION_TYPE ty
 /*                    mParticle member function                  */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 //loop all particels
-void mParticle::InteractWithEuler(int iStep, amrex::Real time, MultiFab &EulerVel, MultiFab &EulerForce, int loop_time, Real dt, Real alpha_k, DELTA_FUNCTION_TYPE type){
+void mParticle::InteractWithEuler(int iStep, 
+                                  amrex::Real time, 
+                                  MultiFab &EulerVel, 
+                                  MultiFab &EulerForce, 
+                                  Real dt,
+                                  DELTA_FUNCTION_TYPE type){
 
-    if (verbose) amrex::Print() << "mParticle::InteractWithEuler " << std::endl;
+    if (verbose) amrex::Print() << "[Particle] mParticle::InteractWithEuler\n";
 
     for(kernel& kernel : particle_kernels){
         InitialWithLargrangianPoints(kernel); // Initialize markers for a specific particle
-        Redistribute();
-        //UpdateParticles(Euler, kernel, dt, alpha_k);
+        //UpdateMarkers(kernel, dt);
         //for 1 -> Ns
         int loop = loop_time;
+        BL_ASSERT(loop > 0);
         while(loop > 0){
-            EulerForce.setVal(0.0, euler_force_index, 3, EulerForce.nGrow()); //clear Euler force
+            if(verbose) amrex::Print() << "[Particle] Ns loop index : " << loop << "\n";
+
             VelocityInterpolation(EulerVel, type);
             ComputeLagrangianForce(dt, kernel);
-            ForceSpreading(EulerForce, kernel.ib_forece, kernel.dv, type);
-            MultiFab::Saxpy(EulerVel, dt, EulerForce, euler_force_index, euler_velocity_index, 3, EulerForce.nGrow()); //VelocityCorrection
+            
+            EulerForce.setVal(0.0, euler_force_index, 3, GHOST_CELLS); // clear Euler force
+            kernel.ib_force.scale(0); // clear kernel ib_force
+            ForceSpreading(EulerForce, kernel.ib_force, kernel.dv, type);
+            
+            if (loop == loop_time) {
+                WriteIBForce(iStep, time, kernel);
+            }
+            VelocityCorrection(EulerVel, EulerForce, dt);
+            
             loop--;
         }
-        WriteIBForce(iStep, time, kernel);
+        // WriteIBForce(iStep, time, kernel);
     }
 }
 
 void mParticle::InitParticles(const Vector<Real>& x,
                               const Vector<Real>& y,
                               const Vector<Real>& z,
-                              Real rho_s,
-                              Real radious,
-                              Real rho_f, 
+                              const Vector<Real>& rho_s,
+                              const Vector<Real>& Vx,
+                              const Vector<Real>& Vy,
+                              const Vector<Real>& Vz,
+                              const Vector<int>& TLXt,
+                              const Vector<int>& TLYt,
+                              const Vector<int>& TLZt,
+                              const Vector<int>& RLXt,
+                              const Vector<int>& RLYt,
+                              const Vector<int>& RLZt,
+                              Real radius,
+                              Real rho_f,
+                              Real gravity,
                               int force_index, 
                               int velocity_index,
-                              int finest_level){
-    
-    if (verbose) amrex::Print() << "mParticle::InitParticles " << std::endl;
+                              int finest_level,
+                              int _verbose,
+                              int _loop_time)
+{
+    verbose = _verbose;
+    loop_time = _loop_time;
+    if (verbose) amrex::Print() << "[Particle] mParticle::InitParticles\n";
     
     euler_finest_level = finest_level;                                      
     euler_force_index = force_index;
     euler_fluid_rho = rho_f;
     euler_velocity_index = velocity_index;
+    m_gravity[2] = gravity;
 
     // Assuming the variables are defined similarly
     // amrex::Print() << "euler_finest_level: " << euler_finest_level << "\n"
@@ -145,10 +251,10 @@ void mParticle::InitParticles(const Vector<Real>& x,
         Print() << "particle's position container are all different size";
         return;
     }
-    //all the particles have same radious
+    //all the particles have same radius
     Real h = m_gdb->Geom(euler_finest_level).CellSizeArray()[0];
-    int Ml = static_cast<int>( Math::pi<Real>() / 3 * (12 * Math::powi<2>(radious / h)));
-    Real dv = Math::pi<Real>() * h / 3 / Ml * (12 * radious * radious + h * h);
+    int Ml = static_cast<int>( Math::pi<Real>() / 3 * (12 * Math::powi<2>(radius / h)));
+    Real dv = Math::pi<Real>() * h / 3 / Ml * (12 * radius * radius + h * h);
 
     if (verbose) amrex::Print() << "h: " << h << ", Ml: " << Ml << ", dv: " << dv << "\n";
 
@@ -158,19 +264,19 @@ void mParticle::InitParticles(const Vector<Real>& x,
         mKernel.location[0] = x[index];
         mKernel.location[1] = y[index];
         mKernel.location[2] = z[index];
-        mKernel.velocity[0] = 0.0;
-        mKernel.velocity[1] = 0.0;
-        mKernel.velocity[2] = 0.0;
-        mKernel.omega[0] = 0.0;
-        mKernel.omega[1] = 0.0;
-        mKernel.omega[2] = 0.0;
-        mKernel.varphi[0] = 0.0;
-        mKernel.varphi[1] = 0.0;
-        mKernel.varphi[2] = 0.0;
-        mKernel.radious = radious;
+        mKernel.velocity[0] = Vx[index];
+        mKernel.velocity[1] = Vy[index];
+        mKernel.velocity[2] = Vz[index];
+        mKernel.TLX = TLXt[index];
+        mKernel.TLY = TLYt[index];
+        mKernel.TLZ = TLZt[index];
+        mKernel.RLX = RLXt[index];
+        mKernel.RLY = RLYt[index];
+        mKernel.RLZ = RLZt[index];
+        mKernel.rho = rho_s[index];
+        mKernel.radius = radius;
         mKernel.ml = Ml;
         mKernel.dv = dv;
-        mKernel.rho = rho_s;
         
         Real phiK = 0;
         for(int id = 1; id <= Ml; id++){
@@ -187,9 +293,9 @@ void mParticle::InitParticles(const Vector<Real>& x,
         particle_kernels.emplace_back(mKernel);
 
         if (verbose) amrex::Print() << "Kernel " << index << ": Location (" << x[index] << ", " << y[index] << ", " << z[index] 
-                   << "), Radius: " << radious << ", Ml: " << Ml << ", dv: " << dv << ", Rho: " << rho_s << "\n";
+                                    << "), Velocity : (" << mKernel.velocity[0] << ", " << mKernel.velocity[1] << ", "<< mKernel.velocity[2] 
+                                    << "), Radius: " << radius << ", Ml: " << Ml << ", dv: " << dv << ", Rho: " << mKernel.rho << "\n";
     }
-
     //get particle tile
     std::pair<int, int> key{0,0};
     auto& particleTileTmp = GetParticles(0)[key];
@@ -218,28 +324,29 @@ void mParticle::InitParticles(const Vector<Real>& x,
             particleTileTmp.push_back_real(Marker_attr);
         }
     }
-    // Redistribute(); // No need to redistribute here! 
+    Redistribute(); // Still needs to redistribute here! 
     if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 0));
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void InitalLargrangianPointsLoc (amrex::ParticleReal& x,
-                    amrex::ParticleReal& y,
-                    amrex::ParticleReal& z,
-                    amrex::Real thetaK,
-                    amrex::Real phiK,
-                    const amrex::RealVect location,
-                    const amrex::Real radious,
-                    const int ml) noexcept{
+                                 amrex::ParticleReal& y,
+                                 amrex::ParticleReal& z,
+                                 amrex::Real thetaK,
+                                 amrex::Real phiK,
+                                 const amrex::RealVect location,
+                                 const amrex::Real radius,
+                                 const int ml) noexcept
+{
     // update LargrangianPoint position with particle position           
-    x = location[0] + radious * std::sin(thetaK) * std::cos(phiK);
-    y = location[1] + radious * std::sin(thetaK) * std::sin(phiK);
-    z = location[2] + radious * std::cos(thetaK);
+    x = location[0] + radius * std::sin(thetaK) * std::cos(phiK);
+    y = location[1] + radius * std::sin(thetaK) * std::sin(phiK);
+    z = location[2] + radius * std::cos(thetaK);
 }
 
 void mParticle::InitialWithLargrangianPoints(const kernel& current_kernel){
 
-    if (verbose) amrex::Print() << "mParticle::InitialWithLargrangianPoints " << std::endl;
+    if (verbose) amrex::Print() << "mParticle::InitialWithLargrangianPoints\n";
     // Update the markers' locations
     for(mParIter pti(*this, euler_finest_level); pti.isValid(); ++pti){
 
@@ -252,23 +359,24 @@ void mParticle::InitialWithLargrangianPoints(const kernel& current_kernel){
                                            current_kernel.thetaK.at(id),
                                            current_kernel.phiK.at(id),
                                            current_kernel.location,
-                                           current_kernel.radious,
+                                           current_kernel.radius,
                                            current_kernel.ml);
             }
         );
     }
     // Redistribute the markers after updating their locations
+    Redistribute();
     if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 1));
 }
 
 template <typename P = Particle<numAttri>>
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void VelocityInterpolation_cir(int p_iter, P const& p, Real& Up, Real& Vp, Real& Wp,
-                     Array4<Real const> const& E, int EulerVIndex,
-                     const int *lo, const int *hi, 
-                     GpuArray<Real, AMREX_SPACEDIM> const& plo,
-                     GpuArray<Real, AMREX_SPACEDIM> const& dx,
-                     DELTA_FUNCTION_TYPE type)
+                               Array4<Real const> const& E, int EulerVIndex,
+                               const int *lo, const int *hi, 
+                               GpuArray<Real, AMREX_SPACEDIM> const& plo,
+                               GpuArray<Real, AMREX_SPACEDIM> const& dx,
+                               DELTA_FUNCTION_TYPE type)
 {
 
     //std::cout << "lo " << lo[0] << " " << lo[1] << " "<< lo[2] << "\n";
@@ -317,7 +425,7 @@ void mParticle::VelocityInterpolation(MultiFab &EulerVel,
                                       DELTA_FUNCTION_TYPE type)//
 {
 
-    if (verbose) amrex::Print() << "mParticle::VelocityInterpolation " << std::endl;
+    if (verbose) amrex::Print() << "\tmParticle::VelocityInterpolation\n";
 
     //amrex::Print() << "euler_finest_level " << euler_finest_level << std::endl;
     const auto& gm = m_gdb->Geom(euler_finest_level);
@@ -373,20 +481,20 @@ void mParticle::VelocityInterpolation(MultiFab &EulerVel,
 template <typename P>
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void ForceSpreading_cic (P const& p,
-                  ParticleReal fxP,
-                  ParticleReal fyP,
-                  ParticleReal fzP,
-                  Real & ib_fx,
-                  Real & ib_fy,
-                  Real & ib_fz,
-                  Array4<Real> const& E,
-                  int EulerForceIndex,
-                  Real dv,
-                  GpuArray<Real,AMREX_SPACEDIM> const& plo,
-                  GpuArray<Real,AMREX_SPACEDIM> const& dx,
-                  DELTA_FUNCTION_TYPE type)
+                         ParticleReal fxP,
+                         ParticleReal fyP,
+                         ParticleReal fzP,
+                         Real & ib_fx,
+                         Real & ib_fy,
+                         Real & ib_fz,
+                         Array4<Real> const& E,
+                         int EulerForceIndex,
+                         Real dv,
+                         GpuArray<Real,AMREX_SPACEDIM> const& plo,
+                         GpuArray<Real,AMREX_SPACEDIM> const& dx,
+                         DELTA_FUNCTION_TYPE type)
 {
-    const Real d = AMREX_D_TERM(dx[0], *dx[1], *dx[2]);
+    //const Real d = AMREX_D_TERM(dx[0], *dx[1], *dx[2]);
     //plo to ii jj kk
     Real lx = (p.pos(0) - plo[0]) / dx[0];
     Real ly = (p.pos(1) - plo[1]) / dx[1];
@@ -398,9 +506,9 @@ void ForceSpreading_cic (P const& p,
     Real Fx = fxP * dv;
     Real Fy = fyP * dv;
     Real Fz = fzP * dv;
-    ib_fx += Fx;
-    ib_fy += Fy;
-    ib_fz += Fz;
+    Gpu::Atomic::AddNoRet(&ib_fx, Fx);
+    Gpu::Atomic::AddNoRet(&ib_fy, Fy);
+    Gpu::Atomic::AddNoRet(&ib_fz, Fz); 
     // calc_delta(i, j, k, dxi, rho);
     //lagrangian to Euler
     for(int ii = -2; ii < +3; ii++){
@@ -423,16 +531,15 @@ void ForceSpreading_cic (P const& p,
 }
 
 void mParticle::ForceSpreading(MultiFab & EulerForce, 
-                               RealVect& ib_forece,
+                               RealVect& ib_force,
                                Real dv,
                                DELTA_FUNCTION_TYPE type){
 
-    if (verbose) amrex::Print() << "mParticle::ForceSpreading " << std::endl;
-    ib_forece.scale(0);
+    if (verbose) amrex::Print() << "\tmParticle::ForceSpreading\n";
     const auto& gm = m_gdb->Geom(euler_finest_level);
     auto plo = gm.ProbLoArray();
     auto dxi = gm.CellSizeArray();
-    const int EulerForceIndex = euler_force_index;
+
     for(mParIter pti(*this, euler_finest_level); pti.isValid(); ++pti){
         const Long np = pti.numParticles();
         const auto& particles = pti.GetArrayOfStructs();
@@ -443,14 +550,14 @@ void mParticle::ForceSpreading(MultiFab & EulerForce,
         const auto& fyP_ptr = attri[P_ATTR::Fy_Marker].data();
         const auto& fzP_ptr = attri[P_ATTR::Fz_Marker].data();
         const auto& p_ptr = particles().data();
-        amrex::ParallelFor(np, [=, &ib_forece]
+        amrex::ParallelFor(np, [&]
         AMREX_GPU_DEVICE (int i) noexcept{          
-            ForceSpreading_cic(p_ptr[i], fxP_ptr[i], fyP_ptr[i], fzP_ptr[i], ib_forece[0], ib_forece[1], ib_forece[2], Uarray, EulerForceIndex, dv, plo, dxi, type);
+            ForceSpreading_cic(p_ptr[i], fxP_ptr[i], fyP_ptr[i], fzP_ptr[i], ib_force[0], ib_force[1], ib_force[2], Uarray, euler_force_index, dv, plo, dxi, type);
         });
     }
-    EulerForce.SumBoundary(EulerForceIndex, 3, gm.periodicity());
+    EulerForce.SumBoundary(euler_force_index, 3, gm.periodicity());
 
-    if (verbose) {
+    if (false) {
         // Check the Multifab
         // Open a file stream for output
         std::ofstream outFile("EulerForce.txt");
@@ -471,7 +578,7 @@ void mParticle::ForceSpreading(MultiFab & EulerForce,
                 for (int j = bx.smallEnd(1); j <= bx.bigEnd(1); ++j) {
                     for (int i = bx.smallEnd(0); i <= bx.bigEnd(0); ++i) {
                         // This print statement is for demonstration and should not be used in actual GPU code.
-                        outFile << "Processing i: " << i << ", j: " << j << ", k: " << k << " " << a(i,j,k,0) << " " << a(i,j,k,1) << " " << a(i,j,k,2) << std::endl;
+                        outFile << "Processing i: " << i << ", j: " << j << ", k: " << k << " " << a(i,j,k,0) << " " << a(i,j,k,1) << " " << a(i,j,k,2) << "\n";
                     }
                 }
             }
@@ -483,76 +590,56 @@ void mParticle::ForceSpreading(MultiFab & EulerForce,
 
 }
 
-void mParticle::UpdateParticles(const amrex::MultiFab& Euler, kernel& kernel, Real dt, Real alpha_k)
+void mParticle::UpdateMarkers(kernel& current_kernel, Real dt)
 {
+}
+
+void mParticle::UpdateParticles(const MultiFab& Euler_old, 
+                                const MultiFab& Euler, 
+                                const MultiFab& pvf, 
+                                kernel& kernel, Real dt)
+{
+    if (verbose) amrex::Print() << "mParticle::UpdateParticles\n";
     
-    if (verbose) amrex::Print() << "mParticle::UpdateParticles " << std::endl;
-    
-    //update the kernel's infomation and cal body force
-    for(mParIter pti(*this, euler_finest_level); pti.isValid(); ++pti){
-        auto &particles = pti.GetArrayOfStructs();
-        auto *p_ptr = particles.data();
-        auto &attri = pti.GetAttribs();
-        auto *FxP = attri[P_ATTR::Fx_Marker].data();
-        auto *FyP = attri[P_ATTR::Fy_Marker].data();
-        auto *FzP = attri[P_ATTR::Fz_Marker].data();
-        auto *UP  = attri[P_ATTR::U_Marker].data();
-        auto *VP  = attri[P_ATTR::V_Marker].data();
-        auto *WP  = attri[P_ATTR::W_Marker].data();
-        const Real Dv = kernel.dv;
-        const Long np = pti.numParticles();
-        RealVect ForceDv{std::vector<Real>{0.0,0.0,0.0}};
-        RealVect Moment{std::vector<Real>{0.0,0.0,0.0}};
-        auto *ForceDv_ptr  = &ForceDv;
-        auto *Moment_ptr   = &Moment;
-        auto *location_ptr = &kernel.location;
-        auto *omega_ptr    = &kernel.omega;
-        auto *velocity_ptr = &kernel.velocity;
-        auto *varphi_ptr   = &kernel.varphi;
-        const Real rho_p = kernel.rho;
-        //sum
-        amrex::ParallelFor(np, [=] 
-        AMREX_GPU_DEVICE (int i) noexcept{
-            //calculate the force
-            //find current particle's lagrangian marker
-            *ForceDv_ptr += RealVect(AMREX_D_DECL(FxP[i],FyP[i],FzP[i])) * Dv;
-            *Moment_ptr +=  (RealVect(AMREX_D_DECL(p_ptr[i].pos(0),p_ptr[i].pos(1),p_ptr[i].pos(2))) - *location_ptr).crossProduct(
-                            RealVect(AMREX_D_DECL(FxP[i],FyP[i],FzP[i]))) * Dv;
-        });
-        RealVect oldVelocity = kernel.velocity;
-        RealVect oldOmega = kernel.omega;
-        kernel.velocity = kernel.velocity -
-                            2 * alpha_k * dt/( Math::pi<Real>() * 4 * Math::powi<3>(kernel.radious) / 3) / (kernel.rho - euler_fluid_rho) * (ForceDv);// + mVector(0.0, -9.8, 0.0));
-        kernel.omega = kernel.omega -
-                        2 * alpha_k * dt * kernel.rho / cal_momentum(kernel.rho, kernel.radious) / (kernel.rho - euler_fluid_rho) * Moment;
-        
-        auto deltaX = alpha_k * dt * (*velocity_ptr + oldVelocity);
-        *location_ptr = *location_ptr + deltaX;
-        *varphi_ptr = *varphi_ptr + alpha_k * dt * (*omega_ptr + oldOmega);
-        //sum
-        amrex::ParallelFor(np, [=] 
-        AMREX_GPU_DEVICE (int i) noexcept{
-            //calculate the force
-            //find current particle's lagrangian marker
-            RealVect tmp = (*omega_ptr).crossProduct(*location_ptr - RealVect(p_ptr[i].pos(0),
-                                                                                    p_ptr[i].pos(1),
-                                                                                    p_ptr[i].pos(2)));
-            FxP[i] = rho_p / dt *(UP[i] + tmp[0]);
-            FyP[i] = rho_p / dt *(VP[i] + tmp[1]);
-            FzP[i] = rho_p / dt *(WP[i] + tmp[2]);
-            p_ptr[i].pos(0) += deltaX[0];
-            p_ptr[i].pos(1) += deltaX[1];
-            p_ptr[i].pos(2) += deltaX[2];
-        });
+    {//reduce all kernel data
+        amrex::ParallelAllReduce::Sum(&kernel.sum_t[0], 3, ParallelDescriptor::Communicator());
+        amrex::ParallelAllReduce::Sum(&kernel.sum_u[0], 3, ParallelDescriptor::Communicator());
+        amrex::ParallelAllReduce::Sum(&kernel.ib_force[0], 3, ParallelDescriptor::Communicator());
     }
-    Redistribute();
+    //continue condition 6DOF
+    if((kernel.TLX + kernel.TLY + kernel.TLZ + kernel.RLX + kernel.RLY + kernel.RLZ) == 0) return;
+    //sum
+    CalculateSum_cir(kernel.sum_u, Euler_old, Euler, pvf, euler_velocity_index);
+
+
+    //ioprocessor calculation 
+    // if(amrex::ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber()){
+        
+        Real Vp = Math::pi<Real>() * 4 / 3 * Math::powi<3>(kernel.radius);
+        //update the kernel's infomation and cal body force
+        //update kernel velocity
+        kernel.velocity = (kernel.velocity
+                        + kernel.sum_u * euler_fluid_rho / dt 
+                        - euler_fluid_rho * kernel.ib_force * kernel.dv
+                        + m_gravity * (kernel.rho - euler_fluid_rho) * Vp
+                        + kernel.Fcp) * dt / kernel.rho * Vp;
+        //kernel.omega = ;
+        kernel.velocity *= RealVect(kernel.TLX, kernel.TLY, kernel.TLZ);
+        kernel.omega *= RealVect(kernel.RLX, kernel.RLY, kernel.RLZ);
+
+        kernel.location += kernel.velocity * dt;
+    // }
+    //Bcast velocity
+    // ParallelDescriptor::Bcast(&kernel.location[0], 3, ParallelDescriptor::IOProcessorNumber());
+
     if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 4));
 }
 
-void mParticle::ComputeLagrangianForce(Real dt, const kernel& kernel)
+void mParticle::ComputeLagrangianForce(Real dt, 
+                                       const kernel& kernel)
 {
     
-    if (verbose) amrex::Print() << "mParticle::ComputeLagrangianForce " << std::endl;
+    if (verbose) amrex::Print() << "\tmParticle::ComputeLagrangianForce\n";
 
     Real Ub = kernel.velocity[0];
     Real Vb = kernel.velocity[1];
@@ -579,6 +666,13 @@ void mParticle::ComputeLagrangianForce(Real dt, const kernel& kernel)
     if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 3));
 }
 
+
+void mParticle::VelocityCorrection(amrex::MultiFab &Euler, amrex::MultiFab &EulerForce, Real dt) const
+{
+    if(verbose) amrex::Print() << "\tmParticle::VelocityCorrection\n";
+    MultiFab::Saxpy(Euler, dt, EulerForce, ParticleProperties::euler_force_index, ParticleProperties::euler_velocity_index, 3, 0); //VelocityCorrection
+}
+
 void mParticle::WriteParticleFile(int index)
 {
     WriteAsciiFile(amrex::Concatenate("particle", index));
@@ -586,17 +680,8 @@ void mParticle::WriteParticleFile(int index)
 
 void mParticle::WriteIBForce(int step, amrex::Real time, kernel& current_kernel)
 {
-    {//reduce all kernel data
-        amrex::ParallelAllReduce::Sum(current_kernel.velocity[0], ParallelDescriptor::Communicator());
-        amrex::ParallelAllReduce::Sum(current_kernel.velocity[1], ParallelDescriptor::Communicator());
-        amrex::ParallelAllReduce::Sum(current_kernel.velocity[2], ParallelDescriptor::Communicator());
-        amrex::ParallelAllReduce::Sum(current_kernel.omega[0], ParallelDescriptor::Communicator());
-        amrex::ParallelAllReduce::Sum(current_kernel.omega[1], ParallelDescriptor::Communicator());
-        amrex::ParallelAllReduce::Sum(current_kernel.omega[2], ParallelDescriptor::Communicator());
-        amrex::ParallelAllReduce::Sum(current_kernel.ib_forece[0], ParallelDescriptor::Communicator());
-        amrex::ParallelAllReduce::Sum(current_kernel.ib_forece[1], ParallelDescriptor::Communicator());
-        amrex::ParallelAllReduce::Sum(current_kernel.ib_forece[2], ParallelDescriptor::Communicator());
-    }
+    amrex::ParallelAllReduce::Sum(&current_kernel.ib_force[0], 3, ParallelDescriptor::Communicator());
+
     if(amrex::ParallelDescriptor::MyProc() != ParallelDescriptor::IOProcessorNumber()) return; 
 
     std::string file("IB_Force_Particle_" + std::to_string(current_kernel.id) + ".csv");
@@ -611,13 +696,13 @@ void mParticle::WriteIBForce(int step, amrex::Real time, kernel& current_kernel)
 
     out_ib_force.open(file, std::ios::app);
     if(!out_ib_force.is_open()){
-        amrex::Print() << "[diffused IB output] write particle file error , step: " << step;
+        amrex::Print() << "[Particle] write particle file error , step: " << step;
     }else{
         out_ib_force << head << step << "," << time << "," 
                      << current_kernel.location[0] << "," << current_kernel.location[1] << "," << current_kernel.location[2] << ","
                      << current_kernel.velocity[0] << "," << current_kernel.velocity[1] << "," << current_kernel.velocity[2] << ","
                      << current_kernel.omega[0] << "," << current_kernel.omega[1] << "," << current_kernel.omega[2] << ","
-                     << current_kernel.ib_forece[0] << "," << current_kernel.ib_forece[1] << "," << current_kernel.ib_forece[2] << "\n";
+                     << current_kernel.ib_force[0] << "," << current_kernel.ib_force[1] << "," << current_kernel.ib_force[2] << "\n";
     }
     out_ib_force.close();
 }
@@ -626,10 +711,13 @@ void mParticle::WriteIBForce(int step, amrex::Real time, kernel& current_kernel)
 /*                    Particles member function                  */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 void Particles::create_particles(const Geometry &gm,
-                             const DistributionMapping & dm,
-                             const BoxArray & ba)
+                                 const DistributionMapping & dm,
+                                 const BoxArray & ba)
 {
     particle = new mParticle(gm, dm, ba);
+    ParticleProperties::plo = gm.ProbLoArray();
+    ParticleProperties::phi = gm.ProbHiArray();
+    ParticleProperties::dx = gm.CellSizeArray();
 }
 
 mParticle* Particles::get_particles()
@@ -637,34 +725,66 @@ mParticle* Particles::get_particles()
     return particle;
 }
 
-void Particles::define_para(const Vector<Real>& x,
-                            const Vector<Real>& y,
-                            const Vector<Real>& z,
-                            Real rho_s,
-                            Real radious,
-                            Real rho_f, 
-                            int force_index, 
-                            int velocity_index,
-                            int finest_level)
-{
-    std::copy(x.begin(), x.end(), std::back_inserter(_x));
-    std::copy(y.begin(), y.end(), std::back_inserter(_y));
-    std::copy(z.begin(), z.end(), std::back_inserter(_z));
 
-    euler_fluid_rho = rho_f;
-    euler_solid_rho = rho_s;
-
-    particle_radious = radious;
-
-    euler_finest_level = finest_level;
-    euler_velocity_index = velocity_index;
-    euler_force_index = force_index;
+void Particles::init_particle(int level, Real gravity)
+{  
+    if(particle != nullptr){
+        particle->InitParticles(
+            ParticleProperties::_x, 
+            ParticleProperties::_y, 
+            ParticleProperties::_z,
+            ParticleProperties::_rho,
+            ParticleProperties::Vx,
+            ParticleProperties::Vy,
+            ParticleProperties::Vz,
+            ParticleProperties::TLX,
+            ParticleProperties::TLY,
+            ParticleProperties::TLZ,
+            ParticleProperties::RLX,
+            ParticleProperties::RLY,
+            ParticleProperties::RLZ,
+            ParticleProperties::_radius,
+            ParticleProperties::euler_fluid_rho,
+            gravity,
+            ParticleProperties::euler_force_index, 
+            ParticleProperties::euler_velocity_index, 
+            level,
+            ParticleProperties::verbose,
+            ParticleProperties::loop_time);
+    }
 }
 
-void Particles::init_particle()
+void Particles::Initialize()
 {
-    if(particle != nullptr){
-        particle->InitParticles(_x, _y, _z, euler_solid_rho, particle_radious, euler_fluid_rho,
-         euler_force_index, euler_velocity_index, euler_finest_level);
+    ParmParse pp("particle");
+
+    std::string particle_inputfile;
+
+    pp.get("input",particle_inputfile);
+    
+    if(!particle_inputfile.empty()){
+        amrex::Print() << "[Particle] : Reading partilces cfg file : " << particle_inputfile << "\n";
+        ParmParse p_file(particle_inputfile);
+        p_file.getarr("x", ParticleProperties::_x);
+        p_file.getarr("y", ParticleProperties::_y);
+        p_file.getarr("z", ParticleProperties::_z);
+        p_file.getarr("rho",ParticleProperties::_rho);
+        p_file.get("radius", ParticleProperties::_radius);
+        p_file.getarr("velocity_x", ParticleProperties::Vx);
+        p_file.getarr("velocity_y", ParticleProperties::Vy);
+        p_file.getarr("velocity_z", ParticleProperties::Vz);
+        p_file.getarr("TLX", ParticleProperties::TLX);
+        p_file.getarr("TLY", ParticleProperties::TLY);
+        p_file.getarr("TLZ", ParticleProperties::TLZ);
+        p_file.getarr("RLX", ParticleProperties::RLX);
+        p_file.getarr("RLY", ParticleProperties::RLY);
+        p_file.getarr("RLZ", ParticleProperties::RLZ);
+        p_file.get("LOOP", ParticleProperties::loop_time);
+        p_file.query("verbose", ParticleProperties::verbose);
+        p_file.get("euler_velocity_index", ParticleProperties::euler_velocity_index);
+        p_file.get("euler_force_index", ParticleProperties::euler_force_index);
+        p_file.get("euler_fluid_rho", ParticleProperties::euler_fluid_rho);
+    }else {
+        amrex::Abort("[Particle] : can't read particles settings, pls check your config file \"particle.input\"");
     }
 }

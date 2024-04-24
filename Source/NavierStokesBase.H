@@ -17,7 +17,6 @@
 #include <AMReX_Utility.H>
 
 #ifdef AMREX_PARTICLES
-#include <DiffusedIB.H>
 #include <AMReX_AmrParticles.H>
 #endif
 

@@ -44,17 +44,26 @@ enum DELTA_FUNCTION_TYPE{
 
 struct kernel{
     int id;
-    RealVect velocity;
-    RealVect location;
-    RealVect omega;
-    RealVect varphi;
-    Real radious;
-    Real rho;
-    int ml;
-    Real dv;
-    RealVect ib_forece;
+    RealVect velocity{0.0,0.0,0.0};
+    RealVect location{0.0,0.0,0.0};
+    RealVect omega{0.0,0.0,0.0};
+    RealVect varphi{0.0,0.0,0.0};
+    Real radius{0.0};
+    Real rho{0.0};
+    int ml{0};
+    Real dv{0.0};
+    RealVect ib_force{0.0,0.0,0.0};
+
     std::vector<amrex::Real> thetaK;
     std::vector<amrex::Real> phiK;
+
+    RealVect sum_u{0.0,0.0,0.0};
+    RealVect sum_t{0.0,0.0,0.0};
+
+    RealVect Fcp{0.0,0.0,0.0};
+    RealVect Tcp{0.0,0.0,0.0};
+
+    int TLX{0},TLY{0},TLZ{0},RLX{0},RLY{0},RLZ{0};
 };
 
 class mParIter : public ParIter<0, 0, numAttri>{
@@ -98,14 +107,26 @@ public:
     void InitParticles(const Vector<Real>& x,
                        const Vector<Real>& y,
                        const Vector<Real>& z,
-                       Real rho_s,
-                       Real radious,
-                       Real rho_f, 
+                       const Vector<Real>& rho_s,
+                       const Vector<Real>& Vx,
+                       const Vector<Real>& Vy,
+                       const Vector<Real>& Vz,
+                       const Vector<int>& TLX,
+                       const Vector<int>& TLY,
+                       const Vector<int>& TLZ,
+                       const Vector<int>& RLX,
+                       const Vector<int>& RLY,
+                       const Vector<int>& RLZ,
+                       Real radius,
+                       Real rho_f,
+                       Real gravity,
                        int force_index, 
                        int velocity_index,
-                       int finest_level);
+                       int finest_level,
+                       int verbose = 0,
+                       int loop_time = 10);
 
-    void InteractWithEuler(int iStep, amrex::Real time, MultiFab &EulerVel, MultiFab &EulerForce, int loop_time = 20, Real dt = 0.1, Real alpha_k = 0.5, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
+    void InteractWithEuler(int iStep, amrex::Real time, MultiFab &EulerVel, MultiFab &EulerForce, Real dt = 0.1, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
 
     void WriteParticleFile(int index);
 
@@ -118,21 +139,29 @@ private:
 
     Real euler_fluid_rho;
 
+    int loop_time;
+
     Vector<kernel> particle_kernels;
 
     void InitialWithLargrangianPoints(const kernel& current_kernel);
 
+    void UpdateMarkers(kernel& current_kernel, Real dt);
+
     void VelocityInterpolation(amrex::MultiFab &Euler, DELTA_FUNCTION_TYPE type);
-
-    void ForceSpreading(amrex::MultiFab &Euler, RealVect& ib_forece, Real dv, DELTA_FUNCTION_TYPE type);
-
-    void UpdateParticles(const amrex::MultiFab& Euler, kernel& kernel, Real dt, Real alpha_k );
 
     void ComputeLagrangianForce(Real dt, const kernel& kernel);
 
+    void ForceSpreading(amrex::MultiFab &Euler, RealVect& ib_force, Real dv, DELTA_FUNCTION_TYPE type);
+
+    void VelocityCorrection(amrex::MultiFab &Euler, amrex::MultiFab &EulerForce, Real dt) const;
+
+    void UpdateParticles(const MultiFab& Euler_old, const MultiFab& Euler, const MultiFab& pvf, kernel& kernel, Real dt);
+
     static void WriteIBForce(int step, amrex::Real time, kernel& current_kernel);
 
-    uint32_t ib_forece_file_index = 0;
+    uint32_t ib_force_file_index = 0;
+
+    RealVect m_gravity{0.0,0.0,0.0};
 
     int verbose = 0;
 };
@@ -144,27 +173,19 @@ public:
                                  const BoxArray & ba);
 
     static mParticle* get_particles();
-    static void init_particle();
-
+    static void init_particle( int level, Real gravity);
+    static void Initialize();
     static void define_para(const Vector<Real>& x,
                             const Vector<Real>& y,
                             const Vector<Real>& z,
                             Real rho_s,
-                            Real radious,
+                            Real radius,
                             Real rho_f, 
                             int force_index, 
                             int velocity_index,
                             int finest_level);
 
 private:
-    inline static Vector<Real> _x{}, _y{}, _z{};
-    inline static int euler_finest_level = 0;
-    inline static int euler_velocity_index = 0;
-    inline static int euler_force_index = 0;
-    inline static Real euler_fluid_rho = 0.0;
-    inline static Real euler_solid_rho = 0.0;
-    inline static Real particle_radious = 0.0;
-
     inline static mParticle* particle = nullptr;
 };
 

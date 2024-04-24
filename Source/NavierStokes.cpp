@@ -10,6 +10,10 @@
 #include <NS_LS.H>
 #include <NS_kernels.H>
 
+#ifdef AMREX_PARTICLES
+#include <DiffusedIB.H>
+#endif
+
 #ifdef BL_USE_VELOCITY
 #include <AMReX_DataServices.H>
 #include <AMReX_AmrData.H>
@@ -1148,6 +1152,12 @@ NavierStokes::writePlotFilePost (const std::string& dir,
     if (level == 0 && theNSPC() != 0 && particles_in_plotfile)
     {
       theNSPC()->Checkpoint(dir,"Particles");
+    }
+#endif
+
+#ifdef AMREX_PARTICLES
+    if(level == parent->finestLevel()){
+        Particles::get_particles()->Checkpoint(dir, "particles");
     }
 #endif
 
@@ -2653,7 +2663,7 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
             // S_new.setVal(2.0, 1, 1, S_new.nGrow()); // v = 2
             // S_new.setVal(3.0, 2, 1, S_new.nGrow()); // w = 3
             MultiFab EulerForce(S_new.boxArray(), S_new.DistributionMap(), 3, S_new.nGrow());            
-            Particles::get_particles()->InteractWithEuler(parent->levelSteps(0), time, S_new, EulerForce, 10, dt, 0.5);
+            Particles::get_particles()->InteractWithEuler(parent->levelSteps(0), time, S_new, EulerForce, dt);
         }
         //amrex::Abort("Stop here!");
 #endif
