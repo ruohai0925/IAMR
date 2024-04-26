@@ -189,7 +189,7 @@ void mParticle::InteractWithEuler(int iStep,
         BL_ASSERT(loop > 0);
         while(loop > 0){
             if(verbose) amrex::Print() << "[Particle] Ns loop index : " << loop << "\n";
-
+            
             VelocityInterpolation(EulerVel, type);
             ComputeLagrangianForce(dt, kernel);
             
@@ -197,14 +197,13 @@ void mParticle::InteractWithEuler(int iStep,
             kernel.ib_force.scale(0); // clear kernel ib_force
             ForceSpreading(EulerForce, kernel.ib_force, kernel.dv, type);
             
-            if (loop == loop_time) {
+            if (loop > 0) {
                 WriteIBForce(iStep, time, kernel);
             }
             VelocityCorrection(EulerVel, EulerForce, dt);
             
             loop--;
         }
-        // WriteIBForce(iStep, time, kernel);
     }
 }
 
