@@ -34,6 +34,8 @@ enum P_ATTR{
     Fx_Marker,
     Fy_Marker,
     Fz_Marker,
+    P_thetaK,
+    P_phiK,
     numAttri
 };
 
@@ -53,9 +55,6 @@ struct kernel{
     int ml{0};
     Real dv{0.0};
     RealVect ib_force{0.0,0.0,0.0};
-
-    std::vector<amrex::Real> thetaK;
-    std::vector<amrex::Real> phiK;
 
     RealVect sum_u{0.0,0.0,0.0};
     RealVect sum_t{0.0,0.0,0.0};
@@ -118,28 +117,15 @@ public:
                        const Vector<int>& RLY,
                        const Vector<int>& RLZ,
                        Real radius,
-                       Real rho_f,
                        Real gravity,
-                       int force_index, 
-                       int velocity_index,
                        int finest_level,
-                       int verbose = 0,
-                       int loop_time = 10);
+                       int verbose = 0);
 
     void InteractWithEuler(int iStep, amrex::Real time, MultiFab &EulerVel, MultiFab &EulerForce, Real dt = 0.1, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
 
     void WriteParticleFile(int index);
 
-private:
     int euler_finest_level;
-
-    int euler_force_index;
-
-    int euler_velocity_index;
-
-    Real euler_fluid_rho;
-
-    int loop_time;
 
     Vector<kernel> particle_kernels;
 
