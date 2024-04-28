@@ -7,12 +7,12 @@
 
 # Maximum number of coarse grid timesteps to be taken, if stop_time is
 #  not reached first.
-max_step 		= 10
+max_step 		= 6000
 
 # Time at which calculation stops, if max_step is not reached first.
 stop_time 		= 10.0
 
-ns.fixed_dt     = 0.01
+ns.fixed_dt     = 0.005
 ns.cfl = 0.3
 ns.init_iter = 0
 
@@ -69,14 +69,14 @@ amr.v                   = 1
 
 # Interval (in number of coarse timesteps) between checkpoint(restart) files
 
-amr.check_int		= 100
+amr.check_int		= 400
 
 #amr.restart             = chk01400
 
 #*******************************************************************************
 
 # Interval (in number of coarse timesteps) between plot files
-amr.plot_int		= 50
+amr.plot_int		= 400
 
 
 #*******************************************************************************
@@ -198,11 +198,11 @@ particle_inputs.RLY = 0
 particle_inputs.RLZ = 0
 
 # Ns loop time
-particle_inputs.LOOP = 2
+particle_inputs.LOOP = 10
 
 
 # msg print
-particle_inputs.verbose = 1
+particle_inputs.verbose = 0
 
 # Euler cfg
 particle_inputs.euler_velocity_index = 0

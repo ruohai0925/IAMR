@@ -190,27 +190,39 @@ void mParticle::InteractWithEuler(int iStep,
     for(kernel& kernel : particle_kernels){
         InitialWithLargrangianPoints(kernel); // Initialize markers for a specific particle
         //UpdateMarkers(kernel, dt);
+        
+        amrex::Real ib_force_x = 0.0;
+        amrex::Real ib_force_y = 0.0;
+        amrex::Real ib_force_z = 0.0;
+        
         //for 1 -> Ns
         int loop = ParticleProperties::loop_time;
         BL_ASSERT(loop > 0);
         while(loop > 0){
             if(verbose) amrex::Print() << "[Particle] Ns loop index : " << loop << "\n";
-
+            
             VelocityInterpolation(EulerVel, type);
             ComputeLagrangianForce(dt, kernel);
             
             EulerForce.setVal(0.0, ParticleProperties::euler_force_index, 3, GHOST_CELLS); // clear Euler force
             kernel.ib_force.scale(0); // clear kernel ib_force
             ForceSpreading(EulerForce, kernel.ib_force, kernel.dv, type);
-            
-            if (loop == ParticleProperties::loop_time) {
-                WriteIBForce(iStep, time, kernel);
-            }
+
+            amrex::ParallelAllReduce::Sum(&kernel.ib_force[0], 3, ParallelDescriptor::Communicator());
+
+            ib_force_x += kernel.ib_force[0];
+            ib_force_y += kernel.ib_force[1];
+            ib_force_z += kernel.ib_force[2];            
+
             VelocityCorrection(EulerVel, EulerForce, dt);
             
             loop--;
         }
-        // WriteIBForce(iStep, time, kernel);
+        
+        kernel.ib_force[0] = ib_force_x;
+        kernel.ib_force[1] = ib_force_y;
+        kernel.ib_force[2] = ib_force_z;  
+        WriteIBForce(iStep, time, kernel);
     }
 }
 
@@ -661,8 +673,7 @@ void mParticle::WriteParticleFile(int index)
 
 void mParticle::WriteIBForce(int step, amrex::Real time, kernel& current_kernel)
 {
-    amrex::ParallelAllReduce::Sum(&current_kernel.ib_force[0], 3, ParallelDescriptor::Communicator());
-
+    
     if(amrex::ParallelDescriptor::MyProc() != ParallelDescriptor::IOProcessorNumber()) return; 
 
     std::string file("IB_Force_Particle_" + std::to_string(current_kernel.id) + ".csv");
