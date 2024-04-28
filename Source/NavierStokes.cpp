@@ -2656,7 +2656,7 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
         velocity_update(dt);
         
 #ifdef AMREX_PARTICLES
-        if (level == parent->finestLevel())
+        if (level == Particles::ParticleFinestLevel())//parent->finestLevel())
         {
             MultiFab&  S_new    = get_new_data(State_Type);
             // S_new.setVal(1.0, 0, 1, S_new.nGrow()); // u = 1

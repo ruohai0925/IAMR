@@ -118,14 +118,11 @@ public:
                        const Vector<int>& RLZ,
                        Real radius,
                        Real gravity,
-                       int finest_level,
                        int verbose = 0);
 
     void InteractWithEuler(int iStep, amrex::Real time, MultiFab &EulerVel, MultiFab &EulerForce, Real dt = 0.1, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
 
     void WriteParticleFile(int index);
-
-    int euler_finest_level;
 
     Vector<kernel> particle_kernels;
 
@@ -161,6 +158,7 @@ public:
     static mParticle* get_particles();
     static void init_particle( int level, Real gravity);
     static void Initialize();
+    static int ParticleFinestLevel();
     static void define_para(const Vector<Real>& x,
                             const Vector<Real>& y,
                             const Vector<Real>& z,

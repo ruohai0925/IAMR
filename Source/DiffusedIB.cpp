@@ -19,7 +19,7 @@ using namespace amrex;
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /*                     global variable                           */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
+#define LOCAL_LEVEL 0
 namespace ParticleProperties{
     Vector<Real> _x{}, _y{}, _z{}, _rho{};
     Vector<Real> Vx{}, Vy{}, Vz{};
@@ -229,13 +229,11 @@ void mParticle::InitParticles(const Vector<Real>& x,
                               const Vector<int>& RLZt,
                               Real radius,
                               Real gravity,
-                              int finest_level,
                               int _verbose)
 {
     verbose = _verbose;
     if (verbose) amrex::Print() << "[Particle] mParticle::InitParticles\n";
-    
-    euler_finest_level = finest_level;
+
     m_gravity[2] = gravity;
 
     //pre judge
@@ -244,11 +242,12 @@ void mParticle::InitParticles(const Vector<Real>& x,
         return;
     }
     //all the particles have same radius
-    Real h = m_gdb->Geom(euler_finest_level).CellSizeArray()[0];
+    Real h = m_gdb->Geom(LOCAL_LEVEL).CellSizeArray()[0];
     int Ml = static_cast<int>( Math::pi<Real>() / 3 * (12 * Math::powi<2>(radius / h)));
     Real dv = Math::pi<Real>() * h / 3 / Ml * (12 * radius * radius + h * h);
 
-    if (verbose) amrex::Print() << "h: " << h << ", Ml: " << Ml << ", dv: " << dv << "\n";
+    if (verbose) amrex::Print() << "h: " << h << ", Ml: " << Ml << ", dv: " << dv << "\n"
+                                << "gravity : " << gravity << "\n";
 
     for(int index = 0; index < x.size(); index++){
         kernel mKernel;
@@ -278,7 +277,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
     }
     //get particle tile
     std::pair<int, int> key{0,0};
-    auto& particleTileTmp = GetParticles(0)[key];
+    auto& particleTileTmp = GetParticles(LOCAL_LEVEL)[key];
 
     //insert markers
     if ( ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber() ) {
@@ -338,7 +337,7 @@ void mParticle::InitialWithLargrangianPoints(const kernel& current_kernel){
 
     if (verbose) amrex::Print() << "mParticle::InitialWithLargrangianPoints\n";
     // Update the markers' locations
-    for(mParIter pti(*this, euler_finest_level); pti.isValid(); ++pti){
+    for(mParIter pti(*this, LOCAL_LEVEL); pti.isValid(); ++pti){
 
         auto *particles = pti.GetArrayOfStructs().data();
         auto& attri = pti.GetAttribs();
@@ -425,7 +424,7 @@ void mParticle::VelocityInterpolation(MultiFab &EulerVel,
     if (verbose) amrex::Print() << "\tmParticle::VelocityInterpolation\n";
 
     //amrex::Print() << "euler_finest_level " << euler_finest_level << std::endl;
-    const auto& gm = m_gdb->Geom(euler_finest_level);
+    const auto& gm = m_gdb->Geom(LOCAL_LEVEL);
     auto plo = gm.ProbLoArray();
     auto dx = gm.CellSizeArray();
     // attention
@@ -434,7 +433,7 @@ void mParticle::VelocityInterpolation(MultiFab &EulerVel,
 
     const int EulerVelocityIndex = ParticleProperties::euler_velocity_index;
 
-    for(mParIter pti(*this, euler_finest_level); pti.isValid(); ++pti){
+    for(mParIter pti(*this, LOCAL_LEVEL); pti.isValid(); ++pti){
         
         const Box& box = pti.validbox();
         
@@ -514,11 +513,11 @@ void mParticle::ForceSpreading(MultiFab & EulerForce,
                                DELTA_FUNCTION_TYPE type){
 
     if (verbose) amrex::Print() << "\tmParticle::ForceSpreading\n";
-    const auto& gm = m_gdb->Geom(euler_finest_level);
+    const auto& gm = m_gdb->Geom(LOCAL_LEVEL);
     auto plo = gm.ProbLoArray();
     auto dxi = gm.CellSizeArray();
 
-    for(mParIter pti(*this, euler_finest_level); pti.isValid(); ++pti){
+    for(mParIter pti(*this, LOCAL_LEVEL); pti.isValid(); ++pti){
         const Long np = pti.numParticles();
         const auto& particles = pti.GetArrayOfStructs();
         auto Uarray = EulerForce[pti].array();
@@ -599,16 +598,17 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
         Real Vp = Math::pi<Real>() * 4 / 3 * Math::powi<3>(kernel.radius);
         //update the kernel's infomation and cal body force
         //update kernel velocity
-        kernel.velocity = (kernel.velocity
-                        + kernel.sum_u * ParticleProperties::euler_fluid_rho / dt 
+        auto old_velocity = kernel.velocity;
+        kernel.velocity = old_velocity
+                        + (kernel.sum_u * ParticleProperties::euler_fluid_rho / dt 
                         - ParticleProperties::euler_fluid_rho * kernel.ib_force * kernel.dv
                         + m_gravity * (kernel.rho - ParticleProperties::euler_fluid_rho) * Vp
-                        + kernel.Fcp) * dt / kernel.rho * Vp;
+                        + kernel.Fcp) * dt / kernel.rho / Vp;
         //kernel.omega = ;
         kernel.velocity *= RealVect(kernel.TLX, kernel.TLY, kernel.TLZ);
         kernel.omega *= RealVect(kernel.RLX, kernel.RLY, kernel.RLZ);
 
-        kernel.location += kernel.velocity * dt;
+        kernel.location += (kernel.velocity + old_velocity) * dt * 0.5;
     // }
     //Bcast velocity
     // ParallelDescriptor::Bcast(&kernel.location[0], 3, ParallelDescriptor::IOProcessorNumber());
@@ -626,7 +626,7 @@ void mParticle::ComputeLagrangianForce(Real dt,
     Real Vb = kernel.velocity[1];
     Real Wb = kernel.velocity[2];
 
-    for(mParIter pti(*this, euler_finest_level); pti.isValid(); ++pti){
+    for(mParIter pti(*this, LOCAL_LEVEL); pti.isValid(); ++pti){
         const Long np = pti.numParticles();
         auto& attri = pti.GetAttribs();
 
@@ -726,7 +726,6 @@ void Particles::init_particle(int level, Real gravity)
             ParticleProperties::RLZ,
             ParticleProperties::_radius,
             gravity,
-            level,
             ParticleProperties::verbose);
     }
 }
@@ -740,7 +739,6 @@ void Particles::Initialize()
     pp.get("input",particle_inputfile);
     
     if(!particle_inputfile.empty()){
-        amrex::Print() << "[Particle] : Reading partilces cfg file : " << particle_inputfile << "\n";
         ParmParse p_file(particle_inputfile);
         p_file.getarr("x", ParticleProperties::_x);
         p_file.getarr("y", ParticleProperties::_y);
@@ -761,7 +759,15 @@ void Particles::Initialize()
         p_file.get("euler_velocity_index", ParticleProperties::euler_velocity_index);
         p_file.get("euler_force_index", ParticleProperties::euler_force_index);
         p_file.get("euler_fluid_rho", ParticleProperties::euler_fluid_rho);
+        p_file.get("euler_finest_level", ParticleProperties::euler_finest_level);
+        amrex::Print() << "[Particle] : Reading partilces cfg file : " << particle_inputfile << "\n"
+                       << "             Particle's level : " << ParticleProperties::euler_finest_level << "\n";
     }else {
         amrex::Abort("[Particle] : can't read particles settings, pls check your config file \"particle.input\"");
     }
+}
+
+int Particles::ParticleFinestLevel()
+{
+    return ParticleProperties::euler_finest_level;
 }
