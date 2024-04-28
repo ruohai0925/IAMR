@@ -770,7 +770,8 @@ void Particles::Initialize()
         p_file.get("euler_velocity_index", ParticleProperties::euler_velocity_index);
         p_file.get("euler_force_index", ParticleProperties::euler_force_index);
         p_file.get("euler_fluid_rho", ParticleProperties::euler_fluid_rho);
-        p_file.get("euler_finest_level", ParticleProperties::euler_finest_level);
+        ParmParse level_parse("amr");
+        level_parse.get("max_level", ParticleProperties::euler_finest_level);
         amrex::Print() << "[Particle] : Reading partilces cfg file : " << particle_inputfile << "\n"
                        << "             Particle's level : " << ParticleProperties::euler_finest_level << "\n";
     }else {
