@@ -200,6 +200,12 @@ void NavierStokes::prob_initData ()
                                 S_new.array(mfi, Density), nscal,
                                 domain, dx, problo, probhi, IC);
         }
+        else if ( 102 == probtype ) // Sphere near the channel wall
+        {
+           SphereNearWall(vbx, P_new.array(mfi), S_new.array(mfi, Xvel),
+                             S_new.array(mfi, Density), nscal,
+                            domain, dx, problo, probhi, IC);
+        }
         else
         {
             amrex::Abort("NavierStokes::prob_init: unknown probtype");
@@ -387,6 +393,40 @@ void NavierStokes::set_initial_phi_nodal (Box const& bx,
 
   });
 
+}
+
+// Sphere near the channel wall
+void  NavierStokes::SphereNearWall (amrex::Box const& vbx,
+               amrex::Array4<amrex::Real> const& press,
+               amrex::Array4<amrex::Real> const& vel,
+               amrex::Array4<amrex::Real> const& scal,
+               int nscal,
+               amrex::Box const& domain,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dx,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& problo,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& probhi,
+               InitialConditions IC)
+{
+  BL_ASSERT(AMREX_SPACEDIM == 3);
+  const auto domlo = amrex::lbound(domain);
+  // Initial velocity of flow field
+  amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+
+    //
+    // Scalars, ordered as Density, Tracer(s), Temp (if using)
+    //
+    vel(i,j,k,0) = 0.0;
+    vel(i,j,k,1) = 0.0;
+    vel(i,j,k,2) = 0.0;
+
+    scal(i,j,k,0) = 1.0;
+
+    // Tracers
+    scal(i,j,k,1) = 0.0;
+
+
+  });
 }
 
 void NavierStokes::init_constant_vel_rho (Box const& vbx,
