@@ -34,6 +34,9 @@ enum P_ATTR{
     Fx_Marker,
     Fy_Marker,
     Fz_Marker,
+    Fx_sum,
+    Fy_sum,
+    Fz_sum,
     P_thetaK,
     P_phiK,
     numAttri
@@ -56,8 +59,10 @@ struct kernel{
     Real dv{0.0};
     RealVect ib_force{0.0,0.0,0.0};
 
-    RealVect sum_u{0.0,0.0,0.0};
-    RealVect sum_t{0.0,0.0,0.0};
+    RealVect sum_u_new{0.0,0.0,0.0};
+    RealVect sum_u_old{0.0,0.0,0.0};
+    RealVect sum_t_new{0.0,0.0,0.0};
+    RealVect sum_t_old{0.0,0.0,0.0};
 
     RealVect Fcp{0.0,0.0,0.0};
     RealVect Tcp{0.0,0.0,0.0};
