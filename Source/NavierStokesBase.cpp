@@ -352,9 +352,8 @@ void NavierStokesBase::define_workspace()
         phi_nodal.define(nba,dmap,1,2,MFInfo(),Factory());
         pvf.define(grids,dmap,1,2,MFInfo(),Factory());
 #ifdef AMREX_PARTICLES
-        if (level == parent->finestLevel()) {
+        if (level == Particles::ParticleFinestLevel()) {
             // amrex::Print() << "Check grids " << grids << " " << level << " " << parent->finestLevel() << std::endl;
-            Particles::Initialize();
             Particles::create_particles(geom, dmap, grids); // Class constructor
             Particles::init_particle( level, gravity);
         }
@@ -676,6 +675,10 @@ NavierStokesBase::Initialize ()
     pp.query("do_diffused_ib", do_diffused_ib);
 
     amrex::ExecOnFinalize(NavierStokesBase::Finalize);
+
+#ifdef AMREX_PARTICLES
+    Particles::Initialize();
+#endif
 
     initialized = true;
 }

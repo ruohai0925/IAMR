@@ -7,12 +7,12 @@
 
 # Maximum number of coarse grid timesteps to be taken, if stop_time is
 #  not reached first.
-max_step 		= 6000
+max_step 		= 10000
 
 # Time at which calculation stops, if max_step is not reached first.
-stop_time 		= 10.0
+stop_time 		= 100.0
 
-ns.fixed_dt     = 0.005
+ns.fixed_dt     = 0.01
 ns.cfl = 0.3
 ns.init_iter = 0
 
@@ -35,7 +35,7 @@ amr.blocking_factor     = 8
 
 # Number of cells in each coordinate direction at the coarsest level
 # amr.n_cell 		= 16 8 8 
-amr.n_cell 		= 192 96 96 
+amr.n_cell 		= 480 240 240 
 # amr.n_cell 		= 288 128 128 
 amr.max_grid_size	= 16
 # amr.max_grid_size	= 32
@@ -69,14 +69,14 @@ amr.v                   = 1
 
 # Interval (in number of coarse timesteps) between checkpoint(restart) files
 
-amr.check_int		= 400
+amr.check_int		= 4000
 
 #amr.restart             = chk01400
 
 #*******************************************************************************
 
 # Interval (in number of coarse timesteps) between plot files
-amr.plot_int		= 400
+amr.plot_int		= 2000
 
 
 #*******************************************************************************
@@ -115,7 +115,7 @@ geometry.coord_sys   =  0
 geometry.prob_lo     =  0. 0. 0.
 
 # Physical dimensions of the high end of the domain.
-geometry.prob_hi     =  12. 6. 6.
+geometry.prob_hi     =  20. 10. 10.
 
 #*******************************************************************************
 
@@ -170,9 +170,9 @@ mac_proj.mac_abs_tol = 1.e-9
 
 # particle's location 
 # x = p1x p2x p3x ...
-particle_inputs.x = 6.0
-particle_inputs.y = 3.0
-particle_inputs.z = 3.0
+particle_inputs.x = 5.0
+particle_inputs.y = 5.0
+particle_inputs.z = 5.0
 
 # particle's density
 # rho = p1r p2r p3r ...
@@ -198,7 +198,7 @@ particle_inputs.RLY = 0
 particle_inputs.RLZ = 0
 
 # Ns loop time
-particle_inputs.LOOP = 10
+particle_inputs.LOOP = 2
 
 
 # msg print

@@ -34,6 +34,11 @@ enum P_ATTR{
     Fx_Marker,
     Fy_Marker,
     Fz_Marker,
+    Fx_sum,
+    Fy_sum,
+    Fz_sum,
+    P_thetaK,
+    P_phiK,
     numAttri
 };
 
@@ -54,11 +59,10 @@ struct kernel{
     Real dv{0.0};
     RealVect ib_force{0.0,0.0,0.0};
 
-    std::vector<amrex::Real> thetaK;
-    std::vector<amrex::Real> phiK;
-
-    RealVect sum_u{0.0,0.0,0.0};
-    RealVect sum_t{0.0,0.0,0.0};
+    RealVect sum_u_new{0.0,0.0,0.0};
+    RealVect sum_u_old{0.0,0.0,0.0};
+    RealVect sum_t_new{0.0,0.0,0.0};
+    RealVect sum_t_old{0.0,0.0,0.0};
 
     RealVect Fcp{0.0,0.0,0.0};
     RealVect Tcp{0.0,0.0,0.0};
@@ -111,6 +115,9 @@ public:
                        const Vector<Real>& Vx,
                        const Vector<Real>& Vy,
                        const Vector<Real>& Vz,
+                       const Vector<Real>& Ox,
+                       const Vector<Real>& Oy,
+                       const Vector<Real>& Oz,
                        const Vector<int>& TLX,
                        const Vector<int>& TLY,
                        const Vector<int>& TLZ,
@@ -118,28 +125,12 @@ public:
                        const Vector<int>& RLY,
                        const Vector<int>& RLZ,
                        Real radius,
-                       Real rho_f,
                        Real gravity,
-                       int force_index, 
-                       int velocity_index,
-                       int finest_level,
-                       int verbose = 0,
-                       int loop_time = 10);
+                       int verbose = 0);
 
     void InteractWithEuler(int iStep, amrex::Real time, MultiFab &EulerVel, MultiFab &EulerForce, Real dt = 0.1, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
 
     void WriteParticleFile(int index);
-
-private:
-    int euler_finest_level;
-
-    int euler_force_index;
-
-    int euler_velocity_index;
-
-    Real euler_fluid_rho;
-
-    int loop_time;
 
     Vector<kernel> particle_kernels;
 
@@ -175,6 +166,7 @@ public:
     static mParticle* get_particles();
     static void init_particle( int level, Real gravity);
     static void Initialize();
+    static int ParticleFinestLevel();
     static void define_para(const Vector<Real>& x,
                             const Vector<Real>& y,
                             const Vector<Real>& z,
