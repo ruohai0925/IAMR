@@ -200,7 +200,7 @@ void NavierStokes::prob_initData ()
                                 S_new.array(mfi, Density), nscal,
                                 domain, dx, problo, probhi, IC);
         }
-        else if ( 102 == probtype ) // Sphere near the channel wall
+        else if ( 102 == probtype ||  103 == probtype ) // Sphere near the channel wall
         {
            SphereNearWall(vbx, P_new.array(mfi), S_new.array(mfi, Xvel),
                              S_new.array(mfi, Density), nscal,
