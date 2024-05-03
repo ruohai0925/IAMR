@@ -4,7 +4,7 @@
 
 # Maximum number of coarse grid timesteps to be taken, if stop_time is
 #  not reached first.
-max_step 		= 100
+max_step 		= 2000
 
 # Time at which calculation stops, if max_step is not reached first.
 stop_time 		= -1
@@ -32,7 +32,7 @@ amr.blocking_factor     = 8
 
 # Number of cells in each coordinate direction at the coarsest level
 # amr.n_cell 		= 16 8 8 
-amr.n_cell 		= 128 32 16
+amr.n_cell 		= 64 32 32
 # amr.n_cell 		= 288 128 128 
 amr.max_grid_size	= 16
 # amr.max_grid_size	= 32
@@ -65,22 +65,22 @@ amr.v                   = 1
 #*******************************************************************************
 
 # Interval (in number of coarse timesteps) between checkpoint(restart) files
-amr.check_int		= 1 
+amr.check_int		= 100 
 #amr.restart             = chk01400
 
 #*******************************************************************************
 
 # Interval (in number of coarse timesteps) between plot files
-amr.plot_int		= 1
+amr.plot_int		= 100
 
 
 #*******************************************************************************
 
 # Viscosity coefficient 粘度系数
 # Re = 20, 100, 200 
-ns.vel_visc_coef        = 0.05     # Re = 20
-# ns.vel_visc_coef        = 0.01   # Re = 100
-# ns.vel_visc_coef        = 0.005  # Re = 200
+ns.vel_visc_coef        = 0.2      # Re = 20
+# ns.vel_visc_coef        = 0.04   # Re = 100
+# ns.vel_visc_coef        = 0.02  # Re = 200
 
 #*******************************************************************************
 
@@ -113,7 +113,7 @@ geometry.coord_sys   =  0
 geometry.prob_lo     =  0. 0. 0.
 
 # Physical dimensions of the high end of the domain.
-geometry.prob_hi     =  64. 16. 8.
+geometry.prob_hi     =  32. 16. 16.
 
 #*******************************************************************************
 
@@ -139,8 +139,8 @@ xlo.velocity            =   0.  0.  0.
 
 # Problem parameters
 prob.probtype = 102
-prob.ub = 0.2
-prob.shearrate = 0.2
+prob.ub = 0.8
+prob.shearrate = 0.4
 
 #*******************************************************************************
 
@@ -171,9 +171,9 @@ mac_proj.mac_abs_tol = 1.e-5
 
 # particle's location 
 # x = p1x p2x p3x ...
-particle_inputs.x = 32.0
+particle_inputs.x = 16.0
 particle_inputs.y = 8.0
-particle_inputs.z = 4.0
+particle_inputs.z = 8.0
 
 # particle's density
 # rho = p1r p2r p3r ...
@@ -190,7 +190,7 @@ particle_inputs.velocity_y = 0.0
 particle_inputs.velocity_z = 0.0
 
 
-particle_inputs.omega_x = 0.7
+particle_inputs.omega_x = 0.0
 particle_inputs.omega_y = 0.0
 particle_inputs.omega_z = 0.0
 
