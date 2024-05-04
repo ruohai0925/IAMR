@@ -417,9 +417,7 @@ void  NavierStokes::SphereNearWall (amrex::Box const& vbx,
     // Scalars, ordered as Density, Tracer(s), Temp (if using)
     //
 
-    Real z = problo[2] + (k - domlo.z + 0.5)*dx[2];
-
-    vel(i,j,k,0) = ub + shearrate * z;
+    vel(i,j,k,0) = 0.0;
     vel(i,j,k,1) = 0.0;
     vel(i,j,k,2) = 0.0;
 
