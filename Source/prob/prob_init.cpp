@@ -416,6 +416,7 @@ void  NavierStokes::SphereNearWall (amrex::Box const& vbx,
     //
     // Scalars, ordered as Density, Tracer(s), Temp (if using)
     //
+
     vel(i,j,k,0) = 0.0;
     vel(i,j,k,1) = 0.0;
     vel(i,j,k,2) = 0.0;
