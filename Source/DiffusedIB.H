@@ -134,7 +134,7 @@ public:
 
     void InitialWithLargrangianPoints(const kernel& current_kernel);
 
-    void UpdateMarkers(kernel& current_kernel, Real dt);
+    void ResetLargrangianPoints(Real dt);
 
     void VelocityInterpolation(amrex::MultiFab &Euler, DELTA_FUNCTION_TYPE type);
 

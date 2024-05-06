@@ -1,4 +1,6 @@
 
+#include <AMReX_Math.H>
+#include <AMReX_Print.H>
 #include <DiffusedIB.H>
 
 #include <AMReX_ParmParse.H>
@@ -222,7 +224,7 @@ void mParticle::InteractWithEuler(int iStep,
 
     for(kernel& kernel : particle_kernels){
         InitialWithLargrangianPoints(kernel); // Initialize markers for a specific particle
-        UpdateMarkers(kernel, dt);
+        ResetLargrangianPoints(dt);
         
         kernel.ib_moment.scale(0.0);
         amrex::Real ib_force_x = 0.0;
@@ -295,7 +297,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
     int Ml = static_cast<int>( Math::pi<Real>() / 3 * (12 * Math::powi<2>(radius / h)));
     Real dv = Math::pi<Real>() * h / 3 / Ml * (12 * radius * radius + h * h);
 
-    if (verbose) amrex::Print() << "h: " << h << ", Ml: " << Ml << ", dv: " << dv << "\n"
+    if (verbose) amrex::Print() << "h: " << h << ", Ml: " << Ml << ", D: " << Math::powi<3>(h) << "\n"
                                 << "gravity : " << gravity << "\n";
 
     for(int index = 0; index < x.size(); index++){
@@ -329,7 +331,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
     }
     //get particle tile
     std::pair<int, int> key{0,0};
-    auto& particleTileTmp = GetParticles(LOCAL_LEVEL)[key];
+    auto& particleTileTmp = GetParticles(0)[key];
 
     //insert markers
     if ( ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber() ) {
@@ -341,9 +343,9 @@ void mParticle::InitParticles(const Vector<Real>& x,
             ParticleType markerP;
             markerP.id() = ParticleType::NextID();
             markerP.cpu() = ParallelDescriptor::MyProc();
-            markerP.pos(0) = 0.01;
-            markerP.pos(1) = 0.01;
-            markerP.pos(2) = 0.01;
+            markerP.pos(0) = particle_kernels[0].location[0];
+            markerP.pos(1) = particle_kernels[0].location[1];
+            markerP.pos(2) = particle_kernels[0].location[2];
 
             std::array<ParticleReal, numAttri> Marker_attr;
             Marker_attr[U_Marker] = 0.0;
@@ -367,7 +369,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
             particleTileTmp.push_back_real(Marker_attr);
         }
     }
-    Redistribute(); // Still needs to redistribute here! 
+    // Redistribute(); // Still needs to redistribute here! 
     if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 0));
 }
 
@@ -596,7 +598,7 @@ void mParticle::ForceSpreading(MultiFab & EulerForce,
         auto force_index = ParticleProperties::euler_force_index;
         amrex::ParallelFor(np, [=]
         AMREX_GPU_DEVICE (int i) noexcept{
-            ForceSpreading_cic(p_ptr[i], (*loc_ptr)[0], (*loc_ptr)[1], (*loc_ptr)[2], fxP_ptr[i], fyP_ptr[i], fzP_ptr[i], (*moment_ptr)[0], (*moment_ptr)[1], (*moment_ptr)[2], (*ib_ptr)[0], (*ib_ptr)[1], (*ib_ptr)[2], Uarray, force_index, dv, plo, dxi, type);
+            ForceSpreading_cic(p_ptr[i], (*loc_ptr)[0], (*loc_ptr)[1], (*loc_ptr)[2], fxP_ptr[i], fyP_ptr[i], fzP_ptr[i], (*ib_ptr)[0], (*ib_ptr)[1],(*ib_ptr)[2], (*moment_ptr)[0], (*moment_ptr)[1], (*moment_ptr)[2], Uarray, force_index, dv, plo, dxi, type);
         });
     }
     EulerForce.SumBoundary(ParticleProperties::euler_force_index, 3, gm.periodicity());
@@ -634,9 +636,9 @@ void mParticle::ForceSpreading(MultiFab & EulerForce,
 
 }
 
-void mParticle::UpdateMarkers(kernel& current_kernel, Real dt)
+void mParticle::ResetLargrangianPoints(Real dt)
 {
-    if (verbose) amrex::Print() << "\tmParticle::UpdateMarkers\n";
+    if (verbose) amrex::Print() << "\tmParticle::ResetLargrangianPoints\n";
 
     for(mParIter pti(*this, LOCAL_LEVEL); pti.isValid(); ++pti){
         const Long np = pti.numParticles();
@@ -670,7 +672,10 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
     
     //continue condition 6DOF
     for(auto kernel : particle_kernels){
-        if((kernel.TLX + kernel.TLY + kernel.TLZ + kernel.RLX + kernel.RLY + kernel.RLZ) == 0) continue;
+        if((kernel.TLX + kernel.TLY + kernel.TLZ + kernel.RLX + kernel.RLY + kernel.RLZ) == 0){
+            amrex::Print() << "kernel (" << kernel.location << ") is fixed\n";
+            continue;
+        }
 
         //ioprocessor calculation 
         // if(amrex::ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber()){
