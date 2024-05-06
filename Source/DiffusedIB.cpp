@@ -369,7 +369,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
             particleTileTmp.push_back_real(Marker_attr);
         }
     }
-    // Redistribute(); // Still needs to redistribute here! 
+    Redistribute(); // Still needs to redistribute here! 
     if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 0));
 }
 
