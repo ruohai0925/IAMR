@@ -84,10 +84,10 @@ void calculate_phi_nodal(MultiFab& phi_nodal, kernel& current_kernel)
 {
     phi_nodal.setVal(0.0);
 
-    Real Xp2 = Math::powi<2>(current_kernel.location[0]);
-    Real Yp2 = Math::powi<2>(current_kernel.location[1]);
-    Real Zp2 = Math::powi<2>(current_kernel.location[2]);
-    Real Rp2 = Math::powi<2>(current_kernel.radius);
+    amrex::Real Xp = current_kernel.location[0];
+    amrex::Real Yp = current_kernel.location[1];
+    amrex::Real Zp = current_kernel.location[2];
+    amrex::Real Rp = current_kernel.radius;
 
     for (MFIter mfi(phi_nodal,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
@@ -103,10 +103,10 @@ void calculate_phi_nodal(MultiFab& phi_nodal, kernel& current_kernel)
                 Real Yn = j * (*dx)[1] + (*plo)[1];
                 Real Zn = k * (*dx)[2] + (*plo)[2];
 
-                (*pnfab_ptr)(i,j,k) = std::sqrt((Math::powi<2>(Xn) - Xp2)/Rp2 
-                                    + (Math::powi<2>(Yn) - Yp2)/Rp2 
-                                    + (Math::powi<2>(Zn) - Zp2)/Rp2
-                                    ) - 1.0;
+                (*pnfab_ptr)(i,j,k) = std::sqrt( (Xn - Xp)*(Xn - Xp)
+                        + (Yn - Yp)*(Yn - Yp)  + (Zn - Zp)*(Zn - Zp)) - Rp;
+                (*pnfab_ptr)(i,j,k) = (*pnfab_ptr)(i,j,k) / Rp;
+
             }
         );
     }
@@ -226,10 +226,12 @@ void mParticle::InteractWithEuler(int iStep,
         InitialWithLargrangianPoints(kernel); // Initialize markers for a specific particle
         ResetLargrangianPoints(dt);
         
-        kernel.ib_moment.scale(0.0);
-        amrex::Real ib_force_x = 0.0;
-        amrex::Real ib_force_y = 0.0;
-        amrex::Real ib_force_z = 0.0;
+        amrex::Real ib_force_x  = 0.0;
+        amrex::Real ib_force_y  = 0.0;
+        amrex::Real ib_force_z  = 0.0;
+        amrex::Real ib_moment_x = 0.0;
+        amrex::Real ib_moment_y = 0.0;
+        amrex::Real ib_moment_z = 0.0;
         
         //for 1 -> Ns
         int loop = ParticleProperties::loop_time;
@@ -242,23 +244,32 @@ void mParticle::InteractWithEuler(int iStep,
             
             EulerForce.setVal(0.0, ParticleProperties::euler_force_index, 3, GHOST_CELLS); // clear Euler force
             kernel.ib_force.scale(0); // clear kernel ib_force
+            kernel.ib_moment.scale(0.0); // clear kernel ib_moment
             ForceSpreading(EulerForce, kernel, type);
 
             amrex::ParallelAllReduce::Sum(&kernel.ib_force[0], 3, ParallelDescriptor::Communicator());
+            amrex::ParallelAllReduce::Sum(&kernel.ib_moment[0], 3, ParallelDescriptor::Communicator());
 
-            ib_force_x += kernel.ib_force[0];
-            ib_force_y += kernel.ib_force[1];
-            ib_force_z += kernel.ib_force[2];            
+            ib_force_x  += kernel.ib_force[0];
+            ib_force_y  += kernel.ib_force[1];
+            ib_force_z  += kernel.ib_force[2];            
+            ib_moment_x += kernel.ib_moment[0];
+            ib_moment_y += kernel.ib_moment[1];
+            ib_moment_z += kernel.ib_moment[2];  
 
             VelocityCorrection(EulerVel, EulerForce, dt);
             
             loop--;
         }
         
-        kernel.ib_force[0] = ib_force_x;
-        kernel.ib_force[1] = ib_force_y;
-        kernel.ib_force[2] = ib_force_z;  
-        WriteIBForce(iStep, time, kernel);
+        kernel.ib_force[0]  = ib_force_x;
+        kernel.ib_force[1]  = ib_force_y;
+        kernel.ib_force[2]  = ib_force_z;
+        kernel.ib_moment[0] = ib_moment_x;
+        kernel.ib_moment[1] = ib_moment_y;
+        kernel.ib_moment[2] = ib_moment_z;
+  
+        WriteIBForceAndMoment(iStep, time, kernel);
     }
 }
 
@@ -592,13 +603,15 @@ void mParticle::ForceSpreading(MultiFab & EulerForce,
         const auto *const p_ptr = particles().data();
 
         auto* loc_ptr = &(kernel.location);
-        auto* ib_ptr = &(kernel.ib_force);
+        auto* ib_force_ptr = &(kernel.ib_force);
         auto* moment_ptr = &(kernel.ib_moment);
         auto dv = kernel.dv;
         auto force_index = ParticleProperties::euler_force_index;
         amrex::ParallelFor(np, [=]
         AMREX_GPU_DEVICE (int i) noexcept{
-            ForceSpreading_cic(p_ptr[i], (*loc_ptr)[0], (*loc_ptr)[1], (*loc_ptr)[2], fxP_ptr[i], fyP_ptr[i], fzP_ptr[i], (*ib_ptr)[0], (*ib_ptr)[1],(*ib_ptr)[2], (*moment_ptr)[0], (*moment_ptr)[1], (*moment_ptr)[2], Uarray, force_index, dv, plo, dxi, type);
+            ForceSpreading_cic(p_ptr[i], (*loc_ptr)[0], (*loc_ptr)[1], (*loc_ptr)[2], fxP_ptr[i], fyP_ptr[i], fzP_ptr[i], 
+                              (*ib_force_ptr)[0], (*ib_force_ptr)[1],(*ib_force_ptr)[2], 
+                              (*moment_ptr)[0], (*moment_ptr)[1], (*moment_ptr)[2], Uarray, force_index, dv, plo, dxi, type);
         });
     }
     EulerForce.SumBoundary(ParticleProperties::euler_force_index, 3, gm.periodicity());
@@ -767,17 +780,17 @@ void mParticle::WriteParticleFile(int index)
     WriteAsciiFile(amrex::Concatenate("particle", index));
 }
 
-void mParticle::WriteIBForce(int step, amrex::Real time, kernel& current_kernel)
+void mParticle::WriteIBForceAndMoment(int step, amrex::Real time, kernel& current_kernel)
 {
     
     if(amrex::ParallelDescriptor::MyProc() != ParallelDescriptor::IOProcessorNumber()) return; 
 
-    std::string file("IB_Force_Particle_" + std::to_string(current_kernel.id) + ".csv");
+    std::string file("IB_Particle_" + std::to_string(current_kernel.id) + ".csv");
     std::ofstream out_ib_force;
 
     std::string head;
     if(!fs::exists(file)){
-        head = "iStep,time,X,Y,Z,Vx,Vy,Vz,OmegaX,OmegaY,OmegaZ,Fx,Fy,Fz\n";
+        head = "iStep,time,X,Y,Z,Vx,Vy,Vz,OmegaX,OmegaY,OmegaZ,Fx,Fy,Fz,Mx,My,Mz\n";
     }else{
         head = "";
     }
@@ -790,7 +803,8 @@ void mParticle::WriteIBForce(int step, amrex::Real time, kernel& current_kernel)
                      << current_kernel.location[0] << "," << current_kernel.location[1] << "," << current_kernel.location[2] << ","
                      << current_kernel.velocity[0] << "," << current_kernel.velocity[1] << "," << current_kernel.velocity[2] << ","
                      << current_kernel.omega[0] << "," << current_kernel.omega[1] << "," << current_kernel.omega[2] << ","
-                     << current_kernel.ib_force[0] << "," << current_kernel.ib_force[1] << "," << current_kernel.ib_force[2] << "\n";
+                     << current_kernel.ib_force[0] << "," << current_kernel.ib_force[1] << "," << current_kernel.ib_force[2] << "," 
+                     << current_kernel.ib_moment[0] << "," << current_kernel.ib_moment[1] << "," << current_kernel.ib_moment[2] << "\n";
     }
     out_ib_force.close();
 }

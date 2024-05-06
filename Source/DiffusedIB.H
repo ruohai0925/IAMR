@@ -146,7 +146,7 @@ public:
 
     void UpdateParticles(const MultiFab& Euler_old, const MultiFab& Euler, const MultiFab& pvf_old, const MultiFab& pvf, Real dt);
 
-    static void WriteIBForce(int step, amrex::Real time, kernel& current_kernel);
+    static void WriteIBForceAndMoment(int step, amrex::Real time, kernel& current_kernel);
 
     uint32_t ib_force_file_index = 0;
 
