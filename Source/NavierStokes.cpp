@@ -2709,6 +2709,14 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
             if (level > 0 && iteration == 1)
             p_avg.setVal(0);
         }
+#ifdef AMREX_PARTICLES
+        if (level == Particles::ParticleFinestLevel())//parent->finestLevel())
+        {
+            MultiFab&  S_new    = get_new_data(State_Type);
+            MultiFab&  S_old    = get_old_data(State_Type);
+            // Particles::get_particles()->UpdateParticles( S_old, S_new, pvf_old, pvf, dt);
+        }
+#endif
 
 #ifdef AMREX_PARTICLES
         if (theNSPC() != 0 and NavierStokes::initial_step != true)

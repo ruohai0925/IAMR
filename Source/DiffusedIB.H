@@ -34,9 +34,6 @@ enum P_ATTR{
     Fx_Marker,
     Fy_Marker,
     Fz_Marker,
-    Fx_sum,
-    Fy_sum,
-    Fz_sum,
     P_thetaK,
     P_phiK,
     numAttri
@@ -58,6 +55,7 @@ struct kernel{
     int ml{0};
     Real dv{0.0};
     RealVect ib_force{0.0,0.0,0.0};
+    RealVect ib_moment{0.0, 0.0, 0.0};
 
     RealVect sum_u_new{0.0,0.0,0.0};
     RealVect sum_u_old{0.0,0.0,0.0};
@@ -136,17 +134,17 @@ public:
 
     void InitialWithLargrangianPoints(const kernel& current_kernel);
 
-    void UpdateMarkers(kernel& current_kernel, Real dt);
+    void ResetLargrangianPoints(Real dt);
 
     void VelocityInterpolation(amrex::MultiFab &Euler, DELTA_FUNCTION_TYPE type);
 
     void ComputeLagrangianForce(Real dt, const kernel& kernel);
 
-    void ForceSpreading(amrex::MultiFab &Euler, RealVect& ib_force, Real dv, DELTA_FUNCTION_TYPE type);
+    void ForceSpreading(amrex::MultiFab &Euler, kernel& kernel, DELTA_FUNCTION_TYPE type);
 
     void VelocityCorrection(amrex::MultiFab &Euler, amrex::MultiFab &EulerForce, Real dt) const;
 
-    void UpdateParticles(const MultiFab& Euler_old, const MultiFab& Euler, const MultiFab& pvf, kernel& kernel, Real dt);
+    void UpdateParticles(const MultiFab& Euler_old, const MultiFab& Euler, const MultiFab& pvf_old, const MultiFab& pvf, Real dt);
 
     static void WriteIBForce(int step, amrex::Real time, kernel& current_kernel);
 

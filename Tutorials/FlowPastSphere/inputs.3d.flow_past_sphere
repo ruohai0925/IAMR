@@ -188,6 +188,12 @@ particle_inputs.velocity_x = 0.0
 particle_inputs.velocity_y = 0.0
 particle_inputs.velocity_z = 0.0
 
+# particle's omega
+# omega = p1omega_x p2omega_x p3omega_x ...
+particle_inputs.omega_x = 0.0
+particle_inputs.omega_y = 0.0
+particle_inputs.omega_z = 0.0
+
 # particle's 6DOF
 # TLX = p1tl p2tl ...
 particle_inputs.TLX = 0
