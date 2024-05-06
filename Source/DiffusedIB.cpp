@@ -243,7 +243,7 @@ void mParticle::InteractWithEuler(int iStep,
             ComputeLagrangianForce(dt, kernel);
             
             EulerForce.setVal(0.0, ParticleProperties::euler_force_index, 3, GHOST_CELLS); // clear Euler force
-            kernel.ib_force.scale(0); // clear kernel ib_force
+            kernel.ib_force.scale(0.0); // clear kernel ib_force
             kernel.ib_moment.scale(0.0); // clear kernel ib_moment
             ForceSpreading(EulerForce, kernel, type);
 
@@ -677,21 +677,33 @@ void mParticle::ResetLargrangianPoints(Real dt)
 
 void mParticle::UpdateParticles(const MultiFab& Euler_old, 
                                 const MultiFab& Euler,
-                                const MultiFab& pvf_old, 
-                                const MultiFab& pvf, 
+                                MultiFab& phi_nodal, 
+                                MultiFab& pvf, 
                                 Real dt)
 {
     if (verbose) amrex::Print() << "mParticle::UpdateParticles\n";
     
     //continue condition 6DOF
     for(auto kernel : particle_kernels){
+
         if((kernel.TLX + kernel.TLY + kernel.TLZ + kernel.RLX + kernel.RLY + kernel.RLZ) == 0){
             amrex::Print() << "kernel (" << kernel.location << ") is fixed\n";
             continue;
         }
 
-        //ioprocessor calculation 
-        // if(amrex::ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber()){
+        int ncomp = pvf.nComp();
+        int ngrow = pvf.nGrow();
+        MultiFab pvf_old(pvf.boxArray(), pvf.DistributionMap(), ncomp, ngrow);
+        calculate_phi_nodal(phi_nodal, kernel);
+        nodal_phi_to_pvf(pvf, phi_nodal);
+        MultiFab::Copy(pvf_old, pvf, 0, 0, ncomp, ngrow);
+
+        int loop_solid_time = 1;
+        int loop = loop_solid_time;
+        while (loop > 0) {
+
+            //ioprocessor calculation 
+            // if(amrex::ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber()){
             if((kernel.TLX + kernel.TLY + kernel.TLZ) != 0){
                 //sum U
                 CalculateSumU_cir(kernel.sum_u_new, Euler, pvf, ParticleProperties::euler_velocity_index);
@@ -724,6 +736,10 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
                             + kernel.Tcp) * dt / cal_momentum(kernel.rho, kernel.radius);
                 kernel.omega *= RealVect(kernel.RLX, kernel.RLY, kernel.RLZ);
             }
+        
+            loop--;
+
+        }
     }
     // }
     //Bcast velocity

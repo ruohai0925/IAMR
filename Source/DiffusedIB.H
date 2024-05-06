@@ -144,7 +144,7 @@ public:
 
     void VelocityCorrection(amrex::MultiFab &Euler, amrex::MultiFab &EulerForce, Real dt) const;
 
-    void UpdateParticles(const MultiFab& Euler_old, const MultiFab& Euler, const MultiFab& pvf_old, const MultiFab& pvf, Real dt);
+    void UpdateParticles(const MultiFab& Euler_old, const MultiFab& Euler, MultiFab& phi_nodal, MultiFab& pvf, Real dt);
 
     static void WriteIBForceAndMoment(int step, amrex::Real time, kernel& current_kernel);
 

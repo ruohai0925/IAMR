@@ -2714,7 +2714,7 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
         {
             MultiFab&  S_new    = get_new_data(State_Type);
             MultiFab&  S_old    = get_old_data(State_Type);
-            // Particles::get_particles()->UpdateParticles( S_old, S_new, pvf_old, pvf, dt);
+            // Particles::get_particles()->UpdateParticles( S_old, S_new, phi_nodal, pvf, dt);
         }
 #endif
 
