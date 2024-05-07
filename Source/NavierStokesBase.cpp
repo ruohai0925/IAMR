@@ -355,7 +355,7 @@ void NavierStokesBase::define_workspace()
         if (level == Particles::ParticleFinestLevel()) {
             // amrex::Print() << "Check grids " << grids << " " << level << " " << parent->finestLevel() << std::endl;
             Particles::create_particles(geom, dmap, grids); // Class constructor
-            Particles::init_particle( level, gravity);
+            Particles::init_particle(level, gravity);
         }
 #endif
     }

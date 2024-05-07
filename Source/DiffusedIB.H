@@ -153,6 +153,8 @@ public:
 
     static void WriteIBForceAndMoment(int step, amrex::Real time, kernel& current_kernel);
 
+    void RecordOldValue(kernel& kernel);
+
     uint32_t ib_force_file_index = 0;
 
     RealVect m_gravity{0.0,0.0,0.0};

@@ -112,6 +112,7 @@ void calculate_phi_nodal(MultiFab& phi_nodal, kernel& current_kernel)
     }
 }
 
+// May use ParReduce later, https://amrex-codes.github.io/amrex/docs_html/GPU.html#multifab-reductions
 void CalculateSumU_cir (RealVect& sum,
                         const MultiFab& E,
                         const MultiFab& pvf,
@@ -324,6 +325,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
         mKernel.omega[1] = Oy[index];
         mKernel.omega[2] = Oz[index];
 
+        // use current state to initialize old state
         mKernel.location_old = mKernel.location;
         mKernel.velocity_old = mKernel.velocity;
         mKernel.omega_old = mKernel.omega;
@@ -691,67 +693,202 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
     //continue condition 6DOF
     for(auto kernel : particle_kernels){
 
-        if((kernel.TLX + kernel.TLY + kernel.TLZ + kernel.RLX + kernel.RLY + kernel.RLZ) == 0){
-            amrex::Print() << "kernel (" << kernel.location << ") is fixed\n";
+        // fixed particle
+        if( ( kernel.TLX == 0 ) && 
+            ( kernel.TLY == 0 ) &&
+            ( kernel.TLZ == 0 ) &&
+            ( kernel.RLX == 0 ) &&
+            ( kernel.RLY == 0 ) && 
+            ( kernel.RLZ == 0 ) ) {
+            amrex::Print() << "Particle (" << kernel.id << ") is fixed\n";
             continue;
         }
 
         int ncomp = pvf.nComp();
         int ngrow = pvf.nGrow();
         MultiFab pvf_old(pvf.boxArray(), pvf.DistributionMap(), ncomp, ngrow);
-        calculate_phi_nodal(phi_nodal, kernel);
-        nodal_phi_to_pvf(pvf, phi_nodal);
-        MultiFab::Copy(pvf_old, pvf, 0, 0, ncomp, ngrow);
+
+        bool at_least_one_free_trans_motion = ( kernel.TLX == 2 ) || 
+                                              ( kernel.TLY == 2 ) ||
+                                              ( kernel.TLZ == 2 );
+        bool at_least_one_free_rot_motion   = ( kernel.RLX == 2 ) || 
+                                              ( kernel.RLY == 2 ) ||
+                                              ( kernel.RLZ == 2 );    
+         
+        bool at_least_one_free_motion = at_least_one_free_trans_motion ||
+                                        at_least_one_free_rot_motion;
+
+        if(at_least_one_free_motion) {        
+            calculate_phi_nodal(phi_nodal, kernel);
+            nodal_phi_to_pvf(pvf, phi_nodal);
+            MultiFab::Copy(pvf_old, pvf, 0, 0, ncomp, ngrow);
+        }
 
         int loop_solid_time = 1;
         int loop = loop_solid_time;
+
         while (loop > 0) {
 
-            //ioprocessor calculation 
-            // if(amrex::ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber()){
-            if((kernel.TLX + kernel.TLY + kernel.TLZ) != 0){
-                //sum U
+            if(at_least_one_free_trans_motion) {
+                // sum U
                 CalculateSumU_cir(kernel.sum_u_new, Euler, pvf, ParticleProperties::euler_velocity_index);
                 CalculateSumU_cir(kernel.sum_u_old, Euler_old, pvf_old, ParticleProperties::euler_velocity_index);
                 amrex::ParallelAllReduce::Sum(&kernel.sum_u_new[0], 3, ParallelDescriptor::Communicator());
                 amrex::ParallelAllReduce::Sum(&kernel.sum_t_old[0], 3, ParallelDescriptor::Communicator());
-                Real Vp = Math::pi<Real>() * 4 / 3 * Math::powi<3>(kernel.radius);
-                //update the kernel's infomation and cal body force
-                //update kernel velocity
-                auto old_velocity = kernel.velocity;
-                kernel.velocity = old_velocity
-                                + ((kernel.sum_u_new - kernel.sum_u_old) * ParticleProperties::euler_fluid_rho / dt 
-                                - kernel.ib_force * ParticleProperties::euler_fluid_rho * kernel.dv
-                                + m_gravity * (kernel.rho - ParticleProperties::euler_fluid_rho) * Vp
-                                + kernel.Fcp) * dt / kernel.rho / Vp;
-                kernel.velocity *= RealVect(kernel.TLX, kernel.TLY, kernel.TLZ);
-                kernel.location += (kernel.velocity + old_velocity) * dt * 0.5;
             }
-            if((kernel.RLX + kernel.RLY + kernel.RLZ) != 0){
-                //sum T
+
+            // TLX
+            {
+                int idir = 0;
+                if (kernel.TLX == 0) {
+                    kernel.velocity[idir] = 0.0;
+                }
+                else if (kernel.TLX == 1) {
+                    kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
+                }
+                else if (kernel.TLX == 2) {
+                    amrex::Real Vp = Math::pi<Real>() * 4 / 3 * Math::powi<3>(kernel.radius);
+                    kernel.velocity[idir] = kernel.velocity_old[idir]
+                                    + ((kernel.sum_u_new[idir] - kernel.sum_u_old[idir]) * ParticleProperties::euler_fluid_rho / dt 
+                                    - kernel.ib_force[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
+                                    + m_gravity[idir] * (kernel.rho - ParticleProperties::euler_fluid_rho) * Vp
+                                    + kernel.Fcp[idir]) * dt / kernel.rho / Vp;
+                    kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
+                }
+                else {
+                    amrex::Print() << "Particle (" << kernel.id << ") has wrong TLX value\n";
+                    amrex::Abort("Stop here!");
+                }
+            }
+
+            // TLY
+            {
+                int idir = 1;
+                if (kernel.TLY == 0) {
+                    kernel.velocity[idir] = 0.0;
+                }
+                else if (kernel.TLY == 1) {
+                    kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
+                }
+                else if (kernel.TLY == 2) {
+                    amrex::Real Vp = Math::pi<Real>() * 4 / 3 * Math::powi<3>(kernel.radius);
+                    kernel.velocity[idir] = kernel.velocity_old[idir]
+                                    + ((kernel.sum_u_new[idir] - kernel.sum_u_old[idir]) * ParticleProperties::euler_fluid_rho / dt 
+                                    - kernel.ib_force[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
+                                    + m_gravity[idir] * (kernel.rho - ParticleProperties::euler_fluid_rho) * Vp
+                                    + kernel.Fcp[idir]) * dt / kernel.rho / Vp;
+                    kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
+                }
+                else {
+                    amrex::Print() << "Particle (" << kernel.id << ") has wrong TLY value\n";
+                    amrex::Abort("Stop here!");
+                }
+            }
+
+            // TLZ
+            {
+                int idir = 2;
+                if (kernel.TLZ == 0) {
+                    kernel.velocity[idir] = 0.0;
+                }
+                else if (kernel.TLZ == 1) {
+                    kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
+                }
+                else if (kernel.TLZ == 2) {
+                    amrex::Real Vp = Math::pi<Real>() * 4 / 3 * Math::powi<3>(kernel.radius);
+                    kernel.velocity[idir] = kernel.velocity_old[idir]
+                                    + ((kernel.sum_u_new[idir] - kernel.sum_u_old[idir]) * ParticleProperties::euler_fluid_rho / dt 
+                                    - kernel.ib_force[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
+                                    + m_gravity[idir] * (kernel.rho - ParticleProperties::euler_fluid_rho) * Vp
+                                    + kernel.Fcp[idir]) * dt / kernel.rho / Vp;
+                    kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
+                }
+                else {
+                    amrex::Print() << "Particle (" << kernel.id << ") has wrong TLZ value\n";
+                    amrex::Abort("Stop here!");
+                }
+            }
+
+            if(at_least_one_free_rot_motion) {
+                // sum T
                 CalculateSumT_cir(kernel.sum_t_new, Euler, pvf, kernel.location, ParticleProperties::euler_velocity_index);
                 CalculateSumT_cir(kernel.sum_t_old, Euler_old, pvf_old, kernel.location, ParticleProperties::euler_velocity_index);
                 amrex::ParallelAllReduce::Sum(&kernel.sum_t_new[0], 3, ParallelDescriptor::Communicator());
                 amrex::ParallelAllReduce::Sum(&kernel.sum_u_old[0], 3, ParallelDescriptor::Communicator());
-                //update kernel omega
-                auto old_omega = kernel.omega;
-                kernel.omega = old_omega
-                            + ((kernel.sum_t_new - kernel.sum_t_old) * ParticleProperties::euler_fluid_rho / dt
-                            - kernel.ib_moment * ParticleProperties::euler_fluid_rho * kernel.dv
-                            + kernel.Tcp) * dt / cal_momentum(kernel.rho, kernel.radius);
-                kernel.omega *= RealVect(kernel.RLX, kernel.RLY, kernel.RLZ);
+            }
+
+            // RLX
+            {
+                int idir = 0;
+                if (kernel.RLX == 0) {
+                    kernel.omega[idir] = 0.0;
+                }
+                else if (kernel.RLX == 1) {
+                }
+                else if (kernel.RLX == 2) {
+                    kernel.omega[idir] = kernel.omega_old[idir]
+                                + ((kernel.sum_t_new[idir] - kernel.sum_t_old[idir]) * ParticleProperties::euler_fluid_rho / dt
+                                - kernel.ib_moment[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
+                                + kernel.Tcp[idir]) * dt / cal_momentum(kernel.rho, kernel.radius);
+                }
+                else {
+                    amrex::Print() << "Particle (" << kernel.id << ") has wrong RLX value\n";
+                    amrex::Abort("Stop here!");
+                }
+            }
+
+            // RLY
+            {
+                int idir = 1;
+                if (kernel.RLY == 0) {
+                    kernel.omega[idir] = 0.0;
+                }
+                else if (kernel.RLY == 1) {
+                }
+                else if (kernel.RLY == 2) {
+                    kernel.omega[idir] = kernel.omega_old[idir]
+                                + ((kernel.sum_t_new[idir] - kernel.sum_t_old[idir]) * ParticleProperties::euler_fluid_rho / dt
+                                - kernel.ib_moment[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
+                                + kernel.Tcp[idir]) * dt / cal_momentum(kernel.rho, kernel.radius);
+                }
+                else {
+                    amrex::Print() << "Particle (" << kernel.id << ") has wrong RLY value\n";
+                    amrex::Abort("Stop here!");
+                }
+            }
+
+            // RLZ
+            {
+                int idir = 2;
+                if (kernel.RLZ == 0) {
+                    kernel.omega[idir] = 0.0;
+                }
+                else if (kernel.RLZ == 1) {
+                }
+                else if (kernel.RLZ == 2) {
+                    kernel.omega[idir] = kernel.omega_old[idir]
+                                + ((kernel.sum_t_new[idir] - kernel.sum_t_old[idir]) * ParticleProperties::euler_fluid_rho / dt
+                                - kernel.ib_moment[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
+                                + kernel.Tcp[idir]) * dt / cal_momentum(kernel.rho, kernel.radius);
+                }
+                else {
+                    amrex::Print() << "Particle (" << kernel.id << ") has wrong RLZ value\n";
+                    amrex::Abort("Stop here!");
+                }
             }
         
             loop--;
 
+            if (loop > 0 && at_least_one_free_motion) {
+                calculate_phi_nodal(phi_nodal, kernel);
+                nodal_phi_to_pvf(pvf, phi_nodal);
+            }
+
         }
-        kernel.location_old = kernel.location;
-        kernel.velocity_old = kernel.velocity;
-        kernel.omega_old = kernel.omega;
+        
+        RecordOldValue(kernel);
+
     }
-    // }
-    //Bcast velocity
-    // ParallelDescriptor::Bcast(&kernel.location[0], 3, ParallelDescriptor::IOProcessorNumber());
 
     if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 4));
 }
@@ -797,6 +934,13 @@ void mParticle::VelocityCorrection(amrex::MultiFab &Euler, amrex::MultiFab &Eule
 {
     if(verbose) amrex::Print() << "\tmParticle::VelocityCorrection\n";
     MultiFab::Saxpy(Euler, dt, EulerForce, ParticleProperties::euler_force_index, ParticleProperties::euler_velocity_index, 3, 0); //VelocityCorrection
+}
+
+void mParticle::RecordOldValue(kernel& kernel)
+{
+    kernel.location_old = kernel.location;
+    kernel.velocity_old = kernel.velocity;
+    kernel.omega_old = kernel.omega;
 }
 
 void mParticle::WriteParticleFile(int index)
