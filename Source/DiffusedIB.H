@@ -49,6 +49,11 @@ struct kernel{
     RealVect velocity{0.0,0.0,0.0};
     RealVect location{0.0,0.0,0.0};
     RealVect omega{0.0,0.0,0.0};
+
+    RealVect velocity_old{0.0,0.0,0.0};
+    RealVect location_old{0.0,0.0,0.0};
+    RealVect omega_old{0.0,0.0,0.0};
+
     RealVect varphi{0.0,0.0,0.0};
     Real radius{0.0};
     Real rho{0.0};

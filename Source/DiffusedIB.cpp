@@ -323,6 +323,11 @@ void mParticle::InitParticles(const Vector<Real>& x,
         mKernel.omega[0] = Ox[index];
         mKernel.omega[1] = Oy[index];
         mKernel.omega[2] = Oz[index];
+
+        mKernel.location_old = mKernel.location;
+        mKernel.velocity_old = mKernel.velocity;
+        mKernel.omega_old = mKernel.omega;
+
         mKernel.TLX = TLXt[index];
         mKernel.TLY = TLYt[index];
         mKernel.TLZ = TLZt[index];
@@ -740,6 +745,9 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
             loop--;
 
         }
+        kernel.location_old = kernel.location;
+        kernel.velocity_old = kernel.velocity;
+        kernel.omega_old = kernel.omega;
     }
     // }
     //Bcast velocity
