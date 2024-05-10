@@ -148,6 +148,7 @@ struct velFill
         const Real* prob_lo = geom.ProbLo();
         const Real* dx      = geom.CellSize();
         amrex::Real y = dx[1]*(0.5+j) + prob_lo[1];
+        amrex::Real z = dx[2]*(0.5+k) + prob_lo[2];
 
         for (int nc = 0; nc < numcomp; ++nc)
         {
@@ -158,8 +159,11 @@ struct velFill
                 if (bc.lo(idir) == BCType::ext_dir && iv[idir] < domain_box.smallEnd(idir))
                 {
                     dest(i,j,k,dcomp+nc) = bcv[idir][orig_comp+nc];
-                    if ( (probtype == 102 || probtype == 103) && orig_comp == 0) { // shear flow inlet in x dir
+                    if ( (probtype == 102 || probtype == 103 || probtype == 104) && orig_comp == 0) { // shear flow inlet in x dir
                         dest(i,j,k,dcomp+nc) = ub + shearrate * y;
+                    }
+                    if ( probtype == 104 ) { // shear flow inlet in x dir
+                        dest(i,j,k,dcomp+nc) = ub + shearrate * z;
                         // amrex::Print() << i << " " << j << " " << k << " " << ub << " " << shearrate << " " << y << " " << idir << std::endl;
                     }
                 }
