@@ -70,7 +70,7 @@ struct kernel{
     RealVect Fcp{0.0,0.0,0.0};
     RealVect Tcp{0.0,0.0,0.0};
 
-    int TLX{0},TLY{0},TLZ{0},RLX{0},RLY{0},RLZ{0};
+    IntVect TL{0, 0, 0}, RL{0, 0, 0};
 };
 
 class mParIter : public ParIter<0, 0, numAttri>{
