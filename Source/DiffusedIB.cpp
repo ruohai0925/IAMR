@@ -22,6 +22,9 @@ using namespace amrex;
 /*                     global variable                           */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 #define LOCAL_LEVEL 0
+
+const Vector<std::string> direction_str{"X","Y","Z"};
+
 namespace ParticleProperties{
     Vector<Real> _x{}, _y{}, _z{}, _rho{};
     Vector<Real> Vx{}, Vy{}, Vz{};
@@ -35,6 +38,8 @@ namespace ParticleProperties{
     int verbose{0};
     int loop_ns{0};
     int loop_solid{0};
+
+    Vector<Real> GLO, GHI;
 
     GpuArray<Real, 3> plo{0.0,0.0,0.0}, phi{0.0,0.0,0.0}, dx{0.0, 0.0, 0.0};
 }
@@ -209,6 +214,12 @@ void deltaFunction(Real xf, Real xp, Real h, Real& value, DELTA_FUNCTION_TYPE ty
     default:
         break;
     }
+}
+
+auto CalDistancePlaneKernel(Plane p, const kernel& k){
+    Real distance_old = p.normal[0] * k.location_old[0] + p.normal[1] * k.location_old[1] + p.normal[2] * k.location_old[2] + p.d;
+    Real distance_new = p.normal[0] * k.location[0] + p.normal[1] * k.location[1] + p.normal[2] * k.location[2] + p.d;
+    return std::make_tuple(distance_old, distance_new);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -390,6 +401,21 @@ void mParticle::InitParticles(const Vector<Real>& x,
     }
     Redistribute(); // Still needs to redistribute here! 
     if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 0));
+
+    //deal with boundary Plane
+    IntVect X_pos{1, 0, 0}, X_neg{-1, 0, 0},Y_pos{0, 1, 0}, Y_neg{0, -1, 0},Z_pos{0, 0, 1}, Z_neg{0, 0, -1};
+    Plane A; A.normal = X_pos; A.d = X_pos[0] * ParticleProperties::GLO[0] + X_pos[1] * ParticleProperties::GLO[1] + X_pos[2] * ParticleProperties::GLO[2];
+    Plane B; B.normal = Y_pos; B.d = Y_pos[0] * ParticleProperties::GLO[0] + Y_pos[1] * ParticleProperties::GLO[1] + Y_pos[2] * ParticleProperties::GLO[2];
+    Plane C; C.normal = Z_pos; C.d = Z_pos[0] * ParticleProperties::GLO[0] + Z_pos[1] * ParticleProperties::GLO[1] + Z_pos[2] * ParticleProperties::GLO[2];
+    Plane D; D.normal = X_neg; D.d = X_neg[0] * ParticleProperties::GLO[0] + X_neg[1] * ParticleProperties::GLO[1] + X_neg[2] * ParticleProperties::GLO[2];
+    Plane E; E.normal = Y_neg; E.d = Y_neg[0] * ParticleProperties::GLO[0] + Y_neg[1] * ParticleProperties::GLO[1] + Y_neg[2] * ParticleProperties::GLO[2];
+    Plane F; F.normal = Z_neg; F.d = Z_neg[0] * ParticleProperties::GLO[0] + Z_neg[1] * ParticleProperties::GLO[1] + Z_neg[2] * ParticleProperties::GLO[2];
+    boundary_plane.push_back(A);
+    boundary_plane.push_back(B);
+    boundary_plane.push_back(C);
+    boundary_plane.push_back(D);
+    boundary_plane.push_back(E);
+    boundary_plane.push_back(F);
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -761,7 +787,7 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
                     kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
                 }
                 else {
-                    amrex::Print() << "Particle (" << kernel.id << ") has wrong TL value\n";
+                    amrex::Print() << "Particle (" << kernel.id << ") has wrong TL"<< direction_str[idir] <<" value\n";
                     amrex::Abort("Stop here!");
                 }
                 //RL
@@ -777,7 +803,7 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
                                        + kernel.Tcp[idir]) * dt / cal_momentum(kernel.rho, kernel.radius);
                 }
                 else {
-                    amrex::Print() << "Particle (" << kernel.id << ") has wrong RL value\n";
+                    amrex::Print() << "Particle (" << kernel.id << ") has wrong RL"<< direction_str[idir] <<" value\n";
                     amrex::Abort("Stop here!");
                 }
 
@@ -793,7 +819,19 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
         }
         
         RecordOldValue(kernel);
-
+        
+        //boundary collision detection
+        // for(const auto& p : boundary_plane){
+        //     auto [d_old, d_new] = CalDistancePlaneKernel(p, kernel);
+        //     if(d_old * d_new < 0){
+        //         //cross the boundary
+        //     }else{
+        //         if(d_new < kernel.radius){
+        //             //do not cross but collision
+        //             //conservation of energy
+        //         }
+        //     }
+        // }
     }
 
     if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 4));
@@ -961,8 +999,13 @@ void Particles::Initialize()
         p_file.get("euler_force_index",    ParticleProperties::euler_force_index);
         p_file.get("euler_fluid_rho",      ParticleProperties::euler_fluid_rho);
         p_file.query("verbose", ParticleProperties::verbose);
+        
         ParmParse level_parse("amr");
         level_parse.get("max_level", ParticleProperties::euler_finest_level);
+
+        ParmParse geometry_parse("geometry");
+        geometry_parse.getarr("prob_lo", ParticleProperties::GLO);
+        geometry_parse.getarr("prob_hi", ParticleProperties::GHI);
         amrex::Print() << "[Particle] : Reading partilces cfg file : " << particle_inputfile << "\n"
                        << "             Particle's level : " << ParticleProperties::euler_finest_level << "\n";
     }else {

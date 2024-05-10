@@ -44,6 +44,11 @@ enum DELTA_FUNCTION_TYPE{
     THREE_POINT_IB
 };
 
+struct Plane{
+    IntVect normal{0, 0, 0};
+    Real d;
+};
+
 struct kernel{
     int id;
     RealVect velocity{0.0,0.0,0.0};
@@ -136,6 +141,8 @@ public:
     void WriteParticleFile(int index);
 
     Vector<kernel> particle_kernels;
+
+    Vector<Plane> boundary_plane;
 
     void InitialWithLargrangianPoints(const kernel& current_kernel);
 
