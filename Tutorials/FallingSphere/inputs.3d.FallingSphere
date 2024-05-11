@@ -134,15 +134,10 @@ ns.hi_bc             = 5 5 4
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 
-# Boundary condition
-xlo.velocity            =   0.  0.  1.
-
 #*******************************************************************************
 
 # Problem parameters
 prob.probtype = 104
-prob.ub = 0
-prob.shearrate = 0
 
 #*******************************************************************************
 
