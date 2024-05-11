@@ -22,6 +22,9 @@ using namespace amrex;
 /*                     global variable                           */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 #define LOCAL_LEVEL 0
+
+const Vector<std::string> direction_str{"X","Y","Z"};
+
 namespace ParticleProperties{
     Vector<Real> _x{}, _y{}, _z{}, _rho{};
     Vector<Real> Vx{}, Vy{}, Vz{};
@@ -33,7 +36,10 @@ namespace ParticleProperties{
     int euler_force_index{0};
     Real euler_fluid_rho{0.0};
     int verbose{0};
-    int loop_time{0};
+    int loop_ns{0};
+    int loop_solid{0};
+
+    Vector<Real> GLO, GHI;
 
     GpuArray<Real, 3> plo{0.0,0.0,0.0}, phi{0.0,0.0,0.0}, dx{0.0, 0.0, 0.0};
 }
@@ -210,6 +216,12 @@ void deltaFunction(Real xf, Real xp, Real h, Real& value, DELTA_FUNCTION_TYPE ty
     }
 }
 
+auto CalDistancePlaneKernel(Plane p, const kernel& k){
+    Real distance_old = p.normal[0] * k.location_old[0] + p.normal[1] * k.location_old[1] + p.normal[2] * k.location_old[2] + p.d;
+    Real distance_new = p.normal[0] * k.location[0] + p.normal[1] * k.location[1] + p.normal[2] * k.location[2] + p.d;
+    return std::make_tuple(distance_old, distance_new);
+}
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /*                    mParticle member function                  */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -235,7 +247,7 @@ void mParticle::InteractWithEuler(int iStep,
         amrex::Real ib_moment_z = 0.0;
         
         //for 1 -> Ns
-        int loop = ParticleProperties::loop_time;
+        int loop = ParticleProperties::loop_ns;
         BL_ASSERT(loop > 0);
         while(loop > 0){
             if(verbose) amrex::Print() << "[Particle] Ns loop index : " << loop << "\n";
@@ -330,12 +342,12 @@ void mParticle::InitParticles(const Vector<Real>& x,
         mKernel.velocity_old = mKernel.velocity;
         mKernel.omega_old = mKernel.omega;
 
-        mKernel.TLX = TLXt[index];
-        mKernel.TLY = TLYt[index];
-        mKernel.TLZ = TLZt[index];
-        mKernel.RLX = RLXt[index];
-        mKernel.RLY = RLYt[index];
-        mKernel.RLZ = RLZt[index];
+        mKernel.TL[0] = TLXt[index];
+        mKernel.TL[1] = TLYt[index];
+        mKernel.TL[2] = TLZt[index];
+        mKernel.RL[0] = RLXt[index];
+        mKernel.RL[1] = RLYt[index];
+        mKernel.RL[2] = RLZt[index];
         mKernel.rho = rho_s[index];
         mKernel.radius = radius;
         mKernel.ml = Ml;
@@ -389,6 +401,21 @@ void mParticle::InitParticles(const Vector<Real>& x,
     }
     Redistribute(); // Still needs to redistribute here! 
     if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 0));
+
+    //deal with boundary Plane
+    IntVect X_pos{1, 0, 0}, X_neg{-1, 0, 0},Y_pos{0, 1, 0}, Y_neg{0, -1, 0},Z_pos{0, 0, 1}, Z_neg{0, 0, -1};
+    Plane A; A.normal = X_pos; A.d = X_pos[0] * ParticleProperties::GLO[0] + X_pos[1] * ParticleProperties::GLO[1] + X_pos[2] * ParticleProperties::GLO[2];
+    Plane B; B.normal = Y_pos; B.d = Y_pos[0] * ParticleProperties::GLO[0] + Y_pos[1] * ParticleProperties::GLO[1] + Y_pos[2] * ParticleProperties::GLO[2];
+    Plane C; C.normal = Z_pos; C.d = Z_pos[0] * ParticleProperties::GLO[0] + Z_pos[1] * ParticleProperties::GLO[1] + Z_pos[2] * ParticleProperties::GLO[2];
+    Plane D; D.normal = X_neg; D.d = X_neg[0] * ParticleProperties::GLO[0] + X_neg[1] * ParticleProperties::GLO[1] + X_neg[2] * ParticleProperties::GLO[2];
+    Plane E; E.normal = Y_neg; E.d = Y_neg[0] * ParticleProperties::GLO[0] + Y_neg[1] * ParticleProperties::GLO[1] + Y_neg[2] * ParticleProperties::GLO[2];
+    Plane F; F.normal = Z_neg; F.d = Z_neg[0] * ParticleProperties::GLO[0] + Z_neg[1] * ParticleProperties::GLO[1] + Z_neg[2] * ParticleProperties::GLO[2];
+    boundary_plane.push_back(A);
+    boundary_plane.push_back(B);
+    boundary_plane.push_back(C);
+    boundary_plane.push_back(D);
+    boundary_plane.push_back(E);
+    boundary_plane.push_back(F);
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -565,7 +592,7 @@ void ForceSpreading_cic (P const& p,
     Gpu::Atomic::AddNoRet(&ib_fx, Fx);
     Gpu::Atomic::AddNoRet(&ib_fy, Fy);
     Gpu::Atomic::AddNoRet(&ib_fz, Fz);
-    RealVect moment = RealVect(Math::abs(p.pos(0) - Px), Math::abs(p.pos(1) - Py), Math::abs(p.pos(2) - Pz)).crossProduct(RealVect(Fx, Fy, Fz));
+    RealVect moment = RealVect((p.pos(0) - Px), (p.pos(1) - Py), (p.pos(2) - Pz)).crossProduct(RealVect(Fx, Fy, Fz));
     Gpu::Atomic::AddNoRet(&ib_mx, moment[0]);
     Gpu::Atomic::AddNoRet(&ib_my, moment[1]);
     Gpu::Atomic::AddNoRet(&ib_mz, moment[2]);
@@ -691,15 +718,11 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
     if (verbose) amrex::Print() << "mParticle::UpdateParticles\n";
     
     //continue condition 6DOF
-    for(auto kernel : particle_kernels){
+    for(auto& kernel : particle_kernels){
 
         // fixed particle
-        if( ( kernel.TLX == 0 ) && 
-            ( kernel.TLY == 0 ) &&
-            ( kernel.TLZ == 0 ) &&
-            ( kernel.RLX == 0 ) &&
-            ( kernel.RLY == 0 ) && 
-            ( kernel.RLZ == 0 ) ) {
+        if( ( kernel.TL.sum() == 0 )&&
+            ( kernel.RL.sum() == 0 ) ) {
             amrex::Print() << "Particle (" << kernel.id << ") is fixed\n";
             continue;
         }
@@ -708,12 +731,12 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
         int ngrow = pvf.nGrow();
         MultiFab pvf_old(pvf.boxArray(), pvf.DistributionMap(), ncomp, ngrow);
 
-        bool at_least_one_free_trans_motion = ( kernel.TLX == 2 ) || 
-                                              ( kernel.TLY == 2 ) ||
-                                              ( kernel.TLZ == 2 );
-        bool at_least_one_free_rot_motion   = ( kernel.RLX == 2 ) || 
-                                              ( kernel.RLY == 2 ) ||
-                                              ( kernel.RLZ == 2 );    
+        bool at_least_one_free_trans_motion = ( kernel.TL[0] == 2 ) || 
+                                              ( kernel.TL[1] == 2 ) ||
+                                              ( kernel.TL[2] == 2 );
+        bool at_least_one_free_rot_motion   = ( kernel.RL[0] == 2 ) || 
+                                              ( kernel.RL[1] == 2 ) ||
+                                              ( kernel.RL[2] == 2 );    
          
         bool at_least_one_free_motion = at_least_one_free_trans_motion ||
                                         at_least_one_free_rot_motion;
@@ -724,8 +747,7 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
             MultiFab::Copy(pvf_old, pvf, 0, 0, ncomp, ngrow);
         }
 
-        int loop_solid_time = 1;
-        int loop = loop_solid_time;
+        int loop = ParticleProperties::loop_solid;
 
         while (loop > 0) {
 
@@ -737,78 +759,6 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
                 amrex::ParallelAllReduce::Sum(&kernel.sum_t_old[0], 3, ParallelDescriptor::Communicator());
             }
 
-            // TLX
-            {
-                int idir = 0;
-                if (kernel.TLX == 0) {
-                    kernel.velocity[idir] = 0.0;
-                }
-                else if (kernel.TLX == 1) {
-                    kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
-                }
-                else if (kernel.TLX == 2) {
-                    amrex::Real Vp = Math::pi<Real>() * 4 / 3 * Math::powi<3>(kernel.radius);
-                    kernel.velocity[idir] = kernel.velocity_old[idir]
-                                    + ((kernel.sum_u_new[idir] - kernel.sum_u_old[idir]) * ParticleProperties::euler_fluid_rho / dt 
-                                    - kernel.ib_force[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
-                                    + m_gravity[idir] * (kernel.rho - ParticleProperties::euler_fluid_rho) * Vp
-                                    + kernel.Fcp[idir]) * dt / kernel.rho / Vp;
-                    kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
-                }
-                else {
-                    amrex::Print() << "Particle (" << kernel.id << ") has wrong TLX value\n";
-                    amrex::Abort("Stop here!");
-                }
-            }
-
-            // TLY
-            {
-                int idir = 1;
-                if (kernel.TLY == 0) {
-                    kernel.velocity[idir] = 0.0;
-                }
-                else if (kernel.TLY == 1) {
-                    kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
-                }
-                else if (kernel.TLY == 2) {
-                    amrex::Real Vp = Math::pi<Real>() * 4 / 3 * Math::powi<3>(kernel.radius);
-                    kernel.velocity[idir] = kernel.velocity_old[idir]
-                                    + ((kernel.sum_u_new[idir] - kernel.sum_u_old[idir]) * ParticleProperties::euler_fluid_rho / dt 
-                                    - kernel.ib_force[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
-                                    + m_gravity[idir] * (kernel.rho - ParticleProperties::euler_fluid_rho) * Vp
-                                    + kernel.Fcp[idir]) * dt / kernel.rho / Vp;
-                    kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
-                }
-                else {
-                    amrex::Print() << "Particle (" << kernel.id << ") has wrong TLY value\n";
-                    amrex::Abort("Stop here!");
-                }
-            }
-
-            // TLZ
-            {
-                int idir = 2;
-                if (kernel.TLZ == 0) {
-                    kernel.velocity[idir] = 0.0;
-                }
-                else if (kernel.TLZ == 1) {
-                    kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
-                }
-                else if (kernel.TLZ == 2) {
-                    amrex::Real Vp = Math::pi<Real>() * 4 / 3 * Math::powi<3>(kernel.radius);
-                    kernel.velocity[idir] = kernel.velocity_old[idir]
-                                    + ((kernel.sum_u_new[idir] - kernel.sum_u_old[idir]) * ParticleProperties::euler_fluid_rho / dt 
-                                    - kernel.ib_force[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
-                                    + m_gravity[idir] * (kernel.rho - ParticleProperties::euler_fluid_rho) * Vp
-                                    + kernel.Fcp[idir]) * dt / kernel.rho / Vp;
-                    kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
-                }
-                else {
-                    amrex::Print() << "Particle (" << kernel.id << ") has wrong TLZ value\n";
-                    amrex::Abort("Stop here!");
-                }
-            }
-
             if(at_least_one_free_rot_motion) {
                 // sum T
                 CalculateSumT_cir(kernel.sum_t_new, Euler, pvf, kernel.location, ParticleProperties::euler_velocity_index);
@@ -817,64 +767,46 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
                 amrex::ParallelAllReduce::Sum(&kernel.sum_u_old[0], 3, ParallelDescriptor::Communicator());
             }
 
-            // RLX
+            // 6DOF
+            for(auto idir : {0,1,2})
             {
-                int idir = 0;
-                if (kernel.RLX == 0) {
-                    kernel.omega[idir] = 0.0;
+                //TL
+                if (kernel.TL[idir] == 0) {
+                    kernel.velocity[idir] = 0.0;
                 }
-                else if (kernel.RLX == 1) {
+                else if (kernel.TL[idir] == 1) {
+                    kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
                 }
-                else if (kernel.RLX == 2) {
-                    kernel.omega[idir] = kernel.omega_old[idir]
-                                + ((kernel.sum_t_new[idir] - kernel.sum_t_old[idir]) * ParticleProperties::euler_fluid_rho / dt
-                                - kernel.ib_moment[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
-                                + kernel.Tcp[idir]) * dt / cal_momentum(kernel.rho, kernel.radius);
+                else if (kernel.TL[idir] == 2) {
+                    amrex::Real Vp = Math::pi<Real>() * 4 / 3 * Math::powi<3>(kernel.radius);
+                    kernel.velocity[idir] = kernel.velocity_old[idir]
+                                          + ((kernel.sum_u_new[idir] - kernel.sum_u_old[idir]) * ParticleProperties::euler_fluid_rho / dt 
+                                          - kernel.ib_force[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
+                                          + m_gravity[idir] * (kernel.rho - ParticleProperties::euler_fluid_rho) * Vp
+                                          + kernel.Fcp[idir]) * dt / kernel.rho / Vp;
+                    kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
                 }
                 else {
-                    amrex::Print() << "Particle (" << kernel.id << ") has wrong RLX value\n";
+                    amrex::Print() << "Particle (" << kernel.id << ") has wrong TL"<< direction_str[idir] <<" value\n";
                     amrex::Abort("Stop here!");
                 }
-            }
+                //RL
+                if (kernel.RL[idir] == 0) {
+                    kernel.omega[idir] = 0.0;
+                }
+                else if (kernel.RL[idir] == 1) {
+                }
+                else if (kernel.RL[idir] == 2) {
+                    kernel.omega[idir] = kernel.omega_old[idir]
+                                       + ((kernel.sum_t_new[idir] - kernel.sum_t_old[idir]) * ParticleProperties::euler_fluid_rho / dt
+                                       - kernel.ib_moment[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
+                                       + kernel.Tcp[idir]) * dt / cal_momentum(kernel.rho, kernel.radius);
+                }
+                else {
+                    amrex::Print() << "Particle (" << kernel.id << ") has wrong RL"<< direction_str[idir] <<" value\n";
+                    amrex::Abort("Stop here!");
+                }
 
-            // RLY
-            {
-                int idir = 1;
-                if (kernel.RLY == 0) {
-                    kernel.omega[idir] = 0.0;
-                }
-                else if (kernel.RLY == 1) {
-                }
-                else if (kernel.RLY == 2) {
-                    kernel.omega[idir] = kernel.omega_old[idir]
-                                + ((kernel.sum_t_new[idir] - kernel.sum_t_old[idir]) * ParticleProperties::euler_fluid_rho / dt
-                                - kernel.ib_moment[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
-                                + kernel.Tcp[idir]) * dt / cal_momentum(kernel.rho, kernel.radius);
-                }
-                else {
-                    amrex::Print() << "Particle (" << kernel.id << ") has wrong RLY value\n";
-                    amrex::Abort("Stop here!");
-                }
-            }
-
-            // RLZ
-            {
-                int idir = 2;
-                if (kernel.RLZ == 0) {
-                    kernel.omega[idir] = 0.0;
-                }
-                else if (kernel.RLZ == 1) {
-                }
-                else if (kernel.RLZ == 2) {
-                    kernel.omega[idir] = kernel.omega_old[idir]
-                                + ((kernel.sum_t_new[idir] - kernel.sum_t_old[idir]) * ParticleProperties::euler_fluid_rho / dt
-                                - kernel.ib_moment[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
-                                + kernel.Tcp[idir]) * dt / cal_momentum(kernel.rho, kernel.radius);
-                }
-                else {
-                    amrex::Print() << "Particle (" << kernel.id << ") has wrong RLZ value\n";
-                    amrex::Abort("Stop here!");
-                }
             }
         
             loop--;
@@ -887,7 +819,19 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
         }
         
         RecordOldValue(kernel);
-
+        
+        //boundary collision detection
+        // for(const auto& p : boundary_plane){
+        //     auto [d_old, d_new] = CalDistancePlaneKernel(p, kernel);
+        //     if(d_old * d_new < 0){
+        //         //cross the boundary
+        //     }else{
+        //         if(d_new < kernel.radius){
+        //             //do not cross but collision
+        //             //conservation of energy
+        //         }
+        //     }
+        // }
     }
 
     if (verbose) WriteAsciiFile(amrex::Concatenate("particle", 4));
@@ -920,7 +864,7 @@ void mParticle::ComputeLagrangianForce(Real dt,
 
         amrex::ParallelFor(np,
         [=] AMREX_GPU_DEVICE (int i) noexcept{
-            auto Ur = RealVect(p_ptr[i].pos(0) - Px, p_ptr[i].pos(1) - Py, p_ptr[2].pos(2) - Pz).crossProduct(kernel.omega);
+            auto Ur = (kernel.omega).crossProduct(RealVect(p_ptr[i].pos(0) - Px, p_ptr[i].pos(1) - Py, p_ptr[i].pos(2) - Pz));
             FxP[i] = (Ub + Ur[0] - Up[i])/dt; //
             FyP[i] = (Vb + Ur[1] - Vp[i])/dt; //
             FzP[i] = (Wb + Ur[2] - Wp[i])/dt; //
@@ -1032,30 +976,36 @@ void Particles::Initialize()
     
     if(!particle_inputfile.empty()){
         ParmParse p_file(particle_inputfile);
-        p_file.getarr("x", ParticleProperties::_x);
-        p_file.getarr("y", ParticleProperties::_y);
-        p_file.getarr("z", ParticleProperties::_z);
-        p_file.getarr("rho",ParticleProperties::_rho);
-        p_file.get("radius", ParticleProperties::_radius);
+        p_file.getarr("x",          ParticleProperties::_x);
+        p_file.getarr("y",          ParticleProperties::_y);
+        p_file.getarr("z",          ParticleProperties::_z);
+        p_file.getarr("rho",        ParticleProperties::_rho);
         p_file.getarr("velocity_x", ParticleProperties::Vx);
         p_file.getarr("velocity_y", ParticleProperties::Vy);
         p_file.getarr("velocity_z", ParticleProperties::Vz);
-        p_file.getarr("omega_x", ParticleProperties::Ox);
-        p_file.getarr("omega_y", ParticleProperties::Oy);
-        p_file.getarr("omega_z", ParticleProperties::Oz);
-        p_file.getarr("TLX", ParticleProperties::TLX);
-        p_file.getarr("TLY", ParticleProperties::TLY);
-        p_file.getarr("TLZ", ParticleProperties::TLZ);
-        p_file.getarr("RLX", ParticleProperties::RLX);
-        p_file.getarr("RLY", ParticleProperties::RLY);
-        p_file.getarr("RLZ", ParticleProperties::RLZ);
-        p_file.get("LOOP", ParticleProperties::loop_time);
-        p_file.query("verbose", ParticleProperties::verbose);
+        p_file.getarr("omega_x",    ParticleProperties::Ox);
+        p_file.getarr("omega_y",    ParticleProperties::Oy);
+        p_file.getarr("omega_z",    ParticleProperties::Oz);
+        p_file.getarr("TLX",        ParticleProperties::TLX);
+        p_file.getarr("TLY",        ParticleProperties::TLY);
+        p_file.getarr("TLZ",        ParticleProperties::TLZ);
+        p_file.getarr("RLX",        ParticleProperties::RLX);
+        p_file.getarr("RLY",        ParticleProperties::RLY);
+        p_file.getarr("RLZ",        ParticleProperties::RLZ);
+        p_file.get("radius",               ParticleProperties::_radius);
+        p_file.get("LOOP_NS",              ParticleProperties::loop_ns);
+        p_file.get("LOOP_SOLID",           ParticleProperties::loop_solid);
         p_file.get("euler_velocity_index", ParticleProperties::euler_velocity_index);
-        p_file.get("euler_force_index", ParticleProperties::euler_force_index);
-        p_file.get("euler_fluid_rho", ParticleProperties::euler_fluid_rho);
+        p_file.get("euler_force_index",    ParticleProperties::euler_force_index);
+        p_file.get("euler_fluid_rho",      ParticleProperties::euler_fluid_rho);
+        p_file.query("verbose", ParticleProperties::verbose);
+        
         ParmParse level_parse("amr");
         level_parse.get("max_level", ParticleProperties::euler_finest_level);
+
+        ParmParse geometry_parse("geometry");
+        geometry_parse.getarr("prob_lo", ParticleProperties::GLO);
+        geometry_parse.getarr("prob_hi", ParticleProperties::GHI);
         amrex::Print() << "[Particle] : Reading partilces cfg file : " << particle_inputfile << "\n"
                        << "             Particle's level : " << ParticleProperties::euler_finest_level << "\n";
     }else {

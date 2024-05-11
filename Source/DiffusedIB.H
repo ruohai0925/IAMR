@@ -44,6 +44,11 @@ enum DELTA_FUNCTION_TYPE{
     THREE_POINT_IB
 };
 
+struct Plane{
+    IntVect normal{0, 0, 0};
+    Real d;
+};
+
 struct kernel{
     int id;
     RealVect velocity{0.0,0.0,0.0};
@@ -70,7 +75,7 @@ struct kernel{
     RealVect Fcp{0.0,0.0,0.0};
     RealVect Tcp{0.0,0.0,0.0};
 
-    int TLX{0},TLY{0},TLZ{0},RLX{0},RLY{0},RLZ{0};
+    IntVect TL{0, 0, 0}, RL{0, 0, 0};
 };
 
 class mParIter : public ParIter<0, 0, numAttri>{
@@ -136,6 +141,8 @@ public:
     void WriteParticleFile(int index);
 
     Vector<kernel> particle_kernels;
+
+    Vector<Plane> boundary_plane;
 
     void InitialWithLargrangianPoints(const kernel& current_kernel);
 
