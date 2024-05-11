@@ -12,7 +12,7 @@ max_step 		= 5
 # Time at which calculation stops, if max_step is not reached first.
 stop_time 		= 10.0
 
-ns.fixed_dt     = 0.1
+ns.fixed_dt     = 0.01
 ns.cfl = 0.3
 ns.init_iter = 0
 
@@ -206,7 +206,9 @@ particle_inputs.RLY = 0
 particle_inputs.RLZ = 0
 
 # Ns loop time
-particle_inputs.LOOP = 2
+particle_inputs.LOOP_NS = 2
+# solid update loop time
+particle_inputs.LOOP_SOLID = 1
 
 
 # msg print
