@@ -143,6 +143,7 @@ xlo.velocity            =   1.  0.  0.
 prob.probtype = 102
 prob.ub = 1
 prob.shearrate = 0.15
+prob.density_ic = 1.0
 
 #*******************************************************************************
 

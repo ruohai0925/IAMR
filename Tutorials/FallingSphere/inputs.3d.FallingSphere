@@ -7,12 +7,12 @@
 
 # Maximum number of coarse grid timesteps to be taken, if stop_time is
 #  not reached first.
-max_step 		= 5
+max_step 		= 10
 
 # Time at which calculation stops, if max_step is not reached first.
 stop_time 		= 10.0
 
-ns.fixed_dt     = 0.01
+ns.fixed_dt     = 0.001
 ns.cfl = 0.3
 ns.init_iter = 0
 
@@ -36,7 +36,7 @@ amr.blocking_factor     = 8
 # Number of cells in each coordinate direction at the coarsest level
 # amr.n_cell 		= 16 8 8 
 # amr.n_cell 		= 288 128 128 
-amr.n_cell 		= 32 32 64
+amr.n_cell 		= 48 48 96
 amr.max_grid_size	= 16
 # amr.max_grid_size	= 32
 
@@ -115,7 +115,7 @@ geometry.coord_sys   =  0
 geometry.prob_lo     =  0. 0. 0.
 
 # Physical dimensions of the high end of the domain.
-geometry.prob_hi     	=  0.1 0.1 0.16
+geometry.prob_hi     	=  0.1 0.1 0.2
 
 #*******************************************************************************
 
@@ -138,6 +138,7 @@ ns.hi_bc             = 5 5 4
 
 # Problem parameters
 prob.probtype = 104
+prob.density_ic = 970
 
 #*******************************************************************************
 
@@ -173,7 +174,7 @@ particle_inputs.z = 0.135
 
 # particle's density
 # rho = p1r p2r p3r ...
-particle_inputs.rho = 2
+particle_inputs.rho = 1120
 
 # particle's radius
 # single
@@ -212,4 +213,4 @@ particle_inputs.verbose = 1
 # Euler cfg
 particle_inputs.euler_velocity_index = 0
 particle_inputs.euler_force_index = 0
-particle_inputs.euler_fluid_rho = 1
+particle_inputs.euler_fluid_rho = 970

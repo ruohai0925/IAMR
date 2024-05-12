@@ -81,10 +81,12 @@ void NavierStokes::prob_initData ()
     // ls related
     //
     IC.do_phi = do_phi;
-    IC.Density = Density;
-    IC.phicomp = phicomp;
-    IC.rho_w = rho_w;
-    IC.rho_a = rho_a;
+    if (do_phi) {
+      IC.Density = Density; // Bug to be fixed: IC.Density is density value, yet Density is the scomp.
+      IC.phicomp = phicomp;
+      IC.rho_w = rho_w;
+      IC.rho_a = rho_a;
+    }
 
     //
     // Fill state and, optionally, pressure
@@ -427,7 +429,7 @@ void  NavierStokes::SphereNearWall (amrex::Box const& vbx,
     vel(i,j,k,1) = 0.0;
     vel(i,j,k,2) = 0.0;
 
-    scal(i,j,k,0) = 1.0;
+    scal(i,j,k,0) = IC.density;
 
     // Tracers
     scal(i,j,k,1) = 0.0;
@@ -462,7 +464,7 @@ void  NavierStokes::FallingSphere (amrex::Box const& vbx,
     vel(i,j,k,1) = 0.0;
     vel(i,j,k,2) = 0.0;
 
-    scal(i,j,k,0) = 1.0;
+    scal(i,j,k,0) = IC.density;
 
     // Tracers
     scal(i,j,k,1) = 0.0;

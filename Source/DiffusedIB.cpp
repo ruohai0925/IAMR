@@ -752,6 +752,8 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
         while (loop > 0) {
 
             if(at_least_one_free_trans_motion) {
+                kernel.sum_u_new.scale(0.0);
+                kernel.sum_u_old.scale(0.0);
                 // sum U
                 CalculateSumU_cir(kernel.sum_u_new, Euler, pvf, ParticleProperties::euler_velocity_index);
                 CalculateSumU_cir(kernel.sum_u_old, Euler_old, pvf_old, ParticleProperties::euler_velocity_index);
@@ -760,6 +762,8 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
             }
 
             if(at_least_one_free_rot_motion) {
+                kernel.sum_t_new.scale(0.0);
+                kernel.sum_t_old.scale(0.0);
                 // sum T
                 CalculateSumT_cir(kernel.sum_t_new, Euler, pvf, kernel.location, ParticleProperties::euler_velocity_index);
                 CalculateSumT_cir(kernel.sum_t_old, Euler_old, pvf_old, kernel.location, ParticleProperties::euler_velocity_index);
