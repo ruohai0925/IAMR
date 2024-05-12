@@ -7,7 +7,7 @@
 
 # Maximum number of coarse grid timesteps to be taken, if stop_time is
 #  not reached first.
-max_step 		= 10
+max_step 		= 3
 
 # Time at which calculation stops, if max_step is not reached first.
 stop_time 		= 10.0
@@ -20,15 +20,19 @@ ns.init_iter = 0
 particle.input = particle_inputs
 
 # Refinement criterion, use vorticity and presence of tracer
-amr.refinement_indicators = tracer
+amr.refinement_indicators = tracer box
 
 amr.max_level		= 0 # maximum number of levels of refinement
-# amr.tracer.value_greater = 0.1
-# amr.tracer.value_less = 1.1
-amr.tracer.field_name = tracer
-amr.tracer.in_box_lo = 0. 0. 0.
-amr.tracer.in_box_hi = 0.1 0.1 0.16
 
+amr.tracer.field_name = tracer
+amr.tracer.value_greater = 0.001
+
+amr.box.in_box_lo = 0.035 0.035 0.12
+amr.box.in_box_hi = 0.065 0.065 0.15
+amr.box.start_time = 0.0
+amr.box.end_time = 0.01
+
+amr.n_error_buf         = 3
 amr.blocking_factor     = 8
 
 #*******************************************************************************
