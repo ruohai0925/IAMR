@@ -351,6 +351,7 @@ void NavierStokesBase::define_workspace()
         const BoxArray& nba = amrex::convert(grids,IntVect::TheNodeVector());
         phi_nodal.define(nba,dmap,1,2,MFInfo(),Factory());
         pvf.define(grids,dmap,1,2,MFInfo(),Factory());
+        amrex::Print() << "check level " << level << " " << Particles::ParticleFinestLevel() << std::endl;
 #ifdef AMREX_PARTICLES
         if (level == Particles::ParticleFinestLevel()) {
             // amrex::Print() << "Check grids " << grids << " " << level << " " << parent->finestLevel() << std::endl;
