@@ -1,5 +1,5 @@
 #*******************************************************************************
-# INPUTS.3D.SPHERE_NEAR_WALL
+# INPUTS.3D.SPHERE_NEAR_WALL_TABLE_10_TRANS
 #*******************************************************************************
 
 # Maximum number of coarse grid timesteps to be taken, if stop_time is
@@ -32,7 +32,7 @@ amr.blocking_factor     = 8
 
 # Number of cells in each coordinate direction at the coarsest level
 # amr.n_cell 		= 16 8 8 
-amr.n_cell 		= 64 32 32
+amr.n_cell 		= 128 16 16
 # amr.n_cell 		= 288 128 128 
 amr.max_grid_size	= 16
 # amr.max_grid_size	= 32
@@ -65,22 +65,21 @@ amr.v                   = 1
 #*******************************************************************************
 
 # Interval (in number of coarse timesteps) between checkpoint(restart) files
-amr.check_int		= 100 
+amr.check_int		= 1
 #amr.restart             = chk01400
 
 #*******************************************************************************
 
 # Interval (in number of coarse timesteps) between plot files
-amr.plot_int		= 100
+amr.plot_int		= 1
 
 
 #*******************************************************************************
 
 # Viscosity coefficient 粘度系数
-# Re = 20, 100, 200 
-ns.vel_visc_coef        = 0.2      # Re = 20
-# ns.vel_visc_coef        = 0.04   # Re = 100
-# ns.vel_visc_coef        = 0.02  # Re = 200
+# Re = 20, 200 
+ns.vel_visc_coef        = 0.05      # Re = 20
+# ns.vel_visc_coef        = 0.005   # Re = 200
 
 #*******************************************************************************
 
@@ -113,7 +112,7 @@ geometry.coord_sys   =  0
 geometry.prob_lo     =  0. 0. 0.
 
 # Physical dimensions of the high end of the domain.
-geometry.prob_hi     =  32. 16. 16.
+geometry.prob_hi     =  64. 8. 8.
 
 #*******************************************************************************
 
@@ -133,14 +132,14 @@ ns.hi_bc             = 2 4 4
 # 2 = Outflow            5 = NoSlipWall
 
 # Boundary condition
-xlo.velocity            =   0.  0.  0.
+xlo.velocity            =   1.  0.  0.
 
 #*******************************************************************************
 
 # Problem parameters
-prob.probtype = 102
-prob.ub = 0.8
-prob.shearrate = 0.4
+prob.probtype = 1
+prob.ub = 0.0
+prob.shearrate = 0.0
 prob.density_ic = 1.0
 
 #*******************************************************************************
@@ -172,13 +171,15 @@ mac_proj.mac_abs_tol = 1.e-5
 
 # particle's location 
 # x = p1x p2x p3x ...
-particle_inputs.x = 16.0
-particle_inputs.y = 8.0
-particle_inputs.z = 8.0
+particle_inputs.x = 4.0
+particle_inputs.y = 4.0
+particle_inputs.z = 4.0
 
 # particle's density
 # rho = p1r p2r p3r ...
-particle_inputs.rho = 1.0
+# 密度 1.05  5
+particle_inputs.rho = 1.05
+# particle_inputs.rho = 5.0
 
 # particle's radius
 # single
@@ -198,7 +199,7 @@ particle_inputs.omega_z = 0.0
 
 # particle's 6DOF
 # TLX = p1tl p2tl ...
-particle_inputs.TLX = 0
+particle_inputs.TLX = 2
 particle_inputs.TLY = 0
 particle_inputs.TLZ = 0
 particle_inputs.RLX = 0
@@ -206,8 +207,8 @@ particle_inputs.RLY = 0
 particle_inputs.RLZ = 0
 
 # Ns loop time
-particle_inputs.LOOP = 2
-
+particle_inputs.LOOP_NS = 2
+particle_inputs.LOOP_SOLID = 1
 
 # msg print
 particle_inputs.verbose = 0
