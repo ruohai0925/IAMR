@@ -32,7 +32,7 @@ amr.blocking_factor     = 8
 
 # Number of cells in each coordinate direction at the coarsest level
 # amr.n_cell 		= 16 8 8 
-amr.n_cell 		= 128 16 16
+amr.n_cell 		= 128 32 32
 # amr.n_cell 		= 288 128 128 
 amr.max_grid_size	= 16
 # amr.max_grid_size	= 32
@@ -78,7 +78,7 @@ amr.plot_int		= 1
 
 # Viscosity coefficient 粘度系数
 # Re = 20, 200 
-ns.vel_visc_coef        = 0.05      # Re = 20
+ns.vel_visc_coef          = 0.05    # Re = 20
 # ns.vel_visc_coef        = 0.005   # Re = 200
 
 #*******************************************************************************
@@ -112,7 +112,7 @@ geometry.coord_sys   =  0
 geometry.prob_lo     =  0. 0. 0.
 
 # Physical dimensions of the high end of the domain.
-geometry.prob_hi     =  64. 8. 8.
+geometry.prob_hi     =  64. 16. 16.
 
 #*******************************************************************************
 
@@ -132,13 +132,13 @@ ns.hi_bc             = 2 4 4
 # 2 = Outflow            5 = NoSlipWall
 
 # Boundary condition
-xlo.velocity            =   1.  0.  0.
+xlo.velocity            =   0.  0.  0.
 
 #*******************************************************************************
 
 # Problem parameters
-prob.probtype = 1
-prob.ub = 0.0
+prob.probtype = 102
+prob.ub = 1.0
 prob.shearrate = 0.0
 prob.density_ic = 1.0
 
@@ -171,9 +171,9 @@ mac_proj.mac_abs_tol = 1.e-5
 
 # particle's location 
 # x = p1x p2x p3x ...
-particle_inputs.x = 4.0
-particle_inputs.y = 4.0
-particle_inputs.z = 4.0
+particle_inputs.x = 8.0
+particle_inputs.y = 8.0
+particle_inputs.z = 8.0
 
 # particle's density
 # rho = p1r p2r p3r ...
