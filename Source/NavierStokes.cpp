@@ -1157,7 +1157,7 @@ NavierStokes::writePlotFilePost (const std::string& dir,
 
 #ifdef AMREX_PARTICLES
     if(level == parent->finestLevel()){
-        Particles::get_particles()->Checkpoint(dir, "particles");
+        Particles::get_particles()->mContainer->Checkpoint(dir, "particles");
     }
 #endif
 

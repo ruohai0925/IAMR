@@ -7,6 +7,7 @@
 #include <AMReX_RealVect.H>
 #include <fstream>
 
+#include "Collision.H"
 using namespace amrex;
 // using deltaFuncType = std::function<AMREX_GPU_HOST_DEVICE void(Real, Real, Real, Real&)>;
 
@@ -34,19 +35,12 @@ enum P_ATTR{
     Fx_Marker,
     Fy_Marker,
     Fz_Marker,
-    P_thetaK,
-    P_phiK,
     numAttri
 };
 
 enum DELTA_FUNCTION_TYPE{
     FOUR_POINT_IB = 0,
     THREE_POINT_IB
-};
-
-struct Plane{
-    IntVect normal{0, 0, 0};
-    Real d;
 };
 
 struct kernel{
@@ -75,6 +69,9 @@ struct kernel{
     RealVect Fcp{0.0,0.0,0.0};
     RealVect Tcp{0.0,0.0,0.0};
 
+    Real *phiK;
+    Real *thetaK;
+
     IntVect TL{0, 0, 0}, RL{0, 0, 0};
 };
 
@@ -102,19 +99,12 @@ public:
 
 void deltaFunction(Real xf, Real xp, Real h, Real& value);
 
-class mParticle : public ParticleContainer<0, 0, numAttri>{
+using mParticleContainer = ParticleContainer<0, 0, numAttri>;
+
+class mParticle
+{
 public:
-
-    explicit mParticle(const Vector<Geometry>            & gm,
-                       const Vector<DistributionMapping> & dm,
-                       const Vector<BoxArray>            & ba,
-                       const Vector<int>                 & rr)
-                       : ParticleContainer<0, 0, numAttri>(gm, dm, ba, rr){}
-
-    explicit mParticle(const Geometry &gm,
-                       const DistributionMapping & dm,
-                       const BoxArray & ba)
-                       : ParticleContainer<0, 0, numAttri>(gm, dm, ba){}
+    explicit mParticle() = default;
 
     void InitParticles(const Vector<Real>& x,
                        const Vector<Real>& y,
@@ -132,17 +122,14 @@ public:
                        const Vector<int>& RLX,
                        const Vector<int>& RLY,
                        const Vector<int>& RLZ,
-                       Real radius,
+                       const Vector<Real>& radius,
+                       Real h,
                        Real gravity,
                        int verbose = 0);
 
     void InteractWithEuler(int iStep, amrex::Real time, MultiFab &EulerVel, MultiFab &EulerForce, Real dt = 0.1, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
 
     void WriteParticleFile(int index);
-
-    Vector<kernel> particle_kernels;
-
-    Vector<Plane> boundary_plane;
 
     void InitialWithLargrangianPoints(const kernel& current_kernel);
 
@@ -158,9 +145,19 @@ public:
 
     void UpdateParticles(const MultiFab& Euler_old, const MultiFab& Euler, MultiFab& phi_nodal, MultiFab& pvf, Real dt);
 
+    void DoParticleCollision();
+
     static void WriteIBForceAndMoment(int step, amrex::Real time, kernel& current_kernel);
 
     void RecordOldValue(kernel& kernel);
+
+    Vector<kernel> particle_kernels;
+
+    mParticleContainer *mContainer{nullptr};
+
+    ParticleCollision m_Collision;
+
+    int max_largrangian_num = 0;
 
     uint32_t ib_force_file_index = 0;
 
@@ -176,7 +173,7 @@ public:
                                  const BoxArray & ba);
 
     static mParticle* get_particles();
-    static void init_particle( int level, Real gravity);
+    static void init_particle(Real gravity, Real h);
     static void Initialize();
     static int ParticleFinestLevel();
     static void define_para(const Vector<Real>& x,
@@ -189,6 +186,7 @@ public:
                             int velocity_index,
                             int finest_level);
 
+    inline static bool isInitial{false};
 private:
     inline static mParticle* particle = nullptr;
 };
