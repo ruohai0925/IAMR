@@ -224,6 +224,7 @@ int NavierStokesBase::do_cons_levelset   = 0;
 // diffused ib
 //
 int NavierStokesBase::do_diffused_ib   = 0;
+int NavierStokesBase::advect_and_update_scalar   = 1;
 
 namespace
 {
@@ -677,6 +678,7 @@ NavierStokesBase::Initialize ()
     pp.query("prescribed_vel", prescribed_vel);
     pp.query("isolver", isolver);
     pp.query("do_diffused_ib", do_diffused_ib);
+    advect_and_update_scalar = !(do_diffused_ib == 1);
 
     amrex::ExecOnFinalize(NavierStokesBase::Finalize);
 
@@ -2725,6 +2727,18 @@ NavierStokesBase::post_timestep (int crse_iteration)
     }
 
     if (level > 0) incrPAvg();
+
+    // Copy pvf to Tracer before writing Tracer into plt files on the finest level,
+    // or set Tracer to zero on the coarser/coarsest levels
+    if (do_diffused_ib) {
+        MultiFab& S_new = get_new_data(State_Type);
+        if (level == parent->finestLevel()) {
+            MultiFab::Copy(S_new, pvf, 0, Tracer, 1, pvf.nGrow()); // Note: the ghost cell region of pvf is zero. 
+        }
+        else {
+            S_new.setVal(0.0, Tracer, 1, S_new.nGrow());
+        }
+    }
 
     if (level == 0 && dump_plane >= 0)
     {

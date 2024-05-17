@@ -53,6 +53,7 @@ void nodal_phi_to_pvf(MultiFab& pvf, const MultiFab& phi_nodal)
 
     amrex::Print() << "In the nodal_phi_to_pvf\n";
 
+    // Only set the valid cells of pvf
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -95,6 +96,7 @@ void calculate_phi_nodal(MultiFab& phi_nodal, kernel& current_kernel)
     amrex::Real Zp = current_kernel.location[2];
     amrex::Real Rp = current_kernel.radius;
 
+    // Only set the valid cells of phi_nodal
     for (MFIter mfi(phi_nodal,TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box& bx = mfi.tilebox();
@@ -656,6 +658,10 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
     //continue condition 6DOF
     for(auto& kernel : particle_kernels){
 
+        pvf.setVal(0.0);
+        calculate_phi_nodal(phi_nodal, kernel);
+        nodal_phi_to_pvf(pvf, phi_nodal);
+
         // fixed particle
         if( ( kernel.TL.sum() == 0 )&&
             ( kernel.RL.sum() == 0 ) ) {
@@ -678,8 +684,6 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
                                         at_least_one_free_rot_motion;
 
         if(at_least_one_free_motion) {        
-            calculate_phi_nodal(phi_nodal, kernel);
-            nodal_phi_to_pvf(pvf, phi_nodal);
             MultiFab::Copy(pvf_old, pvf, 0, 0, ncomp, ngrow);
         }
 
@@ -761,6 +765,8 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
         RecordOldValue(kernel);
         
     }
+
+    // calculate the pvf based on the information of all particles
 
     if (verbose) mContainer->WriteAsciiFile(amrex::Concatenate("particle", 4));
 }

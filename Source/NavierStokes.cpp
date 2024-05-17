@@ -634,114 +634,118 @@ NavierStokes::scalar_advection (Real dt,
 {
     BL_PROFILE("NavierStokes::scalar_advection()");
 
-    if (verbose) Print() << "... advect scalars\n";
-    //
-    // Get simulation parameters.
-    //
-    const int   num_scalars    = lscalar - fscalar + 1;
-    const Real  prev_time      = state[State_Type].prevTime();
+    if (advect_and_update_scalar) {
 
-    // divu
-    std::unique_ptr<MultiFab> divu_fp(getDivCond(nghost_force(),prev_time));
+        if (verbose) Print() << "... advect scalars\n";
+        //
+        // Get simulation parameters.
+        //
+        const int   num_scalars    = lscalar - fscalar + 1;
+        const Real  prev_time      = state[State_Type].prevTime();
 
-    //
-    // Start FillPatchIterator block
-    //
-    MultiFab forcing_term( grids, dmap, num_scalars, nghost_force(),MFInfo(),Factory());
+        // divu
+        std::unique_ptr<MultiFab> divu_fp(getDivCond(nghost_force(),prev_time));
 
-    FillPatchIterator S_fpi(*this,forcing_term,nghost_state(),prev_time,State_Type,fscalar,num_scalars);
-    MultiFab& Smf=S_fpi.get_mf();
+        //
+        // Start FillPatchIterator block
+        //
+        MultiFab forcing_term( grids, dmap, num_scalars, nghost_force(),MFInfo(),Factory());
 
-    // Floor small values of states to be extrapolated
-    floor(Smf);
+        FillPatchIterator S_fpi(*this,forcing_term,nghost_state(),prev_time,State_Type,fscalar,num_scalars);
+        MultiFab& Smf=S_fpi.get_mf();
 
-    if ( advection_scheme == "Godunov_PLM" || advection_scheme == "Godunov_PPM" || advection_scheme == "BDS")
-    {
-        MultiFab visc_terms(grids,dmap,num_scalars,nghost_force(),MFInfo(),Factory());
-        FillPatchIterator U_fpi(*this,visc_terms,nghost_state(),prev_time,State_Type,Xvel,AMREX_SPACEDIM);
-        const MultiFab& Umf=U_fpi.get_mf();
+        // Floor small values of states to be extrapolated
+        floor(Smf);
 
+        if ( advection_scheme == "Godunov_PLM" || advection_scheme == "Godunov_PPM" || advection_scheme == "BDS")
         {
-            std::unique_ptr<MultiFab> dsdt(getDsdt(nghost_force(),prev_time));
-            MultiFab::Saxpy(*divu_fp, 0.5*dt, *dsdt, 0, 0, 1, nghost_force());
-        }
+            MultiFab visc_terms(grids,dmap,num_scalars,nghost_force(),MFInfo(),Factory());
+            FillPatchIterator U_fpi(*this,visc_terms,nghost_state(),prev_time,State_Type,Xvel,AMREX_SPACEDIM);
+            const MultiFab& Umf=U_fpi.get_mf();
 
-        // Compute viscous term
-        if (be_cn_theta != 1.0)
-            getViscTerms(visc_terms,fscalar,num_scalars,prev_time);
-        else
-            visc_terms.setVal(0.0,1);
-
-#ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-        for (MFIter S_mfi(Smf,TilingIfNotGPU()); S_mfi.isValid(); ++S_mfi)
-        {
-
-            // Box for forcing terms
-            auto const force_bx = S_mfi.growntilebox(nghost_force());
-
-            if (getForceVerbose)
             {
-                Print() << "---" << '\n' << "C - scalar advection:" << '\n'
-                        << " Calling getForce..." << '\n';
+                std::unique_ptr<MultiFab> dsdt(getDsdt(nghost_force(),prev_time));
+                MultiFab::Saxpy(*divu_fp, 0.5*dt, *dsdt, 0, 0, 1, nghost_force());
             }
 
-            getForce(forcing_term[S_mfi],force_bx,fscalar,num_scalars,
-                     prev_time,Umf[S_mfi],Smf[S_mfi],0,S_mfi);
+            // Compute viscous term
+            if (be_cn_theta != 1.0)
+                getViscTerms(visc_terms,fscalar,num_scalars,prev_time);
+            else
+                visc_terms.setVal(0.0,1);
 
-            for (int n=0; n<num_scalars; ++n)
+    #ifdef _OPENMP
+    #pragma omp parallel if (Gpu::notInLaunchRegion())
+    #endif
+            for (MFIter S_mfi(Smf,TilingIfNotGPU()); S_mfi.isValid(); ++S_mfi)
             {
-                auto const& tf    = forcing_term.array(S_mfi,n);
-                auto const& visc  = visc_terms.const_array(S_mfi,n);
-                auto const& rho = Smf.const_array(S_mfi); //Previous time, nghost_state() grow cells filled. It's always true that nghost_state > nghost_force.
 
-        if ( do_temp && n+fscalar==Temp )
-        {
-          //
-          // Solving
-          //   dT/dt + U dot del T = ( del dot lambda grad T + H_T ) / (rho c_p)
-          // with tforces = H_T/c_p (since it's always density-weighted), and
-          // visc = del dot mu grad T, where mu = lambda/c_p
-          //
-          amrex::ParallelFor(force_bx, [tf, visc, rho]
-                  AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-                  { tf(i,j,k) = ( tf(i,j,k) + visc(i,j,k) ) / rho(i,j,k); });
-        }
-        else
-        {
-          if (advectionType[fscalar+n] == Conservative)
-          {
-            //
-            // For tracers, Solving
-            //   dS/dt + del dot (U S) = del dot beta grad (S/rho) + rho H_q
-            // where S = rho q, q is a concentration
-            // tforces = rho H_q (since it's always density-weighted)
-            // visc = del dot beta grad (S/rho)
-            //
-                    amrex::ParallelFor(force_bx, [tf, visc]
-                    AMREX_GPU_DEVICE (int i, int j, int k ) noexcept
-                    { tf(i,j,k) += visc(i,j,k); });
-          }
-          else
-          {
+                // Box for forcing terms
+                auto const force_bx = S_mfi.growntilebox(nghost_force());
+
+                if (getForceVerbose)
+                {
+                    Print() << "---" << '\n' << "C - scalar advection:" << '\n'
+                            << " Calling getForce..." << '\n';
+                }
+
+                getForce(forcing_term[S_mfi],force_bx,fscalar,num_scalars,
+                        prev_time,Umf[S_mfi],Smf[S_mfi],0,S_mfi);
+
+                for (int n=0; n<num_scalars; ++n)
+                {
+                    auto const& tf    = forcing_term.array(S_mfi,n);
+                    auto const& visc  = visc_terms.const_array(S_mfi,n);
+                    auto const& rho = Smf.const_array(S_mfi); //Previous time, nghost_state() grow cells filled. It's always true that nghost_state > nghost_force.
+
+            if ( do_temp && n+fscalar==Temp )
+            {
             //
             // Solving
-            //   dS/dt + U dot del S = del dot beta grad S + H_q
-            // where S = q, q is a concentration
-            // tforces = rho H_q (since it's always density-weighted)
-            // visc = del dot beta grad S
+            //   dT/dt + U dot del T = ( del dot lambda grad T + H_T ) / (rho c_p)
+            // with tforces = H_T/c_p (since it's always density-weighted), and
+            // visc = del dot mu grad T, where mu = lambda/c_p
             //
-                    amrex::ParallelFor(force_bx, [tf, visc, rho]
+            amrex::ParallelFor(force_bx, [tf, visc, rho]
                     AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-                    { tf(i,j,k) = tf(i,j,k) / rho(i,j,k) + visc(i,j,k); });
-          }
-        }
+                    { tf(i,j,k) = ( tf(i,j,k) + visc(i,j,k) ) / rho(i,j,k); });
+            }
+            else
+            {
+            if (advectionType[fscalar+n] == Conservative)
+            {
+                //
+                // For tracers, Solving
+                //   dS/dt + del dot (U S) = del dot beta grad (S/rho) + rho H_q
+                // where S = rho q, q is a concentration
+                // tforces = rho H_q (since it's always density-weighted)
+                // visc = del dot beta grad (S/rho)
+                //
+                        amrex::ParallelFor(force_bx, [tf, visc]
+                        AMREX_GPU_DEVICE (int i, int j, int k ) noexcept
+                        { tf(i,j,k) += visc(i,j,k); });
+            }
+            else
+            {
+                //
+                // Solving
+                //   dS/dt + U dot del S = del dot beta grad S + H_q
+                // where S = q, q is a concentration
+                // tforces = rho H_q (since it's always density-weighted)
+                // visc = del dot beta grad S
+                //
+                        amrex::ParallelFor(force_bx, [tf, visc, rho]
+                        AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+                        { tf(i,j,k) = tf(i,j,k) / rho(i,j,k) + visc(i,j,k); });
+            }
+            }
+                }
             }
         }
-    }
 
-    ComputeAofs(fscalar, num_scalars, Smf, 0, forcing_term, *divu_fp, false, dt);
+        ComputeAofs(fscalar, num_scalars, Smf, 0, forcing_term, *divu_fp, false, dt);
+
+    }
 }
 
 //
@@ -762,28 +766,31 @@ NavierStokes::scalar_update (Real dt,
 {
     BL_PROFILE("NavierStokes::scalar_update()");
 
-    if (verbose) Print() << "... update scalars\n";
+    if (advect_and_update_scalar) {
 
-    scalar_advection_update(dt, first_scalar, last_scalar);
+        if (verbose) Print() << "... update scalars\n";
 
-    bool do_any_diffuse = false;
-    for (int sigma = first_scalar; sigma <= last_scalar; sigma++)
-        if (is_diffusive[sigma]) do_any_diffuse = true;
+        scalar_advection_update(dt, first_scalar, last_scalar);
 
-    if (do_any_diffuse)
-      scalar_diffusion_update(dt, first_scalar, last_scalar);
+        bool do_any_diffuse = false;
+        for (int sigma = first_scalar; sigma <= last_scalar; sigma++)
+            if (is_diffusive[sigma]) do_any_diffuse = true;
 
-    MultiFab&  S_new     = get_new_data(State_Type);
-//#ifdef AMREX_USE_EB
-//  set_body_state(S_new);
-//#endif
-    for (int sigma = first_scalar; sigma <= last_scalar; sigma++)
-    {
-       if (S_new.contains_nan(sigma,1,0))
-       {
-         Print() << "New scalar " << sigma << " contains Nans" << '\n';
-         exit(0);
-       }
+        if (do_any_diffuse)
+        scalar_diffusion_update(dt, first_scalar, last_scalar);
+
+        MultiFab&  S_new     = get_new_data(State_Type);
+    //#ifdef AMREX_USE_EB
+    //  set_body_state(S_new);
+    //#endif
+        for (int sigma = first_scalar; sigma <= last_scalar; sigma++)
+        {
+        if (S_new.contains_nan(sigma,1,0))
+        {
+            Print() << "New scalar " << sigma << " contains Nans" << '\n';
+            exit(0);
+        }
+        }
     }
 }
 
@@ -2474,6 +2481,16 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
     //
     if (do_mom_diff == 0)
         velocity_advection(dt);
+
+    // Copy fluid density from old to new and set old and new tracer to 0.0
+    if (!advect_and_update_scalar)
+    {
+        MultiFab&  S_new    = get_new_data(State_Type);
+        MultiFab&  S_old    = get_old_data(State_Type);
+        MultiFab::Copy(S_new, S_old, Density, Density, 1, S_old.nGrow());
+        S_old.setVal(0.0, Tracer, 1, S_old.nGrow());
+        S_new.setVal(0.0, Tracer, 1, S_new.nGrow());
+    }
     //
     // Advect scalars.
     //
@@ -2715,8 +2732,6 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
             MultiFab&  S_new    = get_new_data(State_Type);
             MultiFab&  S_old    = get_old_data(State_Type);
             Particles::get_particles()->UpdateParticles( S_old, S_new, phi_nodal, pvf, dt);
-            // calculate the pvf based on the information of all particles
-            MultiFab::Copy(S_new, pvf, 0, Tracer, 1, pvf.nGrow());
         }
 #endif
 

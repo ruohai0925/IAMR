@@ -887,6 +887,8 @@ public:
     static int  do_diffused_ib;
     amrex::MultiFab phi_nodal;
     amrex::MultiFab pvf;
+    static int  advect_and_update_scalar;
+
 // #ifdef AMREX_PARTICLES
 //     mParticle *mParticle_obj;
 // #endif
