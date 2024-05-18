@@ -40,6 +40,7 @@ namespace ParticleProperties{
     int loop_solid{0};
 
     Vector<Real> GLO, GHI;
+    int start_step{-1};
 
     GpuArray<Real, 3> plo{0.0,0.0,0.0}, phi{0.0,0.0,0.0}, dx{0.0, 0.0, 0.0};
 }
@@ -391,9 +392,9 @@ void mParticle::InitialWithLargrangianPoints(const kernel& current_kernel){
         amrex::ParallelFor( np, [=]
             AMREX_GPU_DEVICE (int i) noexcept {
                 auto id = particles[i].id();
-                particles[i].pos(0) = location[0] + radius * std::sin(thetaK[id]) * std::cos(phiK[id]);
-                particles[i].pos(1) = location[1] + radius * std::sin(thetaK[id]) * std::sin(phiK[id]);
-                particles[i].pos(2) = location[2] + radius * std::cos(thetaK[id]);
+                particles[i].pos(0) = location[0] + radius * std::sin(thetaK[id - 1]) * std::cos(phiK[id - 1]);
+                particles[i].pos(1) = location[1] + radius * std::sin(thetaK[id - 1]) * std::sin(phiK[id - 1]);
+                particles[i].pos(2) = location[2] + radius * std::cos(thetaK[id - 1]);
             }
         );
     }
@@ -647,7 +648,8 @@ void mParticle::ResetLargrangianPoints(Real dt)
     }
 }
 
-void mParticle::UpdateParticles(const MultiFab& Euler_old, 
+void mParticle::UpdateParticles(int iStep,
+                                const MultiFab& Euler_old, 
                                 const MultiFab& Euler,
                                 MultiFab& phi_nodal, 
                                 MultiFab& pvf, 
@@ -655,8 +657,12 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
 {
     if (verbose) amrex::Print() << "mParticle::UpdateParticles\n";
     
+    MultiFab AllParticleTracer(pvf.boxArray(), pvf.DistributionMap(), pvf.nComp(), pvf.nGrow());
+    AllParticleTracer.setVal(0.0);
     //continue condition 6DOF
     for(auto& kernel : particle_kernels){
+        //particle move
+        bool particle_Move{true};
 
         pvf.setVal(0.0);
         calculate_phi_nodal(phi_nodal, kernel);
@@ -666,7 +672,7 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
         if( ( kernel.TL.sum() == 0 )&&
             ( kernel.RL.sum() == 0 ) ) {
             amrex::Print() << "Particle (" << kernel.id << ") is fixed\n";
-            continue;
+            particle_Move = false;
         }
 
         int ncomp = pvf.nComp();
@@ -689,7 +695,8 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
 
         int loop = ParticleProperties::loop_solid;
 
-        while (loop > 0) {
+        if(ParticleProperties::start_step >= 0 && iStep > ParticleProperties::start_step)
+        while (loop > 0 && particle_Move) {
 
             if(at_least_one_free_trans_motion) {
                 kernel.sum_u_new.scale(0.0);
@@ -763,10 +770,10 @@ void mParticle::UpdateParticles(const MultiFab& Euler_old,
         }
         
         RecordOldValue(kernel);
-        
+        MultiFab::Add(AllParticleTracer, pvf, 0, 0, 1, pvf.nGrow());
     }
-
     // calculate the pvf based on the information of all particles
+    MultiFab::Copy(pvf, AllParticleTracer, 0, 0, 1, pvf.nGrow());
 
     if (verbose) mContainer->WriteAsciiFile(amrex::Concatenate("particle", 4));
 }
@@ -993,6 +1000,7 @@ void Particles::Initialize()
         p_file.get("euler_force_index",    ParticleProperties::euler_force_index);
         p_file.get("euler_fluid_rho",      ParticleProperties::euler_fluid_rho);
         p_file.query("verbose", ParticleProperties::verbose);
+        p_file.query("start_step", ParticleProperties::start_step);
         
         ParmParse level_parse("amr");
         level_parse.get("max_level", ParticleProperties::euler_finest_level);
