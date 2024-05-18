@@ -2737,6 +2737,10 @@ NavierStokesBase::post_timestep (int crse_iteration)
         }
         else {
             S_new.setVal(0.0, Tracer, 1, S_new.nGrow());
+            // We need to average the Tracer here since we use it for refinement/de-refinement
+            auto&   fine_lev = getLevel(level+1);
+            MultiFab& S_fine = fine_lev.get_new_data(State_Type);
+            average_down(S_fine, S_new, Tracer, 1);
         }
     }
 
