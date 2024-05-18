@@ -54,6 +54,8 @@ void nodal_phi_to_pvf(MultiFab& pvf, const MultiFab& phi_nodal)
 
     amrex::Print() << "In the nodal_phi_to_pvf\n";
 
+    pvf.setVal(0.0);
+
     // Only set the valid cells of pvf
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -657,46 +659,38 @@ void mParticle::UpdateParticles(int iStep,
 {
     if (verbose) amrex::Print() << "mParticle::UpdateParticles\n";
     
-    MultiFab AllParticleTracer(pvf.boxArray(), pvf.DistributionMap(), pvf.nComp(), pvf.nGrow());
-    AllParticleTracer.setVal(0.0);
+    MultiFab AllParticlePVF(pvf.boxArray(), pvf.DistributionMap(), pvf.nComp(), pvf.nGrow());
+    AllParticlePVF.setVal(0.0);
+    
     //continue condition 6DOF
     for(auto& kernel : particle_kernels){
-        //particle move
-        bool particle_Move{true};
 
-        pvf.setVal(0.0);
         calculate_phi_nodal(phi_nodal, kernel);
         nodal_phi_to_pvf(pvf, phi_nodal);
 
         // fixed particle
-        if( ( kernel.TL.sum() == 0 )&&
+        if( ( kernel.TL.sum() == 0 ) &&
             ( kernel.RL.sum() == 0 ) ) {
             amrex::Print() << "Particle (" << kernel.id << ") is fixed\n";
-            particle_Move = false;
+            MultiFab::Add(AllParticlePVF, pvf, 0, 0, 1, 0); // do not copy ghost cell values
+            continue;
         }
 
         int ncomp = pvf.nComp();
         int ngrow = pvf.nGrow();
         MultiFab pvf_old(pvf.boxArray(), pvf.DistributionMap(), ncomp, ngrow);
+        MultiFab::Copy(pvf_old, pvf, 0, 0, ncomp, ngrow);
 
         bool at_least_one_free_trans_motion = ( kernel.TL[0] == 2 ) || 
                                               ( kernel.TL[1] == 2 ) ||
                                               ( kernel.TL[2] == 2 );
         bool at_least_one_free_rot_motion   = ( kernel.RL[0] == 2 ) || 
                                               ( kernel.RL[1] == 2 ) ||
-                                              ( kernel.RL[2] == 2 );    
-         
-        bool at_least_one_free_motion = at_least_one_free_trans_motion ||
-                                        at_least_one_free_rot_motion;
-
-        if(at_least_one_free_motion) {        
-            MultiFab::Copy(pvf_old, pvf, 0, 0, ncomp, ngrow);
-        }
+                                              ( kernel.RL[2] == 2 );
 
         int loop = ParticleProperties::loop_solid;
 
-        if(ParticleProperties::start_step >= 0 && iStep > ParticleProperties::start_step)
-        while (loop > 0 && particle_Move) {
+        while (loop > 0 && iStep > ParticleProperties::start_step) {
 
             if(at_least_one_free_trans_motion) {
                 kernel.sum_u_new.scale(0.0);
@@ -762,7 +756,7 @@ void mParticle::UpdateParticles(int iStep,
         
             loop--;
 
-            if (loop > 0 && at_least_one_free_motion) {
+            if (loop > 0) {
                 calculate_phi_nodal(phi_nodal, kernel);
                 nodal_phi_to_pvf(pvf, phi_nodal);
             }
@@ -770,10 +764,10 @@ void mParticle::UpdateParticles(int iStep,
         }
         
         RecordOldValue(kernel);
-        MultiFab::Add(AllParticleTracer, pvf, 0, 0, 1, pvf.nGrow());
+        MultiFab::Add(AllParticlePVF, pvf, 0, 0, 1, 0); // do not copy ghost cell values
     }
     // calculate the pvf based on the information of all particles
-    MultiFab::Copy(pvf, AllParticleTracer, 0, 0, 1, pvf.nGrow());
+    MultiFab::Copy(pvf, AllParticlePVF, 0, 0, 1, pvf.nGrow());
 
     if (verbose) mContainer->WriteAsciiFile(amrex::Concatenate("particle", 4));
 }
