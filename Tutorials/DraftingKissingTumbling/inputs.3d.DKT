@@ -86,7 +86,7 @@ amr.plot_int		= 1
 #*******************************************************************************
 
 # Viscosity coefficient 
-ns.vel_visc_coef        = 0.0001
+ns.vel_visc_coef        = 0.001
 
 #*******************************************************************************
 
@@ -182,7 +182,7 @@ particle_inputs.rho = 1140 1140
 
 # particle's radius
 # single
-particle_inputs.radius = 0.00167 0.00167
+particle_inputs.radius = 0.000835 0.000835
 
 # particle's velocity
 # vx = p1vx p2vx p3vx ...
@@ -209,7 +209,7 @@ particle_inputs.RLZ = 0 0
 particle_inputs.LOOP_NS = 2
 # solid update loop time
 particle_inputs.LOOP_SOLID = 1
-
+# particle_inputs.start_step = -1
 
 # msg print
 particle_inputs.verbose = 1
