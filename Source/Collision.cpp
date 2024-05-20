@@ -17,20 +17,22 @@ void ParticleCollision::SetGeometry(amrex::RealVect gm_lo, amrex::RealVect gm_hi
     Nx = (int)amrex::Math::floor(gm_hi[0] / size);
     Ny = (int)amrex::Math::floor(gm_hi[1] / size);
     Nz = (int)amrex::Math::floor(gm_hi[2] / size);
-    
+    //cell size : particle D
     cell_size = size;
+    //mesh size : euler mesh size
     mesh_size = l;
     Cells = new std::vector<CollisionCell>(Nx * Ny * Nz);
 
     amrex::Print() << "[Collision] : size (" << Nx << "," << Ny << "," << Nz << ")\n";   
 }
 
-void ParticleCollision::InsertParticle(amrex::RealVect location, amrex::RealVect velocity, amrex::Real radius)
+void ParticleCollision::InsertParticle(amrex::RealVect location, amrex::RealVect velocity, amrex::Real radius, amrex::Real rho)
 {
     CollisionParticle p;
     p.location = location;
     p.velocity = velocity;
     p.radius = radius;
+    p.rho = rho;
     p.type = COLLISION_PARTICLE;
 
     int i = (int)amrex::Math::floor(location[0] / cell_size) - 1;
@@ -95,5 +97,34 @@ void ParticleCollision::ResolveCollisionPairs()
             //without rho_p V_p ||g||
             p1->preForece = dij.scale( amrex::Math::powi<2>((dis - d2s) / mesh_size) * 1E4);
         }
+    }
+}
+
+void ParticleCollision::DKTModel(){
+    amrex::Print() << "\t ParticleCollision : do DKT calculation\n";
+    auto& s1 = Particles.front();
+    auto& s2 = Particles.back();
+    amrex::RealVect dis{s1.location[0] - s2.location[0], s1.location[1] - s2.location[1], s1.location[2] - s2.location[2]};
+    double d2s = dis.vectorLength();
+    double judge = s1.radius + s2.radius + mesh_size;
+    amrex::Print() <<"judge : " << judge <<", distance of s1, s2 : " << d2s << ", dc : " << mesh_size << "\n";
+    if(d2s < judge){
+        auto mid = std::pow((d2s - judge) / mesh_size, 2);
+        s1.preForece = 1e4 * mid / d2s * dis;
+        s2.preForece = - s1.preForece;
+        amrex::Print() <<"do Collision : s1 :" << s1.preForece << ", s2 :" << s2.preForece << "\n";
+    }else{
+        s1.preForece.scale(0.);
+        s2.preForece.scale(0.);
+    }
+}
+
+void ParticleCollision::takeModel(int model){
+    switch (model) {
+    case 1:
+        DKTModel();
+        break;
+    default:
+        break;
     }
 }

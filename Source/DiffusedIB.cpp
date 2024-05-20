@@ -40,7 +40,9 @@ namespace ParticleProperties{
     int loop_solid{0};
 
     Vector<Real> GLO, GHI;
+
     int start_step{-1};
+    int collision_model{0};
 
     GpuArray<Real, 3> plo{0.0,0.0,0.0}, phi{0.0,0.0,0.0}, dx{0.0, 0.0, 0.0};
 }
@@ -375,7 +377,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
                                     << "), Radius: " << mKernel.radius << ", Ml: " << Ml << ", dv: " << dv << ", Rho: " << mKernel.rho << "\n";
     }
     //collision box generate
-    // m_Collision.SetGeometry(RealVect(ParticleProperties::GLO), RealVect(ParticleProperties::GHI), , h);
+    m_Collision.SetGeometry(RealVect(ParticleProperties::GLO), RealVect(ParticleProperties::GHI), particle_kernels[0].radius , h);
 }
 
 void mParticle::InitialWithLargrangianPoints(const kernel& current_kernel){
@@ -658,7 +660,8 @@ void mParticle::UpdateParticles(int iStep,
                                 Real dt)
 {
     if (verbose) amrex::Print() << "mParticle::UpdateParticles\n";
-    
+    //particle collistion 
+    DoParticleCollision(ParticleProperties::collision_model);
     MultiFab AllParticlePVF(pvf.boxArray(), pvf.DistributionMap(), pvf.nComp(), pvf.nGrow());
     AllParticlePVF.setVal(0.0);
     
@@ -772,21 +775,22 @@ void mParticle::UpdateParticles(int iStep,
     if (verbose) mContainer->WriteAsciiFile(amrex::Concatenate("particle", 4));
 }
 
-void mParticle::DoParticleCollision()
+void mParticle::DoParticleCollision(int model)
 {
+    if(particle_kernels.size() < 2 ) return ;
+
     if (verbose) amrex::Print() << "\tmParticle::DoParticleCollision\n";
-    
+
     for(auto kernel : particle_kernels){
-        m_Collision.InsertParticle(kernel.location, kernel.velocity, kernel.radius);
+        m_Collision.InsertParticle(kernel.location, kernel.velocity, kernel.radius, kernel.rho);
     }
     
-    m_Collision.GenerateCollisionPairs();
-    m_Collision.ResolveCollisionPairs();
+    m_Collision.takeModel(model);
 
     for(auto & particle_kernel : particle_kernels){
+        amrex::Real Vp = Math::pi<Real>() * 4 / 3 * Math::powi<3>(particle_kernel.radius);
         particle_kernel.Fcp = m_Collision.Particles.front().preForece 
-                                * particle_kernel.dv * particle_kernel.rho * m_gravity.vectorLength();
-        particle_kernel.Fcp.scale(-1.);
+                                * Vp * particle_kernel.rho * m_gravity.vectorLength();
         m_Collision.Particles.pop_front();
     }
 
@@ -856,7 +860,7 @@ void mParticle::WriteIBForceAndMoment(int step, amrex::Real time, kernel& curren
 
     std::string head;
     if(!fs::exists(file)){
-        head = "iStep,time,X,Y,Z,Vx,Vy,Vz,OmegaX,OmegaY,OmegaZ,Fx,Fy,Fz,Mx,My,Mz\n";
+        head = "iStep,time,X,Y,Z,Vx,Vy,Vz,Ox,Oy,Oz,Fx,Fy,Fz,Mx,My,Mz,Fcpx,Fcpy,Fcpz\n";
     }else{
         head = "";
     }
@@ -870,7 +874,8 @@ void mParticle::WriteIBForceAndMoment(int step, amrex::Real time, kernel& curren
                      << current_kernel.velocity[0] << "," << current_kernel.velocity[1] << "," << current_kernel.velocity[2] << ","
                      << current_kernel.omega[0] << "," << current_kernel.omega[1] << "," << current_kernel.omega[2] << ","
                      << current_kernel.ib_force[0] << "," << current_kernel.ib_force[1] << "," << current_kernel.ib_force[2] << "," 
-                     << current_kernel.ib_moment[0] << "," << current_kernel.ib_moment[1] << "," << current_kernel.ib_moment[2] << "\n";
+                     << current_kernel.ib_moment[0] << "," << current_kernel.ib_moment[1] << "," << current_kernel.ib_moment[2] << "," 
+                     << current_kernel.Fcp[0] << "," << current_kernel.Fcp[1] << "," << current_kernel.Fcp[2] <<"\n";
     }
     out_ib_force.close();
 }
@@ -995,6 +1000,7 @@ void Particles::Initialize()
         p_file.get("euler_fluid_rho",      ParticleProperties::euler_fluid_rho);
         p_file.query("verbose", ParticleProperties::verbose);
         p_file.query("start_step", ParticleProperties::start_step);
+        p_file.query("collision_model", ParticleProperties::collision_model);
         
         ParmParse level_parse("amr");
         level_parse.get("max_level", ParticleProperties::euler_finest_level);
