@@ -2487,7 +2487,8 @@ NavierStokes::advance_semistaggered_fsi_diffusedib (Real time,
     {
         MultiFab&  S_new    = get_new_data(State_Type);
         MultiFab&  S_old    = get_old_data(State_Type);
-        MultiFab::Copy(S_new, S_old, Density, Density, 1, S_old.nGrow());
+        S_old.setVal(fluid_rho, Density, 1, S_old.nGrow());
+        S_new.setVal(fluid_rho, Density, 1, S_new.nGrow());
         S_old.setVal(0.0, Tracer, 1, S_old.nGrow());
         S_new.setVal(0.0, Tracer, 1, S_new.nGrow());
     }

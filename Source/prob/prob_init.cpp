@@ -28,11 +28,12 @@ void NavierStokes::prob_initData ()
     // Read problem parameters from inputs file
     //
     ParmParse pp("prob");
+    ParmParse pp2("ns");
 
     pp.query("probtype",probtype);
     pp.query("ub",ub);
     pp.query("shearrate",shearrate);
-    pp.query("density_ic",IC.density);
+    pp2.query("fluid_rho",IC.density);
     pp.query("direction",IC.direction);
     pp.query("interface_width",IC.interface_width);
 

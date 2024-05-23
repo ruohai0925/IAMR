@@ -225,6 +225,7 @@ int NavierStokesBase::do_cons_levelset   = 0;
 //
 int NavierStokesBase::do_diffused_ib   = 0;
 int NavierStokesBase::advect_and_update_scalar   = 1;
+Real NavierStokesBase::fluid_rho   = 1.0;
 
 namespace
 {
@@ -679,6 +680,7 @@ NavierStokesBase::Initialize ()
     pp.query("isolver", isolver);
     pp.query("do_diffused_ib", do_diffused_ib);
     advect_and_update_scalar = !(do_diffused_ib == 1);
+    pp.query("fluid_rho", fluid_rho);
 
     amrex::ExecOnFinalize(NavierStokesBase::Finalize);
 
@@ -2713,6 +2715,17 @@ NavierStokesBase::post_timestep (int crse_iteration)
 
     if (do_mac_proj && level < finest_level)
         mac_sync();
+
+    // set Density to fluid_rho on all regions 
+    if (do_diffused_ib) {
+        MultiFab& S_new = get_new_data(State_Type);
+        S_new.setVal(fluid_rho, Density, 1, S_new.nGrow());
+        if (level < parent->finestLevel()) {
+            auto&   fine_lev = getLevel(level+1);
+            MultiFab& S_fine = fine_lev.get_new_data(State_Type);
+            S_fine.setVal(fluid_rho, Density, 1, S_fine.nGrow());
+        }
+    }
 
     if (do_sync_proj && (level < finest_level))
         level_sync(crse_iteration);
