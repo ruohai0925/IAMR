@@ -159,6 +159,9 @@ particles.do_nspc_particles = 0
 nodal_proj.proj_tol = 1.e-8
 nodal_proj.proj_abs_tol = 1.e-9
 
+nodal_proj.maxiter = 200
+nodal_proj.bottom_maxiter = 200
+
 mac_proj.mac_tol = 1.e-8
 mac_proj.mac_abs_tol = 1.e-9
 
@@ -197,22 +200,13 @@ particle_inputs.omega_z = 0.0
 
 # particle's 6DOF
 # TLX = p1tl p2tl ...
-particle_inputs.TLX = 2
+particle_inputs.TLX = 0
 particle_inputs.TLY = 0
 particle_inputs.TLZ = 0
 particle_inputs.RLX = 0
 particle_inputs.RLY = 0
 particle_inputs.RLZ = 0
 
-# Ns loop time
-particle_inputs.LOOP_NS = 2
-# solid update loop time
-particle_inputs.LOOP_SOLID = 1
 
 # msg print
 particle_inputs.verbose = 1
-
-# Euler cfg
-particle_inputs.euler_velocity_index = 0
-particle_inputs.euler_force_index = 0
-particle_inputs.euler_fluid_rho = 1.0

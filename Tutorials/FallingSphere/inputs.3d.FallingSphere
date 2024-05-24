@@ -87,6 +87,11 @@ amr.plot_int		= 1
 
 # Viscosity coefficient 
 ns.vel_visc_coef        = 0.0003845
+# this parameter is dunamic viscosity
+# Re1.5 fluid rho : 970  u 0.372965
+# Re4.1 fluid rho : 965  u 0.2120105
+# Re11.6 fluid rho : 962 u 0.113035
+# Re32.2 fluid rho : 960 u 0.0580032
 
 #*******************************************************************************
 
@@ -142,7 +147,6 @@ ns.hi_bc             = 5 5 4
 
 # Problem parameters
 prob.probtype = 104
-prob.density_ic = 970
 
 #*******************************************************************************
 
@@ -152,6 +156,7 @@ prob.density_ic = 970
 #*******************************************************************************
 ns.isolver            = 1
 ns.do_diffused_ib     = 1
+ns.fluid_rho 		  = 970
 
 #ns.sum_interval       = 1
 
@@ -205,16 +210,5 @@ particle_inputs.RLX = 0
 particle_inputs.RLY = 0
 particle_inputs.RLZ = 0
 
-# Ns loop time
-particle_inputs.LOOP_NS = 2
-# solid update loop time
-particle_inputs.LOOP_SOLID = 1
-
-
 # msg print
 particle_inputs.verbose = 1
-
-# Euler cfg
-particle_inputs.euler_velocity_index = 0
-particle_inputs.euler_force_index = 0
-particle_inputs.euler_fluid_rho = 970
