@@ -36,8 +36,8 @@ namespace ParticleProperties{
     int euler_force_index{0};
     Real euler_fluid_rho{0.0};
     int verbose{0};
-    int loop_ns{0};
-    int loop_solid{0};
+    int loop_ns{2};
+    int loop_solid{1};
 
     Vector<Real> GLO, GHI;
     int start_step{-1};
@@ -988,13 +988,13 @@ void Particles::Initialize()
         p_file.getarr("RLY",        ParticleProperties::RLY);
         p_file.getarr("RLZ",        ParticleProperties::RLZ);
         p_file.getarr("radius",               ParticleProperties::_radius);
-        p_file.get("LOOP_NS",              ParticleProperties::loop_ns);
-        p_file.get("LOOP_SOLID",           ParticleProperties::loop_solid);
-        p_file.get("euler_velocity_index", ParticleProperties::euler_velocity_index);
-        p_file.get("euler_force_index",    ParticleProperties::euler_force_index);
-        p_file.get("euler_fluid_rho",      ParticleProperties::euler_fluid_rho);
+        p_file.query("LOOP_NS",              ParticleProperties::loop_ns);
+        p_file.query("LOOP_SOLID",           ParticleProperties::loop_solid);
         p_file.query("verbose", ParticleProperties::verbose);
         p_file.query("start_step", ParticleProperties::start_step);
+        
+        ParmParse ns("ns");
+        ns.get("fluid_rho",      ParticleProperties::euler_fluid_rho);
         
         ParmParse level_parse("amr");
         level_parse.get("max_level", ParticleProperties::euler_finest_level);

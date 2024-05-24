@@ -7,12 +7,12 @@
 
 # Maximum number of coarse grid timesteps to be taken, if stop_time is
 #  not reached first.
-max_step 		= 10
+max_step 		= 10000
 
 # Time at which calculation stops, if max_step is not reached first.
-stop_time 		= 10.0
+stop_time 		= 1.0
 
-ns.fixed_dt     = 0.001
+ns.fixed_dt     = 0.0001
 ns.cfl = 0.3
 ns.init_iter = 0
 
@@ -22,15 +22,15 @@ particle.input = particle_inputs
 # Refinement criterion, use vorticity and presence of tracer
 amr.refinement_indicators = tracer box
 
-amr.max_level		= 0 # maximum number of levels of refinement
+amr.max_level		= 1 # maximum number of levels of refinement
 
 amr.tracer.field_name = tracer
 amr.tracer.value_greater = 0.001
 
-amr.box.in_box_lo = 0.035 0.035 0.12
-amr.box.in_box_hi = 0.065 0.065 0.15
+amr.box.in_box_lo = 0.0033 0.0033 0.03
+amr.box.in_box_hi = 0.0072 0.0072 0.037
 amr.box.start_time = 0.0
-amr.box.end_time = 0.01
+amr.box.end_time = 0.0001
 
 amr.n_error_buf         = 3
 amr.blocking_factor     = 8
@@ -40,8 +40,8 @@ amr.blocking_factor     = 8
 # Number of cells in each coordinate direction at the coarsest level
 # amr.n_cell 		= 16 8 8 
 # amr.n_cell 		= 288 128 128 
-amr.n_cell 		= 24 24 96
-amr.max_grid_size	= 8
+amr.n_cell 		= 48 48 192 #96 96 384
+amr.max_grid_size	= 16
 # amr.max_grid_size	= 32
 
 #*******************************************************************************
@@ -73,14 +73,14 @@ amr.v                   = 1
 
 # Interval (in number of coarse timesteps) between checkpoint(restart) files
 
-amr.check_int		= 100
+amr.check_int		= 5000
 
 #amr.restart             = chk01400
 
 #*******************************************************************************
 
 # Interval (in number of coarse timesteps) between plot files
-amr.plot_int		= 1
+amr.plot_int		= 1000
 
 
 #*******************************************************************************
@@ -116,10 +116,10 @@ geometry.coord_sys   =  0
 #*******************************************************************************
 
 # Physical dimensions of the low end of the domain.
-geometry.prob_lo     =  0. 0. 0.
+geometry.prob_lo     =  0. 0. 0.0
 
 # Physical dimensions of the high end of the domain.
-geometry.prob_hi     	=  0.01 0.01 0.04
+geometry.prob_hi     	=  0.010020 0.010020 0.040080
 
 #*******************************************************************************
 
@@ -142,7 +142,6 @@ ns.hi_bc             = 5 5 5
 
 # Problem parameters
 prob.probtype = 104
-prob.density_ic = 970
 
 #*******************************************************************************
 
@@ -152,6 +151,7 @@ prob.density_ic = 970
 #*******************************************************************************
 ns.isolver            = 1
 ns.do_diffused_ib     = 1
+ns.fluid_rho          = 1000
 
 #ns.sum_interval       = 1
 
@@ -172,9 +172,9 @@ mac_proj.mac_abs_tol = 1.e-9
 
 # particle's location 
 # x = p1x p2x p3x ...
-particle_inputs.x = 0.0202 0.0198
-particle_inputs.y = 0.0202 0.0198
-particle_inputs.z = 0.035  0.0316
+particle_inputs.x = 0.0049599 0.0049599
+particle_inputs.y = 0.005511 0.005511
+particle_inputs.z = 0.031663 0.035070
 
 # particle's density
 # rho = p1r p2r p3r ...
@@ -198,23 +198,15 @@ particle_inputs.omega_z = 0.0 0.0
 
 # particle's 6DOF
 # TLX = p1tl p2tl ...
-particle_inputs.TLX = 0 0
-particle_inputs.TLY = 0 0
+particle_inputs.TLX = 2 2
+particle_inputs.TLY = 2 2
 particle_inputs.TLZ = 2 2
-particle_inputs.RLX = 0 0
-particle_inputs.RLY = 0 0
-particle_inputs.RLZ = 0 0
+particle_inputs.RLX = 2 2
+particle_inputs.RLY = 2 2
+particle_inputs.RLZ = 2 2
 
-# Ns loop time
-particle_inputs.LOOP_NS = 2
-# solid update loop time
-particle_inputs.LOOP_SOLID = 1
-# particle_inputs.start_step = -1
+# collision model
+particle_inputs.collision_model = 1
 
 # msg print
 particle_inputs.verbose = 1
-
-# Euler cfg
-particle_inputs.euler_velocity_index = 0
-particle_inputs.euler_force_index = 0
-particle_inputs.euler_fluid_rho = 1000
