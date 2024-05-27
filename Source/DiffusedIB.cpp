@@ -727,13 +727,13 @@ void mParticle::UpdateParticles(int iStep,
                     if(false){
                     kernel.velocity[idir] = kernel.velocity_old[idir]
                                           + ((kernel.sum_u_new[idir] - kernel.sum_u_old[idir]) * ParticleProperties::euler_fluid_rho / dt 
-                                          - kernel.ib_force[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
+                                          - kernel.ib_force[idir] * ParticleProperties::euler_fluid_rho
                                           + m_gravity[idir] * (kernel.rho - ParticleProperties::euler_fluid_rho) * kernel.Vp 
                                           + kernel.Fcp[idir]) * dt / kernel.rho / kernel.Vp ;
                     }
                     //Uhlmann
                     kernel.velocity[idir] = kernel.velocity_old[idir]
-                                          + (ParticleProperties::euler_fluid_rho / kernel.Vp /(ParticleProperties::euler_fluid_rho - kernel.rho)*kernel.ib_force[idir]*kernel.dv
+                                          + (ParticleProperties::euler_fluid_rho / kernel.Vp /(ParticleProperties::euler_fluid_rho - kernel.rho)*kernel.ib_force[idir]
                                           + m_gravity[idir]) * dt;
                     kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
                 }
@@ -751,7 +751,7 @@ void mParticle::UpdateParticles(int iStep,
                     if(false){
                     kernel.omega[idir] = kernel.omega_old[idir]
                                        + ((kernel.sum_t_new[idir] - kernel.sum_t_old[idir]) * ParticleProperties::euler_fluid_rho / dt
-                                       - kernel.ib_moment[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
+                                       - kernel.ib_moment[idir] * ParticleProperties::euler_fluid_rho
                                        + kernel.Tcp[idir]) * dt / cal_momentum(kernel.rho, kernel.radius);
                     }
                     //Uhlmann
