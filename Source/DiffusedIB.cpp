@@ -344,6 +344,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
         mKernel.RL[2] = RLZt[index];
         mKernel.rho = rho_s[index];
         mKernel.radius = radius[index];
+        mKernel.Vp = Math::pi<Real>() * 4 / 3 * Math::powi<3>(radius[index]);
 
         int Ml = static_cast<int>( Math::pi<Real>() / 3 * (12 * Math::powi<2>(mKernel.radius / h)));
         Real dv = Math::pi<Real>() * h / 3 / Ml * (12 * mKernel.radius * mKernel.radius + h * h);
@@ -723,12 +724,17 @@ void mParticle::UpdateParticles(int iStep,
                     kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
                 }
                 else if (kernel.TL[idir] == 2) {
-                    amrex::Real Vp = Math::pi<Real>() * 4 / 3 * Math::powi<3>(kernel.radius);
+                    if(false){
                     kernel.velocity[idir] = kernel.velocity_old[idir]
                                           + ((kernel.sum_u_new[idir] - kernel.sum_u_old[idir]) * ParticleProperties::euler_fluid_rho / dt 
                                           - kernel.ib_force[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
-                                          + m_gravity[idir] * (kernel.rho - ParticleProperties::euler_fluid_rho) * Vp
-                                          + kernel.Fcp[idir]) * dt / kernel.rho / Vp;
+                                          + m_gravity[idir] * (kernel.rho - ParticleProperties::euler_fluid_rho) * kernel.Vp 
+                                          + kernel.Fcp[idir]) * dt / kernel.rho / kernel.Vp ;
+                    }
+                    //Uhlmann
+                    kernel.velocity[idir] = kernel.velocity_old[idir]
+                                          + (ParticleProperties::euler_fluid_rho / kernel.Vp /(ParticleProperties::euler_fluid_rho - kernel.rho)*kernel.ib_force[idir]*kernel.dv
+                                          + m_gravity[idir]) * dt;
                     kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
                 }
                 else {
@@ -742,10 +748,16 @@ void mParticle::UpdateParticles(int iStep,
                 else if (kernel.RL[idir] == 1) {
                 }
                 else if (kernel.RL[idir] == 2) {
+                    if(false){
                     kernel.omega[idir] = kernel.omega_old[idir]
                                        + ((kernel.sum_t_new[idir] - kernel.sum_t_old[idir]) * ParticleProperties::euler_fluid_rho / dt
                                        - kernel.ib_moment[idir] * ParticleProperties::euler_fluid_rho * kernel.dv
                                        + kernel.Tcp[idir]) * dt / cal_momentum(kernel.rho, kernel.radius);
+                    }
+                    //Uhlmann
+                    kernel.omega[idir] = kernel.omega_old[idir]
+                                       + ParticleProperties::euler_fluid_rho /(ParticleProperties::euler_fluid_rho - kernel.rho) * kernel.ib_moment[idir] * kernel.dv
+                                       / cal_momentum(kernel.rho, kernel.radius) * kernel.rho * dt;
                 }
                 else {
                     amrex::Print() << "Particle (" << kernel.id << ") has wrong RL"<< direction_str[idir] <<" value\n";

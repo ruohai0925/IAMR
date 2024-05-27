@@ -58,6 +58,7 @@ struct kernel{
     Real rho{0.0};
     int ml{0};
     Real dv{0.0};
+    Real Vp{0.0};
     RealVect ib_force{0.0,0.0,0.0};
     RealVect ib_moment{0.0, 0.0, 0.0};
 
