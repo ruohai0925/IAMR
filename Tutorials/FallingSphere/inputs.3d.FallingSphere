@@ -7,7 +7,7 @@
 
 # Maximum number of coarse grid timesteps to be taken, if stop_time is
 #  not reached first.
-max_step 		= 2
+max_step 		= 4000
 
 # Time at which calculation stops, if max_step is not reached first.
 stop_time 		= 10.0
@@ -22,13 +22,13 @@ particle.input = particle_inputs
 # Refinement criterion, use vorticity and presence of tracer
 amr.refinement_indicators = tracer box
 
-amr.max_level		= 0 # maximum number of levels of refinement
+amr.max_level		= 1 # maximum number of levels of refinement
 
 amr.tracer.field_name = tracer
 amr.tracer.value_greater = 0.001
 
-amr.box.in_box_lo = 0.035 0.035 0.12
-amr.box.in_box_hi = 0.065 0.065 0.15
+amr.box.in_box_lo = 0.035 0.035 0.11
+amr.box.in_box_hi = 0.065 0.065 0.14
 amr.box.start_time = 0.0
 amr.box.end_time = 0.01
 
@@ -40,7 +40,7 @@ amr.blocking_factor     = 8
 # Number of cells in each coordinate direction at the coarsest level
 # amr.n_cell 		= 16 8 8 
 # amr.n_cell 		= 288 128 128 
-amr.n_cell 		= 48 48 96
+amr.n_cell 		= 64 64 128
 amr.max_grid_size	= 16
 # amr.max_grid_size	= 32
 
@@ -86,7 +86,7 @@ amr.plot_int		= 1
 #*******************************************************************************
 
 # Viscosity coefficient 
-ns.vel_visc_coef        = 0.0003845
+ns.vel_visc_coef        = 0.372965
 # this parameter is dunamic viscosity
 # Re1.5 fluid rho : 970  u 0.372965
 # Re4.1 fluid rho : 965  u 0.2120105
@@ -179,7 +179,7 @@ mac_proj.mac_abs_tol = 1.e-9
 # x = p1x p2x p3x ...
 particle_inputs.x = 0.05
 particle_inputs.y = 0.05
-particle_inputs.z = 0.135
+particle_inputs.z = 0.125
 
 # particle's density
 # rho = p1r p2r p3r ...
@@ -203,12 +203,12 @@ particle_inputs.omega_z = 0.0
 
 # particle's 6DOF
 # TLX = p1tl p2tl ...
-particle_inputs.TLX = 0
-particle_inputs.TLY = 0
+particle_inputs.TLX = 2
+particle_inputs.TLY = 2
 particle_inputs.TLZ = 2
-particle_inputs.RLX = 0
-particle_inputs.RLY = 0
-particle_inputs.RLZ = 0
+particle_inputs.RLX = 2
+particle_inputs.RLY = 2
+particle_inputs.RLZ = 2
 
 # msg print
 particle_inputs.verbose = 1
