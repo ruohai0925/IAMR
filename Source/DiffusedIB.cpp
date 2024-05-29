@@ -804,7 +804,7 @@ void mParticle::DoParticleCollision(int model)
 
     for(auto & particle_kernel : particle_kernels){
         particle_kernel.Fcp = m_Collision.Particles.front().preForece 
-                                * particle_kernel.Vp * particle_kernel.rho * m_gravity.vectorLength();
+                            * particle_kernel.Vp * particle_kernel.rho * m_gravity.vectorLength();
         m_Collision.Particles.pop_front();
     }
 
@@ -888,8 +888,8 @@ void mParticle::WriteIBForceAndMoment(int step, amrex::Real time, kernel& curren
                      << current_kernel.velocity[0] << "," << current_kernel.velocity[1] << "," << current_kernel.velocity[2] << ","
                      << current_kernel.omega[0] << "," << current_kernel.omega[1] << "," << current_kernel.omega[2] << ","
                      << current_kernel.ib_force[0] << "," << current_kernel.ib_force[1] << "," << current_kernel.ib_force[2] << "," 
-                     << current_kernel.ib_moment[0] << "," << current_kernel.ib_moment[1] << "," << current_kernel.ib_moment[2] 
-                     << current_kernel.Fcp[0] << "," << current_kernel.Fcp[1] << "," << current_kernel.Fcp[2] 
+                     << current_kernel.ib_moment[0] << "," << current_kernel.ib_moment[1] << "," << current_kernel.ib_moment[2] << ","
+                     << current_kernel.Fcp[0] << "," << current_kernel.Fcp[1] << "," << current_kernel.Fcp[2] << ","
                      << current_kernel.Tcp[0] << "," << current_kernel.Tcp[1] << "," << current_kernel.Tcp[2] << "\n";
     }
     out_ib_force.close();
