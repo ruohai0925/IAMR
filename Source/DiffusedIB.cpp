@@ -38,9 +38,11 @@ namespace ParticleProperties{
     int verbose{0};
     int loop_ns{2};
     int loop_solid{1};
+    int Uhlmann{0};
 
     Vector<Real> GLO, GHI;
     int start_step{-1};
+    int collision_model{0};
 
     GpuArray<Real, 3> plo{0.0,0.0,0.0}, phi{0.0,0.0,0.0}, dx{0.0, 0.0, 0.0};
 }
@@ -376,7 +378,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
                                     << "), Radius: " << mKernel.radius << ", Ml: " << Ml << ", dv: " << dv << ", Rho: " << mKernel.rho << "\n";
     }
     //collision box generate
-    // m_Collision.SetGeometry(RealVect(ParticleProperties::GLO), RealVect(ParticleProperties::GHI), , h);
+    m_Collision.SetGeometry(RealVect(ParticleProperties::GLO), RealVect(ParticleProperties::GHI),particle_kernels[0].radius, h);
 }
 
 void mParticle::InitialWithLargrangianPoints(const kernel& current_kernel){
@@ -659,6 +661,8 @@ void mParticle::UpdateParticles(int iStep,
                                 Real dt)
 {
     if (verbose) amrex::Print() << "mParticle::UpdateParticles\n";
+    //particle collistion 
+    DoParticleCollision(ParticleProperties::collision_model);
     
     MultiFab AllParticlePVF(pvf.boxArray(), pvf.DistributionMap(), pvf.nComp(), pvf.nGrow());
     AllParticlePVF.setVal(0.0);
@@ -724,17 +728,18 @@ void mParticle::UpdateParticles(int iStep,
                     kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
                 }
                 else if (kernel.TL[idir] == 2) {
-                    if(false){
-                    kernel.velocity[idir] = kernel.velocity_old[idir]
-                                          + ((kernel.sum_u_new[idir] - kernel.sum_u_old[idir]) * ParticleProperties::euler_fluid_rho / dt 
-                                          - kernel.ib_force[idir] * ParticleProperties::euler_fluid_rho
-                                          + m_gravity[idir] * (kernel.rho - ParticleProperties::euler_fluid_rho) * kernel.Vp 
-                                          + kernel.Fcp[idir]) * dt / kernel.rho / kernel.Vp ;
+                    if(!ParticleProperties::Uhlmann){
+                        kernel.velocity[idir] = kernel.velocity_old[idir]
+                                              + ((kernel.sum_u_new[idir] - kernel.sum_u_old[idir]) * ParticleProperties::euler_fluid_rho / dt 
+                                              - kernel.ib_force[idir] * ParticleProperties::euler_fluid_rho
+                                              + m_gravity[idir] * (kernel.rho - ParticleProperties::euler_fluid_rho) * kernel.Vp 
+                                              + kernel.Fcp[idir]) * dt / kernel.rho / kernel.Vp ;
+                    }else{
+                        //Uhlmann
+                        kernel.velocity[idir] = kernel.velocity_old[idir]
+                                              + (ParticleProperties::euler_fluid_rho / kernel.Vp /(ParticleProperties::euler_fluid_rho - kernel.rho)*kernel.ib_force[idir]
+                                              + m_gravity[idir]) * dt;
                     }
-                    //Uhlmann
-                    kernel.velocity[idir] = kernel.velocity_old[idir]
-                                          + (ParticleProperties::euler_fluid_rho / kernel.Vp /(ParticleProperties::euler_fluid_rho - kernel.rho)*kernel.ib_force[idir]
-                                          + m_gravity[idir]) * dt;
                     kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
                 }
                 else {
@@ -748,16 +753,17 @@ void mParticle::UpdateParticles(int iStep,
                 else if (kernel.RL[idir] == 1) {
                 }
                 else if (kernel.RL[idir] == 2) {
-                    if(false){
-                    kernel.omega[idir] = kernel.omega_old[idir]
-                                       + ((kernel.sum_t_new[idir] - kernel.sum_t_old[idir]) * ParticleProperties::euler_fluid_rho / dt
-                                       - kernel.ib_moment[idir] * ParticleProperties::euler_fluid_rho
-                                       + kernel.Tcp[idir]) * dt / cal_momentum(kernel.rho, kernel.radius);
+                    if(!ParticleProperties::Uhlmann){
+                        kernel.omega[idir] = kernel.omega_old[idir]
+                                           + ((kernel.sum_t_new[idir] - kernel.sum_t_old[idir]) * ParticleProperties::euler_fluid_rho / dt
+                                           - kernel.ib_moment[idir] * ParticleProperties::euler_fluid_rho
+                                           + kernel.Tcp[idir]) * dt / cal_momentum(kernel.rho, kernel.radius);
+                    }else{
+                        //Uhlmann
+                        kernel.omega[idir] = kernel.omega_old[idir]
+                                           + ParticleProperties::euler_fluid_rho /(ParticleProperties::euler_fluid_rho - kernel.rho) * kernel.ib_moment[idir] * kernel.dv
+                                           / cal_momentum(kernel.rho, kernel.radius) * kernel.rho * dt;
                     }
-                    //Uhlmann
-                    kernel.omega[idir] = kernel.omega_old[idir]
-                                       + ParticleProperties::euler_fluid_rho /(ParticleProperties::euler_fluid_rho - kernel.rho) * kernel.ib_moment[idir] * kernel.dv
-                                       / cal_momentum(kernel.rho, kernel.radius) * kernel.rho * dt;
                 }
                 else {
                     amrex::Print() << "Particle (" << kernel.id << ") has wrong RL"<< direction_str[idir] <<" value\n";
@@ -784,21 +790,21 @@ void mParticle::UpdateParticles(int iStep,
     if (verbose) mContainer->WriteAsciiFile(amrex::Concatenate("particle", 4));
 }
 
-void mParticle::DoParticleCollision()
+void mParticle::DoParticleCollision(int model)
 {
+    if(particle_kernels.size() < 2 ) return ;
+
     if (verbose) amrex::Print() << "\tmParticle::DoParticleCollision\n";
     
     for(auto kernel : particle_kernels){
-        m_Collision.InsertParticle(kernel.location, kernel.velocity, kernel.radius);
+        m_Collision.InsertParticle(kernel.location, kernel.velocity, kernel.radius, kernel.rho);
     }
     
-    m_Collision.GenerateCollisionPairs();
-    m_Collision.ResolveCollisionPairs();
+    m_Collision.takeModel(model);
 
     for(auto & particle_kernel : particle_kernels){
         particle_kernel.Fcp = m_Collision.Particles.front().preForece 
-                                * particle_kernel.dv * particle_kernel.rho * m_gravity.vectorLength();
-        particle_kernel.Fcp.scale(-1.);
+                            * particle_kernel.Vp * particle_kernel.rho * m_gravity.vectorLength();
         m_Collision.Particles.pop_front();
     }
 
@@ -868,7 +874,7 @@ void mParticle::WriteIBForceAndMoment(int step, amrex::Real time, kernel& curren
 
     std::string head;
     if(!fs::exists(file)){
-        head = "iStep,time,X,Y,Z,Vx,Vy,Vz,OmegaX,OmegaY,OmegaZ,Fx,Fy,Fz,Mx,My,Mz\n";
+        head = "iStep,time,X,Y,Z,Vx,Vy,Vz,Rx,Ry,Rz,Fx,Fy,Fz,Mx,My,Mz,Fcpx,Fcpy,Fcpz,Tcpx,Tcpy,Tcpz\n";
     }else{
         head = "";
     }
@@ -882,7 +888,9 @@ void mParticle::WriteIBForceAndMoment(int step, amrex::Real time, kernel& curren
                      << current_kernel.velocity[0] << "," << current_kernel.velocity[1] << "," << current_kernel.velocity[2] << ","
                      << current_kernel.omega[0] << "," << current_kernel.omega[1] << "," << current_kernel.omega[2] << ","
                      << current_kernel.ib_force[0] << "," << current_kernel.ib_force[1] << "," << current_kernel.ib_force[2] << "," 
-                     << current_kernel.ib_moment[0] << "," << current_kernel.ib_moment[1] << "," << current_kernel.ib_moment[2] << "\n";
+                     << current_kernel.ib_moment[0] << "," << current_kernel.ib_moment[1] << "," << current_kernel.ib_moment[2] << ","
+                     << current_kernel.Fcp[0] << "," << current_kernel.Fcp[1] << "," << current_kernel.Fcp[2] << ","
+                     << current_kernel.Tcp[0] << "," << current_kernel.Tcp[1] << "," << current_kernel.Tcp[2] << "\n";
     }
     out_ib_force.close();
 }
@@ -999,11 +1007,13 @@ void Particles::Initialize()
         p_file.getarr("RLX",        ParticleProperties::RLX);
         p_file.getarr("RLY",        ParticleProperties::RLY);
         p_file.getarr("RLZ",        ParticleProperties::RLZ);
-        p_file.getarr("radius",               ParticleProperties::_radius);
-        p_file.query("LOOP_NS",              ParticleProperties::loop_ns);
-        p_file.query("LOOP_SOLID",           ParticleProperties::loop_solid);
-        p_file.query("verbose", ParticleProperties::verbose);
-        p_file.query("start_step", ParticleProperties::start_step);
+        p_file.getarr("radius",     ParticleProperties::_radius);
+        p_file.query("LOOP_NS",     ParticleProperties::loop_ns);
+        p_file.query("LOOP_SOLID",  ParticleProperties::loop_solid);
+        p_file.query("verbose",     ParticleProperties::verbose);
+        p_file.query("start_step",  ParticleProperties::start_step);
+        p_file.query("Uhlmann",     ParticleProperties::Uhlmann);
+        p_file.query("collision_model", ParticleProperties::collision_model);
         
         ParmParse ns("ns");
         ns.get("fluid_rho",      ParticleProperties::euler_fluid_rho);

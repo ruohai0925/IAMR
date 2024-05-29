@@ -146,7 +146,7 @@ public:
 
     void UpdateParticles(int iStep, const MultiFab& Euler_old, const MultiFab& Euler, MultiFab& phi_nodal, MultiFab& pvf, Real dt);
 
-    void DoParticleCollision();
+    void DoParticleCollision(int model);
 
     static void WriteIBForceAndMoment(int step, amrex::Real time, kernel& current_kernel);
 
