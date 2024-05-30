@@ -1,12 +1,13 @@
-# IAMR-MULTIPHASE
+# IAMReX
 
-This repo builds upon IAMR (https://amrex-codes.github.io/IAMR/) code that solves the two-phase 
-incompressible Navier-Stokes equations using the level set (LS) method. This code aims at simulating the multiphase flow and fluid structure interaction (FSI)
-problems on CPUs and GPUs with/without subcycling.
+This repo builds upon IAMR (https://amrex-codes.github.io/IAMR/) code that solves the multiphase incompressible flows. The Navier-Stokes euqations are solved on a semi-staggered grid using the projection method. The gas-liquid interface is captured using either the level set (LS) method or the convervative level set (CLS) method. The fluid-solid interface is resolved using the diffused immersed boundary method (DIBM). The particle-wall as well as the particle-particle collision are also captured by the adaptive collision
+time model (ACTM). This code aims at simulating the multiphase flow and fluid structure interaction (FSI) problems on both CPUs and GPUs with/without subcycling.
 
 ## Features
 
 - LS method and reinitialization schemes
+- Diffused Immersed Boundary Method
+- Particle Collision Algorithms
 
 ## Examples
 
