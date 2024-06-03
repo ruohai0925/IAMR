@@ -12,6 +12,7 @@
 #include <iamr_constants.H>
 
 #include <filesystem>
+#include <sstream>
 namespace fs = std::filesystem;
 
 #define GHOST_CELLS 2
@@ -661,8 +662,6 @@ void mParticle::UpdateParticles(int iStep,
                                 Real dt)
 {
     if (verbose) amrex::Print() << "mParticle::UpdateParticles\n";
-    //particle collistion 
-    DoParticleCollision(ParticleProperties::collision_model);
     
     MultiFab AllParticlePVF(pvf.boxArray(), pvf.DistributionMap(), pvf.nComp(), pvf.nGrow());
     AllParticlePVF.setVal(0.0);
@@ -718,59 +717,69 @@ void mParticle::UpdateParticles(int iStep,
             }
 
             // 6DOF
-            for(auto idir : {0,1,2})
-            {
-                //TL
-                if (kernel.TL[idir] == 0) {
-                    kernel.velocity[idir] = 0.0;
-                }
-                else if (kernel.TL[idir] == 1) {
-                    kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
-                }
-                else if (kernel.TL[idir] == 2) {
-                    if(!ParticleProperties::Uhlmann){
-                        kernel.velocity[idir] = kernel.velocity_old[idir]
-                                              + ((kernel.sum_u_new[idir] - kernel.sum_u_old[idir]) * ParticleProperties::euler_fluid_rho / dt 
-                                              - kernel.ib_force[idir] * ParticleProperties::euler_fluid_rho
-                                              + m_gravity[idir] * (kernel.rho - ParticleProperties::euler_fluid_rho) * kernel.Vp 
-                                              + kernel.Fcp[idir]) * dt / kernel.rho / kernel.Vp ;
-                    }else{
-                        //Uhlmann
-                        kernel.velocity[idir] = kernel.velocity_old[idir]
-                                              + (ParticleProperties::euler_fluid_rho / kernel.Vp /(ParticleProperties::euler_fluid_rho - kernel.rho)*kernel.ib_force[idir]
-                                              + m_gravity[idir]) * dt;
-                    }
-                    kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
-                }
-                else {
-                    amrex::Print() << "Particle (" << kernel.id << ") has wrong TL"<< direction_str[idir] <<" value\n";
-                    amrex::Abort("Stop here!");
-                }
-                //RL
-                if (kernel.RL[idir] == 0) {
-                    kernel.omega[idir] = 0.0;
-                }
-                else if (kernel.RL[idir] == 1) {
-                }
-                else if (kernel.RL[idir] == 2) {
-                    if(!ParticleProperties::Uhlmann){
-                        kernel.omega[idir] = kernel.omega_old[idir]
-                                           + ((kernel.sum_t_new[idir] - kernel.sum_t_old[idir]) * ParticleProperties::euler_fluid_rho / dt
-                                           - kernel.ib_moment[idir] * ParticleProperties::euler_fluid_rho
-                                           + kernel.Tcp[idir]) * dt / cal_momentum(kernel.rho, kernel.radius);
-                    }else{
-                        //Uhlmann
-                        kernel.omega[idir] = kernel.omega_old[idir]
-                                           + ParticleProperties::euler_fluid_rho /(ParticleProperties::euler_fluid_rho - kernel.rho) * kernel.ib_moment[idir] * kernel.dv
-                                           / cal_momentum(kernel.rho, kernel.radius) * kernel.rho * dt;
-                    }
-                }
-                else {
-                    amrex::Print() << "Particle (" << kernel.id << ") has wrong RL"<< direction_str[idir] <<" value\n";
-                    amrex::Abort("Stop here!");
-                }
+            if(ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber()){
+                DoParticleCollision(ParticleProperties::collision_model);
 
+                for(auto idir : {0,1,2})
+                {
+                    //TL
+                    if (kernel.TL[idir] == 0) {
+                        kernel.velocity[idir] = 0.0;
+                    }
+                    else if (kernel.TL[idir] == 1) {
+                        kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
+                    }
+                    else if (kernel.TL[idir] == 2) {
+                        if(!ParticleProperties::Uhlmann){
+                            kernel.velocity[idir] = kernel.velocity_old[idir]
+                                                + ((kernel.sum_u_new[idir] - kernel.sum_u_old[idir]) * ParticleProperties::euler_fluid_rho / dt 
+                                                - kernel.ib_force[idir] * ParticleProperties::euler_fluid_rho
+                                                + m_gravity[idir] * (kernel.rho - ParticleProperties::euler_fluid_rho) * kernel.Vp 
+                                                + kernel.Fcp[idir]) * dt / kernel.rho / kernel.Vp ;
+                        }else{
+                            //Uhlmann
+                            kernel.velocity[idir] = kernel.velocity_old[idir]
+                                                + (ParticleProperties::euler_fluid_rho / kernel.Vp /(ParticleProperties::euler_fluid_rho - kernel.rho)*kernel.ib_force[idir]
+                                                + m_gravity[idir]) * dt;
+                        }
+                        kernel.location[idir] = kernel.location_old[idir] + (kernel.velocity[idir] + kernel.velocity_old[idir]) * dt * 0.5;
+                    }
+                    else {
+                        amrex::Print() << "Particle (" << kernel.id << ") has wrong TL"<< direction_str[idir] <<" value\n";
+                        amrex::Abort("Stop here!");
+                    }
+                    //RL
+                    if (kernel.RL[idir] == 0) {
+                        kernel.omega[idir] = 0.0;
+                    }
+                    else if (kernel.RL[idir] == 1) {
+                    }
+                    else if (kernel.RL[idir] == 2) {
+                        if(!ParticleProperties::Uhlmann){
+                            kernel.omega[idir] = kernel.omega_old[idir]
+                                            + ((kernel.sum_t_new[idir] - kernel.sum_t_old[idir]) * ParticleProperties::euler_fluid_rho / dt
+                                            - kernel.ib_moment[idir] * ParticleProperties::euler_fluid_rho
+                                            + kernel.Tcp[idir]) * dt / cal_momentum(kernel.rho, kernel.radius);
+                        }else{
+                            //Uhlmann
+                            kernel.omega[idir] = kernel.omega_old[idir]
+                                            + ParticleProperties::euler_fluid_rho /(ParticleProperties::euler_fluid_rho - kernel.rho) * kernel.ib_moment[idir] * kernel.dv
+                                            / cal_momentum(kernel.rho, kernel.radius) * kernel.rho * dt;
+                        }
+                    }
+                    else {
+                        amrex::Print() << "Particle (" << kernel.id << ") has wrong RL"<< direction_str[idir] <<" value\n";
+                        amrex::Abort("Stop here!");
+                    }
+
+                }
             }
+            ParallelDescriptor::Bcast(&kernel.location[0],3,ParallelDescriptor::IOProcessorNumber());
+            ParallelDescriptor::Bcast(&kernel.location_old[0],3,ParallelDescriptor::IOProcessorNumber());
+            ParallelDescriptor::Bcast(&kernel.velocity[0],3,ParallelDescriptor::IOProcessorNumber());
+            ParallelDescriptor::Bcast(&kernel.velocity_old[0],3,ParallelDescriptor::IOProcessorNumber());
+            ParallelDescriptor::Bcast(&kernel.omega[0],3,ParallelDescriptor::IOProcessorNumber());
+            ParallelDescriptor::Bcast(&kernel.omega_old[0],3,ParallelDescriptor::IOProcessorNumber());
         
             loop--;
 
@@ -979,6 +988,111 @@ void Particles::init_particle(Real gravity, Real h)
             ParticleProperties::verbose);
     }
 
+}
+
+void Particles::Restart(Real gravity, Real h, int iStep)
+{
+    amrex::Print() << "[Particle] : restart Particle's kernel, step :" << iStep << "\n"
+                   << "\tstart read particle csv file , default name is IB_Particle_x.csv\n" 
+                   << "\tdo not delete those file before \"restart\"\n\n";
+    delete particle;
+    particle = new mParticle;
+            particle->InitParticles(
+            ParticleProperties::_x, 
+            ParticleProperties::_y, 
+            ParticleProperties::_z,
+            ParticleProperties::_rho,
+            ParticleProperties::Vx,
+            ParticleProperties::Vy,
+            ParticleProperties::Vz,
+            ParticleProperties::Ox,
+            ParticleProperties::Oy,
+            ParticleProperties::Oz,
+            ParticleProperties::TLX,
+            ParticleProperties::TLY,
+            ParticleProperties::TLZ,
+            ParticleProperties::RLX,
+            ParticleProperties::RLY,
+            ParticleProperties::RLZ,
+            ParticleProperties::_radius,
+            h,
+            gravity,
+            ParticleProperties::verbose);
+    //deal in IO processor
+    //start read csv file
+    for(auto& kernel : particle->particle_kernels){
+        //filename
+        if(amrex::ParallelDescriptor::MyProc() == amrex::ParallelDescriptor::IOProcessorNumber()){
+            std::string fileName = "IB_Particle_" + std::to_string(kernel.id) + ".csv";
+            std::string tmpfile = "tmp" + fileName;
+            //file stream
+            std::ifstream particle_data(fileName);
+            std::ofstream particle_file(tmpfile);
+            // open state
+            if(!particle_data.is_open() || !particle_file.is_open()){
+                amrex::Abort("\tCan not open particle file : " + fileName);
+            }
+            std::string lineData;
+            int line{0};
+            while(std::getline(particle_data, lineData)){
+                line++;
+                if(line <= iStep) {
+                    particle_file << lineData << "\n";
+                    continue;
+                }
+                //old location
+                //iStep,time,X,Y,Z,Vx,Vy,Vz,Rx,Ry,Rz,Fx,Fy,Fz,Mx,My,Mz,Fcpx,Fcpy,Fcpz,Tcpx,Tcpy,Tcpz
+                if(line == iStep + 1) {
+                    std::stringstream ss(lineData);
+                    std::string data;
+                    std::vector<amrex::Real> dataStruct;
+                    while(std::getline(ss, data, ',')){
+                        dataStruct.emplace_back(std::stod(data));
+                    }
+                    kernel.location_old[0] = dataStruct[2];
+                    kernel.location_old[1] = dataStruct[3];
+                    kernel.location_old[2] = dataStruct[4];
+                    kernel.velocity_old[0] = dataStruct[5];
+                    kernel.velocity_old[1] = dataStruct[6];
+                    kernel.velocity_old[2] = dataStruct[7];
+                    kernel.omega_old[0] = dataStruct[8];
+                    kernel.omega_old[1] = dataStruct[9];
+                    kernel.omega_old[2] = dataStruct[10];
+                }else if(line == iStep + 2){
+                    std::stringstream ss(lineData);
+                    std::string data;
+                    std::vector<amrex::Real> dataStruct;
+                    while(std::getline(ss, data, ',')){
+                        dataStruct.emplace_back(std::stod(data));
+                    }
+                    kernel.location[0] = dataStruct[2];
+                    kernel.location[1] = dataStruct[3];
+                    kernel.location[2] = dataStruct[4];
+                    kernel.velocity[0] = dataStruct[5];
+                    kernel.velocity[1] = dataStruct[6];
+                    kernel.velocity[2] = dataStruct[7];
+                    kernel.omega[0] = dataStruct[8];
+                    kernel.omega[1] = dataStruct[9];
+                    kernel.omega[2] = dataStruct[10];
+                    break;
+                }
+                else
+                    break;
+            }
+            particle_data.close();
+            particle_file.close();
+            std::remove(fileName.c_str());
+            std::rename(tmpfile.c_str(), fileName.c_str());
+        }
+        ParallelDescriptor::Bcast(&kernel.location[0], 3, ParallelDescriptor::IOProcessorNumber());
+        ParallelDescriptor::Bcast(&kernel.location_old[0], 3,ParallelDescriptor::IOProcessorNumber());
+        ParallelDescriptor::Bcast(&kernel.velocity[0], 3,ParallelDescriptor::IOProcessorNumber());
+        ParallelDescriptor::Bcast(&kernel.velocity_old[0], 3,ParallelDescriptor::IOProcessorNumber());
+        ParallelDescriptor::Bcast(&kernel.omega[0], 3,ParallelDescriptor::IOProcessorNumber());
+        ParallelDescriptor::Bcast(&kernel.omega_old[0], 3,ParallelDescriptor::IOProcessorNumber());
+    }
+
+    isInitial = true;
 }
 
 void Particles::Initialize()
