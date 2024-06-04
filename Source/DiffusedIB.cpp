@@ -174,8 +174,8 @@ void CalculateSumT_cir (RealVect& sum,
             AMREX_GPU_DEVICE(int i, int j, int k) noexcept
             {
                 Real x = plo[0] + i*dx[0] + 0.5*dx[0];
-                Real y = plo[1] + i*dx[1] + 0.5*dx[1];
-                Real z = plo[2] + i*dx[2] + 0.5*dx[2];
+                Real y = plo[1] + j*dx[1] + 0.5*dx[1];
+                Real z = plo[2] + k*dx[2] + 0.5*dx[2];
                 Real vx = (*new_ptr)(i, j, k, EulerVelIndex    );
                 Real vy = (*new_ptr)(i, j, k, EulerVelIndex + 1);
                 Real vz = (*new_ptr)(i, j, k, EulerVelIndex + 2);
@@ -447,9 +447,9 @@ void VelocityInterpolation_cir(int p_iter, P const& p, Real& Up, Real& Vp, Real&
         for(int jj = -2; jj < 3; jj++){
             for(int kk = -2; kk < 3; kk ++){
                 Real tU, tV, tW;
-                const Real xi = (i + ii) * dx[0] + dx[0]/2;
-                const Real yj = (j + jj) * dx[1] + dx[1]/2;
-                const Real kz = (k + kk) * dx[2] + dx[2]/2;
+                const Real xi = plo[0] + (i + ii) * dx[0] + dx[0]/2;
+                const Real yj = plo[1] + (j + jj) * dx[1] + dx[1]/2;
+                const Real kz = plo[2] + (k + kk) * dx[2] + dx[2]/2;
                 deltaFunction( p.pos(0), xi, dx[0], tU, type);
                 deltaFunction( p.pos(1), yj, dx[1], tV, type);
                 deltaFunction( p.pos(2), kz, dx[2], tW, type);
@@ -546,9 +546,9 @@ void ForceSpreading_cic (P const& p,
         for(int jj = -2; jj < +3; jj++){
             for(int kk = -2; kk < +3; kk ++){
                 Real tU, tV, tW;
-                const Real xi = (i + ii) * dx[0] + dx[0]/2;
-                const Real yj = (j + jj) * dx[1] + dx[1]/2;
-                const Real kz = (k + kk) * dx[2] + dx[2]/2;
+                const Real xi =plo[0] + (i + ii) * dx[0] + dx[0]/2;
+                const Real yj =plo[1] + (j + jj) * dx[1] + dx[1]/2;
+                const Real kz =plo[2] + (k + kk) * dx[2] + dx[2]/2;
                 deltaFunction( p.pos(0), xi, dx[0], tU, type);
                 deltaFunction( p.pos(1), yj, dx[1], tV, type);
                 deltaFunction( p.pos(2), kz, dx[2], tW, type);
