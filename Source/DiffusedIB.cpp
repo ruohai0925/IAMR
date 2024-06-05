@@ -31,6 +31,7 @@ namespace ParticleProperties{
     Vector<Real> Vx{}, Vy{}, Vz{};
     Vector<Real> Ox{}, Oy{}, Oz{};
     Vector<Real> _radius;
+    Real rd{0.0};
     Vector<int> TLX{}, TLY{},TLZ{},RLX{},RLY{},RLZ{};
     int euler_finest_level{0};
     int euler_velocity_index{0};
@@ -349,8 +350,12 @@ void mParticle::InitParticles(const Vector<Real>& x,
         mKernel.radius = radius[index];
         mKernel.Vp = Math::pi<Real>() * 4 / 3 * Math::powi<3>(radius[index]);
 
-        int Ml = static_cast<int>( Math::pi<Real>() / 3 * (12 * Math::powi<2>(mKernel.radius / h)));
-        Real dv = Math::pi<Real>() * h / 3 / Ml * (12 * mKernel.radius * mKernel.radius + h * h);
+        //int Ml = static_cast<int>( Math::pi<Real>() / 3 * (12 * Math::powi<2>(mKernel.radius / h)));
+        //Real dv = Math::pi<Real>() * h / 3 / Ml * (12 * mKernel.radius * mKernel.radius + h * h);
+        int Ml = static_cast<int>((amrex::Math::powi<3>(mKernel.radius - (ParticleProperties::rd - 0.5) * h)
+               - amrex::Math::powi<3>(mKernel.radius - (ParticleProperties::rd + 0.5) * h))/(3.*h*h*h/4./Math::pi<Real>()));
+        Real dv = (amrex::Math::powi<3>(mKernel.radius - (ParticleProperties::rd - 0.5) * h)
+               - amrex::Math::powi<3>(mKernel.radius - (ParticleProperties::rd + 0.5) * h))/(3.*Ml/4./Math::pi<Real>());
         mKernel.ml = Ml;
         mKernel.dv = dv;
         if( Ml > max_largrangian_num ) max_largrangian_num = Ml;
@@ -663,6 +668,9 @@ void mParticle::UpdateParticles(int iStep,
 {
     if (verbose) amrex::Print() << "mParticle::UpdateParticles\n";
     
+    //Particle Collision calculation
+    DoParticleCollision(ParticleProperties::collision_model);
+    
     MultiFab AllParticlePVF(pvf.boxArray(), pvf.DistributionMap(), pvf.nComp(), pvf.nGrow());
     AllParticlePVF.setVal(0.0);
     
@@ -718,7 +726,6 @@ void mParticle::UpdateParticles(int iStep,
 
             // 6DOF
             if(ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber()){
-                DoParticleCollision(ParticleProperties::collision_model);
 
                 for(auto idir : {0,1,2})
                 {
@@ -1122,6 +1129,7 @@ void Particles::Initialize()
         p_file.getarr("RLY",        ParticleProperties::RLY);
         p_file.getarr("RLZ",        ParticleProperties::RLZ);
         p_file.getarr("radius",     ParticleProperties::_radius);
+        p_file.query("RD",          ParticleProperties::rd);
         p_file.query("LOOP_NS",     ParticleProperties::loop_ns);
         p_file.query("LOOP_SOLID",  ParticleProperties::loop_solid);
         p_file.query("verbose",     ParticleProperties::verbose);
