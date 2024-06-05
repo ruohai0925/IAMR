@@ -2887,6 +2887,14 @@ NavierStokesBase::restart (Amr&          papa,
       computeGradP(state[Press_Type].prevTime());
     }
 
+#ifdef AMREX_PARTICLES
+    if(level == Particles::ParticleFinestLevel())
+    {
+        Particles::Restart(gravity, geom.CellSizeArray()[0],parent->levelSteps(0));
+        ParallelDescriptor::Barrier();
+    }
+#endif
+
     define_workspace();
 }
 

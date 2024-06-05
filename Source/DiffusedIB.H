@@ -175,6 +175,7 @@ public:
 
     static mParticle* get_particles();
     static void init_particle(Real gravity, Real h);
+    static void Restart(Real gravity, Real h, int iStep);
     static void Initialize();
     static int ParticleFinestLevel();
     static void define_para(const Vector<Real>& x,
