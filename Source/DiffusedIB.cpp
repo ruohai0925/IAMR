@@ -237,56 +237,48 @@ void mParticle::InteractWithEuler(int iStep,
                                   DELTA_FUNCTION_TYPE type)
 {
     if (verbose) amrex::Print() << "[Particle] mParticle::InteractWithEuler\n";
+    
+    MultiFab EulerForceTmp(EulerForce.boxArray(), EulerForce.DistributionMap(), 3, EulerForce.nGrow());
+    //clean preStep's IB_porperties 
+    for(auto& kernel : particle_kernels) {
+        kernel.ib_force.scale(0.0);
+        kernel.ib_moment.scale(0.0);
+    }
 
-    for(kernel& kernel : particle_kernels){
-        InitialWithLargrangianPoints(kernel); // Initialize markers for a specific particle
-        ResetLargrangianPoints(dt);
+    //for 1 -> Ns
+    int loop = ParticleProperties::loop_ns;
+    BL_ASSERT(loop > 0);
+    while(loop > 0){
+        if(verbose) amrex::Print() << "[Particle] Ns loop index : " << loop << "\n";
         
-        amrex::Real ib_force_x  = 0.0;
-        amrex::Real ib_force_y  = 0.0;
-        amrex::Real ib_force_z  = 0.0;
-        amrex::Real ib_moment_x = 0.0;
-        amrex::Real ib_moment_y = 0.0;
-        amrex::Real ib_moment_z = 0.0;
-        
-        //for 1 -> Ns
-        int loop = ParticleProperties::loop_ns;
-        BL_ASSERT(loop > 0);
-        while(loop > 0){
-            if(verbose) amrex::Print() << "[Particle] Ns loop index : " << loop << "\n";
-            
-            VelocityInterpolation(EulerVel, type);
-            ComputeLagrangianForce(dt, kernel);
-            
-            EulerForce.setVal(0.0, ParticleProperties::euler_force_index, 3, GHOST_CELLS); // clear Euler force
+        EulerForce.setVal(0.0);
+
+        for(kernel& kernel : particle_kernels){
+            InitialWithLargrangianPoints(kernel); // Initialize markers for a specific particle
+            ResetLargrangianPoints(dt);
+            EulerForceTmp.setVal(0.0);
+            auto ib_force = kernel.ib_force;
+            auto ib_moment = kernel.ib_moment;
             kernel.ib_force.scale(0.0); // clear kernel ib_force
             kernel.ib_moment.scale(0.0); // clear kernel ib_moment
-            ForceSpreading(EulerForce, kernel, type);
 
-            amrex::ParallelAllReduce::Sum(&kernel.ib_force[0], 3, ParallelDescriptor::Communicator());
-            amrex::ParallelAllReduce::Sum(&kernel.ib_moment[0], 3, ParallelDescriptor::Communicator());
-
-            ib_force_x  += kernel.ib_force[0];
-            ib_force_y  += kernel.ib_force[1];
-            ib_force_z  += kernel.ib_force[2];            
-            ib_moment_x += kernel.ib_moment[0];
-            ib_moment_y += kernel.ib_moment[1];
-            ib_moment_z += kernel.ib_moment[2];  
-
-            VelocityCorrection(EulerVel, EulerForce, dt);
+            VelocityInterpolation(EulerVel, type);
+            ComputeLagrangianForce(dt, kernel);
+            ForceSpreading(EulerForceTmp, kernel, type);
+            MultiFab::Add(EulerForce, EulerForceTmp, 0, 0, 3, EulerForce.nGrow());
             
-            loop--;
+            amrex::ParallelAllReduce::Sum(kernel.ib_force.dataPtr(), 3, ParallelDescriptor::Communicator());
+            amrex::ParallelAllReduce::Sum(kernel.ib_moment.dataPtr(), 3, ParallelDescriptor::Communicator());
+
+            kernel.ib_force += ib_force;
+            kernel.ib_moment += ib_moment;
         }
-        
-        kernel.ib_force[0]  = ib_force_x;
-        kernel.ib_force[1]  = ib_force_y;
-        kernel.ib_force[2]  = ib_force_z;
-        kernel.ib_moment[0] = ib_moment_x;
-        kernel.ib_moment[1] = ib_moment_y;
-        kernel.ib_moment[2] = ib_moment_z;
-  
-        WriteIBForceAndMoment(iStep, time, kernel);
+        VelocityCorrection(EulerVel, EulerForce, dt);
+        loop--;
     }
+
+    for(auto kernel: particle_kernels) 
+        WriteIBForceAndMoment(iStep, time, kernel);
 }
 
 void mParticle::InitParticles(const Vector<Real>& x,
