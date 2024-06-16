@@ -28,11 +28,12 @@ void NavierStokes::prob_initData ()
     // Read problem parameters from inputs file
     //
     ParmParse pp("prob");
+    ParmParse pp2("ns");
 
     pp.query("probtype",probtype);
     pp.query("ub",ub);
     pp.query("shearrate",shearrate);
-    pp.query("density_ic",IC.density);
+    pp2.query("fluid_rho",IC.density);
     pp.query("direction",IC.direction);
     pp.query("interface_width",IC.interface_width);
 
@@ -81,10 +82,12 @@ void NavierStokes::prob_initData ()
     // ls related
     //
     IC.do_phi = do_phi;
-    IC.Density = Density;
-    IC.phicomp = phicomp;
-    IC.rho_w = rho_w;
-    IC.rho_a = rho_a;
+    if (do_phi) {
+      IC.Density = Density; // Bug to be fixed: IC.Density is density value, yet Density is the scomp.
+      IC.phicomp = phicomp;
+      IC.rho_w = rho_w;
+      IC.rho_a = rho_a;
+    }
 
     //
     // Fill state and, optionally, pressure
@@ -199,6 +202,18 @@ void NavierStokes::prob_initData ()
             init_BreakingWave(vbx, P_new.array(mfi), S_new.array(mfi, Xvel),
                                 S_new.array(mfi, Density), nscal,
                                 domain, dx, problo, probhi, IC);
+        }
+        else if ( 102 == probtype ||  103 == probtype ) // Sphere near the channel wall
+        {
+           SphereNearWall(vbx, P_new.array(mfi), S_new.array(mfi, Xvel),
+                             S_new.array(mfi, Density), nscal,
+                            domain, dx, problo, probhi, IC);
+        }
+        else if ( 104 == probtype ) // Falling Sphere
+        {
+           FallingSphere(vbx, P_new.array(mfi), S_new.array(mfi, Xvel),
+                             S_new.array(mfi, Density), nscal,
+                            domain, dx, problo, probhi, IC);
         }
         else
         {
@@ -387,6 +402,76 @@ void NavierStokes::set_initial_phi_nodal (Box const& bx,
 
   });
 
+}
+
+// Sphere near the channel wall
+void  NavierStokes::SphereNearWall (amrex::Box const& vbx,
+               amrex::Array4<amrex::Real> const& press,
+               amrex::Array4<amrex::Real> const& vel,
+               amrex::Array4<amrex::Real> const& scal,
+               int nscal,
+               amrex::Box const& domain,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dx,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& problo,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& probhi,
+               InitialConditions IC)
+{
+  BL_ASSERT(AMREX_SPACEDIM == 3);
+  const auto domlo = amrex::lbound(domain);
+  // Initial velocity of flow field
+  amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+
+    //
+    // Scalars, ordered as Density, Tracer(s), Temp (if using)
+    //
+
+    vel(i,j,k,0) = 0.0;
+    vel(i,j,k,1) = 0.0;
+    vel(i,j,k,2) = 0.0;
+
+    scal(i,j,k,0) = IC.density;
+
+    // Tracers
+    scal(i,j,k,1) = 0.0;
+
+
+  });
+}
+
+// Falling Sphere
+void  NavierStokes::FallingSphere (amrex::Box const& vbx,
+               amrex::Array4<amrex::Real> const& press,
+               amrex::Array4<amrex::Real> const& vel,
+               amrex::Array4<amrex::Real> const& scal,
+               int nscal,
+               amrex::Box const& domain,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dx,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& problo,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& probhi,
+               InitialConditions IC)
+{
+  BL_ASSERT(AMREX_SPACEDIM == 3);
+  const auto domlo = amrex::lbound(domain);
+  // Initial velocity of flow field
+  amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+
+    //
+    // Scalars, ordered as Density, Tracer(s), Temp (if using)
+    //
+
+    vel(i,j,k,0) = 0.0;
+    vel(i,j,k,1) = 0.0;
+    vel(i,j,k,2) = 0.0;
+
+    scal(i,j,k,0) = IC.density;
+
+    // Tracers
+    scal(i,j,k,1) = 0.0;
+
+
+  });
 }
 
 void NavierStokes::init_constant_vel_rho (Box const& vbx,

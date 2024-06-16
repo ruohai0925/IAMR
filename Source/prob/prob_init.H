@@ -248,4 +248,28 @@ static void set_initial_phi_nodal (amrex::Box const& bx,
           InitialConditions IC,
           amrex::Real time);
 
+// Sphere near the channel wall
+static void SphereNearWall (amrex::Box const& vbx,
+               amrex::Array4<amrex::Real> const& press,
+               amrex::Array4<amrex::Real> const& vel,
+               amrex::Array4<amrex::Real> const& scal,
+               int nscal,
+               amrex::Box const& domain,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dx,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& problo,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& probhi,
+               InitialConditions IC);
+
+// Falling Sphere
+static void FallingSphere (amrex::Box const& vbx,
+               amrex::Array4<amrex::Real> const& press,
+               amrex::Array4<amrex::Real> const& vel,
+               amrex::Array4<amrex::Real> const& scal,
+               int nscal,
+               amrex::Box const& domain,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& dx,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& problo,
+               amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const& probhi,
+               InitialConditions IC);
+
 #endif

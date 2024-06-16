@@ -1,18 +1,18 @@
 
 #*******************************************************************************
-# INPUTS.3D.FLOW_PAST_SPHERE
+# INPUTS.3D.FallingSphere
 #*******************************************************************************
 
 #NOTE: You may set *either* max_step or stop_time, or you may set them both.
 
 # Maximum number of coarse grid timesteps to be taken, if stop_time is
 #  not reached first.
-max_step 		= 2
+max_step 		= 4000
 
 # Time at which calculation stops, if max_step is not reached first.
-stop_time 		= 100.0
+stop_time 		= 10.0
 
-ns.fixed_dt     = 0.01
+ns.fixed_dt     = 0.001
 ns.cfl = 0.3
 ns.init_iter = 0
 
@@ -20,23 +20,27 @@ ns.init_iter = 0
 particle.input = particle_inputs
 
 # Refinement criterion, use vorticity and presence of tracer
-amr.refinement_indicators = tracer
+amr.refinement_indicators = tracer box
 
-amr.max_level		= 0 # maximum number of levels of refinement
-# amr.tracer.value_greater = 0.1
-# amr.tracer.value_less = 1.1
+amr.max_level		= 1 # maximum number of levels of refinement
+
 amr.tracer.field_name = tracer
-amr.tracer.in_box_lo = 0.5 0.5 0.5
-amr.tracer.in_box_hi = 1.5 1.5 1.5
+amr.tracer.value_greater = 0.001
 
+amr.box.in_box_lo = 0.035 0.035 0.11
+amr.box.in_box_hi = 0.065 0.065 0.14
+amr.box.start_time = 0.0
+amr.box.end_time = 0.01
+
+amr.n_error_buf         = 3
 amr.blocking_factor     = 8
 
 #*******************************************************************************
 
 # Number of cells in each coordinate direction at the coarsest level
 # amr.n_cell 		= 16 8 8 
-amr.n_cell 		= 256 128 128 
 # amr.n_cell 		= 288 128 128 
+amr.n_cell 		= 64 64 128
 amr.max_grid_size	= 16
 # amr.max_grid_size	= 32
 
@@ -69,7 +73,7 @@ amr.v                   = 1
 
 # Interval (in number of coarse timesteps) between checkpoint(restart) files
 
-amr.check_int		= 4000
+amr.check_int		= 100
 
 #amr.restart             = chk01400
 
@@ -82,17 +86,22 @@ amr.plot_int		= 1
 #*******************************************************************************
 
 # Viscosity coefficient 
-ns.vel_visc_coef        = 0.01
+ns.vel_visc_coef        = 0.372965
+# this parameter is dunamic viscosity
+# Re1.5 fluid rho : 970  u 0.372965
+# Re4.1 fluid rho : 965  u 0.2120105
+# Re11.6 fluid rho : 962 u 0.113035
+# Re32.2 fluid rho : 960 u 0.0580032
 
 #*******************************************************************************
 
 # Diffusion coefficient for first scalar
-ns.scal_diff_coefs      = 0.0
+ns.scal_diff_coefs      = 0.00
 
 #*******************************************************************************
 
 # Forcing term defaults to  rho * abs(gravity) "down"
-ns.gravity              = 0.0 # -9.8
+ns.gravity              = -9.81
 
 #*******************************************************************************
 
@@ -115,32 +124,29 @@ geometry.coord_sys   =  0
 geometry.prob_lo     =  0. 0. 0.
 
 # Physical dimensions of the high end of the domain.
-geometry.prob_hi     =  20. 10. 10.
+geometry.prob_hi     	=  0.1 0.1 0.2
 
 #*******************************************************************************
 
 #Set to 1 if periodic in that direction
-geometry.is_periodic =  0 1 1
+geometry.is_periodic =  0 0 0
 
 #*******************************************************************************
 
 # Boundary conditions on the low end of the domain.
-ns.lo_bc             = 1 0 0
+ns.lo_bc             = 5 5 5
 
 # Boundary conditions on the high end of the domain.
-ns.hi_bc             = 2 0 0
+ns.hi_bc             = 5 5 4
 
 # 0 = Interior/Periodic  3 = Symmetry
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 
-# Boundary condition
-xlo.velocity            =   1.  0.  0.
-
 #*******************************************************************************
 
 # Problem parameters
-prob.probtype = 1
+prob.probtype = 104
 
 #*******************************************************************************
 
@@ -150,7 +156,7 @@ prob.probtype = 1
 #*******************************************************************************
 ns.isolver            = 1
 ns.do_diffused_ib     = 1
-ns.fluid_rho          = 1.0
+ns.fluid_rho 		  = 970
 
 #ns.sum_interval       = 1
 
@@ -158,9 +164,6 @@ particles.do_nspc_particles = 0
 
 nodal_proj.proj_tol = 1.e-8
 nodal_proj.proj_abs_tol = 1.e-9
-
-nodal_proj.maxiter = 200
-nodal_proj.bottom_maxiter = 200
 
 mac_proj.mac_tol = 1.e-8
 mac_proj.mac_abs_tol = 1.e-9
@@ -174,17 +177,17 @@ mac_proj.mac_abs_tol = 1.e-9
 
 # particle's location 
 # x = p1x p2x p3x ...
-particle_inputs.x = 5.0
-particle_inputs.y = 5.0
-particle_inputs.z = 5.0
+particle_inputs.x = 0.05
+particle_inputs.y = 0.05
+particle_inputs.z = 0.125
 
 # particle's density
 # rho = p1r p2r p3r ...
-particle_inputs.rho = 1.0
+particle_inputs.rho = 1120
 
 # particle's radius
 # single
-particle_inputs.radius = 0.5
+particle_inputs.radius = 0.0075
 
 # particle's velocity
 # vx = p1vx p2vx p3vx ...
@@ -192,21 +195,20 @@ particle_inputs.velocity_x = 0.0
 particle_inputs.velocity_y = 0.0
 particle_inputs.velocity_z = 0.0
 
-# particle's omega
-# omega = p1omega_x p2omega_x p3omega_x ...
+# particles's omega
+# ox = p1ox p2ox p3ox
 particle_inputs.omega_x = 0.0
 particle_inputs.omega_y = 0.0
 particle_inputs.omega_z = 0.0
 
 # particle's 6DOF
 # TLX = p1tl p2tl ...
-particle_inputs.TLX = 0
-particle_inputs.TLY = 0
-particle_inputs.TLZ = 0
-particle_inputs.RLX = 0
-particle_inputs.RLY = 0
-particle_inputs.RLZ = 0
-
+particle_inputs.TLX = 2
+particle_inputs.TLY = 2
+particle_inputs.TLZ = 2
+particle_inputs.RLX = 2
+particle_inputs.RLY = 2
+particle_inputs.RLZ = 2
 
 # msg print
 particle_inputs.verbose = 1

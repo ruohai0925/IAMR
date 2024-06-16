@@ -224,6 +224,8 @@ int NavierStokesBase::do_cons_levelset   = 0;
 // diffused ib
 //
 int NavierStokesBase::do_diffused_ib   = 0;
+int NavierStokesBase::advect_and_update_scalar   = 1;
+Real NavierStokesBase::fluid_rho   = 1.0;
 
 namespace
 {
@@ -352,11 +354,14 @@ void NavierStokesBase::define_workspace()
         phi_nodal.define(nba,dmap,1,2,MFInfo(),Factory());
         pvf.define(grids,dmap,1,2,MFInfo(),Factory());
 #ifdef AMREX_PARTICLES
-        if (level == parent->finestLevel()) {
-            // amrex::Print() << "Check grids " << grids << " " << level << " " << parent->finestLevel() << std::endl;
-            Particles::Initialize();
+        amrex::Print() << "check level " << level << " " << Particles::ParticleFinestLevel() << std::endl;
+        if (level == Particles::ParticleFinestLevel()) {
+            if(!Particles::isInitial){
+                //particles
+                Particles::init_particle(gravity, geom.CellSizeArray()[0]);
+            }
+            //largra
             Particles::create_particles(geom, dmap, grids); // Class constructor
-            Particles::init_particle( level, gravity);
         }
 #endif
     }
@@ -674,8 +679,14 @@ NavierStokesBase::Initialize ()
     pp.query("prescribed_vel", prescribed_vel);
     pp.query("isolver", isolver);
     pp.query("do_diffused_ib", do_diffused_ib);
+    advect_and_update_scalar = !(do_diffused_ib == 1);
+    pp.query("fluid_rho", fluid_rho);
 
     amrex::ExecOnFinalize(NavierStokesBase::Finalize);
+
+#ifdef AMREX_PARTICLES
+    Particles::Initialize();
+#endif
 
     initialized = true;
 }
@@ -2705,6 +2716,17 @@ NavierStokesBase::post_timestep (int crse_iteration)
     if (do_mac_proj && level < finest_level)
         mac_sync();
 
+    // set Density to fluid_rho on all regions 
+    if (do_diffused_ib) {
+        MultiFab& S_new = get_new_data(State_Type);
+        S_new.setVal(fluid_rho, Density, 1, S_new.nGrow());
+        if (level < parent->finestLevel()) {
+            auto&   fine_lev = getLevel(level+1);
+            MultiFab& S_fine = fine_lev.get_new_data(State_Type);
+            S_fine.setVal(fluid_rho, Density, 1, S_fine.nGrow());
+        }
+    }
+
     if (do_sync_proj && (level < finest_level))
         level_sync(crse_iteration);
 
@@ -2718,6 +2740,22 @@ NavierStokesBase::post_timestep (int crse_iteration)
     }
 
     if (level > 0) incrPAvg();
+
+    // Copy pvf to Tracer before writing Tracer into plt files on the finest level,
+    // or set Tracer to zero on the coarser/coarsest levels
+    if (do_diffused_ib) {
+        MultiFab& S_new = get_new_data(State_Type);
+        if (level == parent->finestLevel()) {
+            MultiFab::Copy(S_new, pvf, 0, Tracer, 1, pvf.nGrow()); // Note: the ghost cell region of pvf is zero. 
+        }
+        else {
+            S_new.setVal(0.0, Tracer, 1, S_new.nGrow());
+            // We need to average the Tracer here since we use it for refinement/de-refinement
+            auto&   fine_lev = getLevel(level+1);
+            MultiFab& S_fine = fine_lev.get_new_data(State_Type);
+            average_down(S_fine, S_new, Tracer, 1);
+        }
+    }
 
     if (level == 0 && dump_plane >= 0)
     {
@@ -2848,6 +2886,14 @@ NavierStokesBase::restart (Amr&          papa,
       computeGradP(state[Press_Type].curTime());
       computeGradP(state[Press_Type].prevTime());
     }
+
+#ifdef AMREX_PARTICLES
+    if(level == Particles::ParticleFinestLevel())
+    {
+        Particles::Restart(gravity, geom.CellSizeArray()[0],parent->levelSteps(0));
+        ParallelDescriptor::Barrier();
+    }
+#endif
 
     define_workspace();
 }

@@ -46,4 +46,7 @@ CEXE_headers += NS_LS.H
 ifeq ($(USE_PARTICLES), TRUE)
   CEXE_sources += DiffusedIB.cpp
   CEXE_headers += DiffusedIB.H
+
+  CEXE_sources += Collision.cpp
+  CEXE_headers += Collision.H
 endif
