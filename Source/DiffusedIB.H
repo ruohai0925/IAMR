@@ -70,8 +70,8 @@ struct kernel{
     RealVect Fcp{0.0,0.0,0.0};
     RealVect Tcp{0.0,0.0,0.0};
 
-    amrex::Vector<Real> phiK;
-    amrex::Vector<Real> thetaK;
+    amrex::Gpu::DeviceVector<Real> phiK;
+    amrex::Gpu::DeviceVector<Real> thetaK;
     
     IntVect TL{0, 0, 0}, RL{0, 0, 0};
 };
