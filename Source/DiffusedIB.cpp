@@ -276,9 +276,6 @@ void mParticle::InteractWithEuler(int iStep,
         VelocityCorrection(EulerVel, EulerForce, dt);
         loop--;
     }
-
-    for(auto kernel: particle_kernels) 
-        WriteIBForceAndMoment(iStep, time, kernel);
 }
 
 void mParticle::InitParticles(const Vector<Real>& x,
@@ -352,9 +349,6 @@ void mParticle::InitParticles(const Vector<Real>& x,
         mKernel.dv = dv;
         if( Ml > max_largrangian_num ) max_largrangian_num = Ml;
 
-        mKernel.phiK = (Real *)malloc(Ml * sizeof(Real));
-        mKernel.thetaK = (Real *)malloc(Ml * sizeof(Real));
-
         Real phiK = 0;
         for(int marker_index = 0; marker_index < Ml; marker_index++){
             Real Hk = -1.0 + 2.0 * (marker_index) / ( Ml - 1.0);
@@ -364,8 +358,8 @@ void mParticle::InitParticles(const Vector<Real>& x,
             }else {
                 phiK = std::fmod( phiK + 3.809 / std::sqrt(Ml) / std::sqrt( 1 - Math::powi<2>(Hk)) , 2 * Math::pi<Real>());
             }
-            mKernel.phiK[marker_index] = phiK;
-            mKernel.thetaK[marker_index] = thetaK;
+            mKernel.phiK.push_back(phiK);
+            mKernel.thetaK.push_back(thetaK);
         }
 
         particle_kernels.emplace_back(mKernel);
@@ -389,8 +383,8 @@ void mParticle::InitialWithLargrangianPoints(const kernel& current_kernel){
 
         const auto location = current_kernel.location;
         const auto radius = current_kernel.radius;
-        auto* phiK = current_kernel.phiK;
-        auto* thetaK = current_kernel.thetaK;
+        const auto* phiK = current_kernel.phiK.dataPtr();
+        const auto* thetaK = current_kernel.thetaK.dataPtr();
 
         amrex::ParallelFor( np, [=]
             AMREX_GPU_DEVICE (int i) noexcept {
@@ -652,6 +646,7 @@ void mParticle::ResetLargrangianPoints(Real dt)
 }
 
 void mParticle::UpdateParticles(int iStep,
+                                Real time,
                                 const MultiFab& Euler_old, 
                                 const MultiFab& Euler,
                                 MultiFab& phi_nodal, 
@@ -696,7 +691,7 @@ void mParticle::UpdateParticles(int iStep,
 
         while (loop > 0 && iStep > ParticleProperties::start_step) {
 
-            if(at_least_one_free_trans_motion) {
+            // if(at_least_one_free_trans_motion) {
                 kernel.sum_u_new.scale(0.0);
                 kernel.sum_u_old.scale(0.0);
                 // sum U
@@ -704,9 +699,9 @@ void mParticle::UpdateParticles(int iStep,
                 CalculateSumU_cir(kernel.sum_u_old, Euler_old, pvf_old, ParticleProperties::euler_velocity_index);
                 amrex::ParallelAllReduce::Sum(&kernel.sum_u_new[0], 3, ParallelDescriptor::Communicator());
                 amrex::ParallelAllReduce::Sum(&kernel.sum_u_old[0], 3, ParallelDescriptor::Communicator());
-            }
+            // }
 
-            if(at_least_one_free_rot_motion) {
+            // if(at_least_one_free_rot_motion) {
                 kernel.sum_t_new.scale(0.0);
                 kernel.sum_t_old.scale(0.0);
                 // sum T
@@ -714,7 +709,7 @@ void mParticle::UpdateParticles(int iStep,
                 CalculateSumT_cir(kernel.sum_t_old, Euler_old, pvf_old, kernel.location, ParticleProperties::euler_velocity_index);
                 amrex::ParallelAllReduce::Sum(&kernel.sum_t_new[0], 3, ParallelDescriptor::Communicator());
                 amrex::ParallelAllReduce::Sum(&kernel.sum_t_old[0], 3, ParallelDescriptor::Communicator());
-            }
+            // }
 
             // 6DOF
             if(ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber()){
@@ -795,6 +790,9 @@ void mParticle::UpdateParticles(int iStep,
     // calculate the pvf based on the information of all particles
     MultiFab::Copy(pvf, AllParticlePVF, 0, 0, 1, pvf.nGrow());
 
+    for(auto kernel: particle_kernels) 
+        WriteIBForceAndMoment(iStep, time, kernel);
+
     if (verbose) mContainer->WriteAsciiFile(amrex::Concatenate("particle", 4));
 }
 
@@ -804,18 +802,22 @@ void mParticle::DoParticleCollision(int model)
 
     if (verbose) amrex::Print() << "\tmParticle::DoParticleCollision\n";
     
-    for(auto kernel : particle_kernels){
-        m_Collision.InsertParticle(kernel.location, kernel.velocity, kernel.radius, kernel.rho);
-    }
-    
-    m_Collision.takeModel(model);
+    if(ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber()){
+        for(auto kernel : particle_kernels){
+            m_Collision.InsertParticle(kernel.location, kernel.velocity, kernel.radius, kernel.rho);
+        }
+        
+        m_Collision.takeModel(model);
 
-    for(auto & particle_kernel : particle_kernels){
-        particle_kernel.Fcp = m_Collision.Particles.front().preForece 
-                            * particle_kernel.Vp * particle_kernel.rho * m_gravity.vectorLength();
-        m_Collision.Particles.pop_front();
+        for(auto & particle_kernel : particle_kernels){
+            particle_kernel.Fcp = m_Collision.Particles.front().preForece 
+                                * particle_kernel.Vp * particle_kernel.rho * m_gravity.vectorLength();
+            m_Collision.Particles.pop_front();
+        }
     }
-
+    for(auto& kernel : particle_kernels){
+        ParallelDescriptor::Bcast(kernel.Fcp.dataPtr(), 3, ParallelDescriptor::IOProcessorNumber());
+    }
 }
 
 void mParticle::ComputeLagrangianForce(Real dt, 
@@ -882,7 +884,7 @@ void mParticle::WriteIBForceAndMoment(int step, amrex::Real time, kernel& curren
 
     std::string head;
     if(!fs::exists(file)){
-        head = "iStep,time,X,Y,Z,Vx,Vy,Vz,Rx,Ry,Rz,Fx,Fy,Fz,Mx,My,Mz,Fcpx,Fcpy,Fcpz,Tcpx,Tcpy,Tcpz\n";
+        head = "iStep,time,X,Y,Z,Vx,Vy,Vz,Rx,Ry,Rz,Fx,Fy,Fz,Mx,My,Mz,Fcpx,Fcpy,Fcpz,Tcpx,Tcpy,Tcpz,SumUx,SumUy,SumUz,SumTx,SumTy,SumTz\n";
     }else{
         head = "";
     }
@@ -898,7 +900,14 @@ void mParticle::WriteIBForceAndMoment(int step, amrex::Real time, kernel& curren
                      << current_kernel.ib_force[0] << "," << current_kernel.ib_force[1] << "," << current_kernel.ib_force[2] << "," 
                      << current_kernel.ib_moment[0] << "," << current_kernel.ib_moment[1] << "," << current_kernel.ib_moment[2] << ","
                      << current_kernel.Fcp[0] << "," << current_kernel.Fcp[1] << "," << current_kernel.Fcp[2] << ","
-                     << current_kernel.Tcp[0] << "," << current_kernel.Tcp[1] << "," << current_kernel.Tcp[2] << "\n";
+                     << current_kernel.Tcp[0] << "," << current_kernel.Tcp[1] << "," << current_kernel.Tcp[2] << ","
+                     << current_kernel.sum_u_new[0] - current_kernel.sum_u_old[0] << ","
+                     << current_kernel.sum_u_new[1] - current_kernel.sum_u_old[1] << ","
+                     << current_kernel.sum_u_new[2] - current_kernel.sum_u_old[2] << ","
+                     << current_kernel.sum_t_new[0] - current_kernel.sum_t_old[0] << ","
+                     << current_kernel.sum_t_new[0] - current_kernel.sum_t_old[0] << ","
+                     << current_kernel.sum_t_new[1] - current_kernel.sum_t_old[1] << ","
+                     << current_kernel.sum_t_new[2] - current_kernel.sum_t_old[2] << "\n";
     }
     out_ib_force.close();
 }

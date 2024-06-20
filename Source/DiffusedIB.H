@@ -70,9 +70,9 @@ struct kernel{
     RealVect Fcp{0.0,0.0,0.0};
     RealVect Tcp{0.0,0.0,0.0};
 
-    Real *phiK;
-    Real *thetaK;
-
+    amrex::Gpu::DeviceVector<Real> phiK;
+    amrex::Gpu::DeviceVector<Real> thetaK;
+    
     IntVect TL{0, 0, 0}, RL{0, 0, 0};
 };
 
@@ -144,7 +144,7 @@ public:
 
     void VelocityCorrection(amrex::MultiFab &Euler, amrex::MultiFab &EulerForce, Real dt) const;
 
-    void UpdateParticles(int iStep, const MultiFab& Euler_old, const MultiFab& Euler, MultiFab& phi_nodal, MultiFab& pvf, Real dt);
+    void UpdateParticles(int iStep, Real time, const MultiFab& Euler_old, const MultiFab& Euler, MultiFab& phi_nodal, MultiFab& pvf, Real dt);
 
     void DoParticleCollision(int model);
 
