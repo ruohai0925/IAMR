@@ -364,7 +364,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
 
         particle_kernels.emplace_back(mKernel);
 
-        if (verbose) amrex::Print() << "h: " << h << ", Ml: " << Ml << ", D: " << Math::powi<3>(h) << "gravity : " << gravity << "\n"
+        if (verbose) amrex::Print() << "h: " << h << ", Ml: " << Ml << ", D: " << Math::powi<3>(h) << " gravity : " << gravity << "\n"
                                     << "Kernel : " << index << ": Location (" << x[index] << ", " << y[index] << ", " << z[index] 
                                     << "), Velocity : (" << mKernel.velocity[0] << ", " << mKernel.velocity[1] << ", "<< mKernel.velocity[2] 
                                     << "), Radius: " << mKernel.radius << ", Ml: " << Ml << ", dv: " << dv << ", Rho: " << mKernel.rho << "\n";
@@ -667,25 +667,25 @@ void mParticle::UpdateParticles(int iStep,
         calculate_phi_nodal(phi_nodal, kernel);
         nodal_phi_to_pvf(pvf, phi_nodal);
 
-        // fixed particle
-        if( ( kernel.TL.sum() == 0 ) &&
-            ( kernel.RL.sum() == 0 ) ) {
-            amrex::Print() << "Particle (" << kernel.id << ") is fixed\n";
-            MultiFab::Add(AllParticlePVF, pvf, 0, 0, 1, 0); // do not copy ghost cell values
-            continue;
-        }
+        // // fixed particle
+        // if( ( kernel.TL.sum() == 0 ) &&
+        //     ( kernel.RL.sum() == 0 ) ) {
+        //     amrex::Print() << "Particle (" << kernel.id << ") is fixed\n";
+        //     MultiFab::Add(AllParticlePVF, pvf, 0, 0, 1, 0); // do not copy ghost cell values
+        //     continue;
+        // }
 
         int ncomp = pvf.nComp();
         int ngrow = pvf.nGrow();
         MultiFab pvf_old(pvf.boxArray(), pvf.DistributionMap(), ncomp, ngrow);
         MultiFab::Copy(pvf_old, pvf, 0, 0, ncomp, ngrow);
 
-        bool at_least_one_free_trans_motion = ( kernel.TL[0] == 2 ) || 
-                                              ( kernel.TL[1] == 2 ) ||
-                                              ( kernel.TL[2] == 2 );
-        bool at_least_one_free_rot_motion   = ( kernel.RL[0] == 2 ) || 
-                                              ( kernel.RL[1] == 2 ) ||
-                                              ( kernel.RL[2] == 2 );
+        // bool at_least_one_free_trans_motion = ( kernel.TL[0] == 2 ) || 
+        //                                       ( kernel.TL[1] == 2 ) ||
+        //                                       ( kernel.TL[2] == 2 );
+        // bool at_least_one_free_rot_motion   = ( kernel.RL[0] == 2 ) || 
+        //                                       ( kernel.RL[1] == 2 ) ||
+        //                                       ( kernel.RL[2] == 2 );
 
         int loop = ParticleProperties::loop_solid;
 
@@ -790,8 +790,11 @@ void mParticle::UpdateParticles(int iStep,
     // calculate the pvf based on the information of all particles
     MultiFab::Copy(pvf, AllParticlePVF, 0, 0, 1, pvf.nGrow());
 
-    for(auto kernel: particle_kernels) 
-        WriteIBForceAndMoment(iStep, time, kernel);
+    int particle_write_freq = 50;
+    if (iStep % particle_write_freq == 0) {
+        for(auto kernel: particle_kernels) 
+            WriteIBForceAndMoment(iStep, time, dt, kernel);
+    }
 
     if (verbose) mContainer->WriteAsciiFile(amrex::Concatenate("particle", 4));
 }
@@ -874,7 +877,7 @@ void mParticle::WriteParticleFile(int index)
     mContainer->WriteAsciiFile(amrex::Concatenate("particle", index));
 }
 
-void mParticle::WriteIBForceAndMoment(int step, amrex::Real time, kernel& current_kernel)
+void mParticle::WriteIBForceAndMoment(int step, amrex::Real time, amrex::Real dt, kernel& current_kernel)
 {
     
     if(amrex::ParallelDescriptor::MyProc() != ParallelDescriptor::IOProcessorNumber()) return; 
@@ -901,13 +904,12 @@ void mParticle::WriteIBForceAndMoment(int step, amrex::Real time, kernel& curren
                      << current_kernel.ib_moment[0] << "," << current_kernel.ib_moment[1] << "," << current_kernel.ib_moment[2] << ","
                      << current_kernel.Fcp[0] << "," << current_kernel.Fcp[1] << "," << current_kernel.Fcp[2] << ","
                      << current_kernel.Tcp[0] << "," << current_kernel.Tcp[1] << "," << current_kernel.Tcp[2] << ","
-                     << current_kernel.sum_u_new[0] - current_kernel.sum_u_old[0] << ","
-                     << current_kernel.sum_u_new[1] - current_kernel.sum_u_old[1] << ","
-                     << current_kernel.sum_u_new[2] - current_kernel.sum_u_old[2] << ","
-                     << current_kernel.sum_t_new[0] - current_kernel.sum_t_old[0] << ","
-                     << current_kernel.sum_t_new[0] - current_kernel.sum_t_old[0] << ","
-                     << current_kernel.sum_t_new[1] - current_kernel.sum_t_old[1] << ","
-                     << current_kernel.sum_t_new[2] - current_kernel.sum_t_old[2] << "\n";
+                     << (current_kernel.sum_u_new[0] - current_kernel.sum_u_old[0])/dt << ","
+                     << (current_kernel.sum_u_new[1] - current_kernel.sum_u_old[1])/dt << ","
+                     << (current_kernel.sum_u_new[2] - current_kernel.sum_u_old[2])/dt << ","
+                     << (current_kernel.sum_t_new[0] - current_kernel.sum_t_old[0])/dt << ","
+                     << (current_kernel.sum_t_new[1] - current_kernel.sum_t_old[1])/dt << ","
+                     << (current_kernel.sum_t_new[2] - current_kernel.sum_t_old[2])/dt << "\n";
     }
     out_ib_force.close();
 }

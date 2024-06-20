@@ -148,7 +148,7 @@ public:
 
     void DoParticleCollision(int model);
 
-    static void WriteIBForceAndMoment(int step, amrex::Real time, kernel& current_kernel);
+    static void WriteIBForceAndMoment(int step, amrex::Real time, amrex::Real dt, kernel& current_kernel);
 
     void RecordOldValue(kernel& kernel);
 
