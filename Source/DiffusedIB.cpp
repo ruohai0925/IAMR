@@ -552,7 +552,6 @@ void mParticle::ForceSpreading(MultiFab & EulerForce,
     auto dxi = gm.CellSizeArray();
     int i = 0;
     for(mParIter pti(*mContainer, LOCAL_LEVEL); pti.isValid(); ++pti){
-        amrex::Print() << i++ << "particle pti loop\n";
         const Long np = pti.numParticles();
         const auto& particles = pti.GetArrayOfStructs();
         auto Uarray = EulerForce[pti].array();
@@ -580,7 +579,7 @@ void mParticle::ForceSpreading(MultiFab & EulerForce,
     //barrier for sync;
     amrex::ParallelDescriptor::Barrier();
 
-    using pc = mParticleContainer::ParticleType;
+    using pc = mParticleContainer::SuperParticleType;
     // Each Processor
     auto fx = amrex::ReduceSum( *mContainer, [=]AMREX_GPU_HOST_DEVICE(const pc& p)->ParticleReal{return p.rdata(P_ATTR::Fx_Marker);});
     auto fy = amrex::ReduceSum( *mContainer, [=]AMREX_GPU_HOST_DEVICE(const pc& p)->ParticleReal{return p.rdata(P_ATTR::Fy_Marker);});
@@ -718,6 +717,8 @@ void mParticle::UpdateParticles(int iStep,
                 // sum U
                 CalculateSumU_cir(kernel.sum_u_new, Euler, pvf, ParticleProperties::euler_velocity_index);
                 CalculateSumU_cir(kernel.sum_u_old, Euler_old, pvf_old, ParticleProperties::euler_velocity_index);
+                amrex::ParallelAllReduce::Sum(kernel.sum_u_new.dataPtr(), 3, amrex::ParallelDescriptor::Communicator());
+                amrex::ParallelAllReduce::Sum(kernel.sum_u_old.dataPtr(), 3, amrex::ParallelDescriptor::Communicator());
             // }
 
             // if(at_least_one_free_rot_motion) {
@@ -726,6 +727,8 @@ void mParticle::UpdateParticles(int iStep,
                 // sum T
                 CalculateSumT_cir(kernel.sum_t_new, Euler, pvf, kernel.location, ParticleProperties::euler_velocity_index);
                 CalculateSumT_cir(kernel.sum_t_old, Euler_old, pvf_old, kernel.location, ParticleProperties::euler_velocity_index);
+                amrex::ParallelAllReduce::Sum(kernel.sum_t_new.dataPtr(), 3, amrex::ParallelDescriptor::Communicator());
+                amrex::ParallelAllReduce::Sum(kernel.sum_t_old.dataPtr(), 3, amrex::ParallelDescriptor::Communicator());
             // }
 
             // 6DOF
@@ -807,7 +810,7 @@ void mParticle::UpdateParticles(int iStep,
     // calculate the pvf based on the information of all particles
     MultiFab::Copy(pvf, AllParticlePVF, 0, 0, 1, pvf.nGrow());
 
-    int particle_write_freq = 50;
+    int particle_write_freq = 1;
     if (iStep % particle_write_freq == 0) {
         for(auto kernel: particle_kernels) 
             WriteIBForceAndMoment(iStep, time, dt, kernel);
