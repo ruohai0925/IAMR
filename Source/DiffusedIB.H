@@ -35,6 +35,9 @@ enum P_ATTR{
     Fx_Marker,
     Fy_Marker,
     Fz_Marker,
+    Mx_Marker,
+    My_Marker,
+    Mz_Marker,
     numAttri
 };
 
