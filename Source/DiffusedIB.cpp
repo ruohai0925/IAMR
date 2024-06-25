@@ -46,6 +46,8 @@ namespace ParticleProperties{
     int start_step{-1};
     int collision_model{0};
 
+    int write_freq{1};
+
     GpuArray<Real, 3> plo{0.0,0.0,0.0}, phi{0.0,0.0,0.0}, dx{0.0, 0.0, 0.0};
 }
 
@@ -108,19 +110,18 @@ void calculate_phi_nodal(MultiFab& phi_nodal, kernel& current_kernel)
     {
         const Box& bx = mfi.tilebox();
         auto const& pnfab = phi_nodal.array(mfi);
-        const auto *pnfab_ptr = &pnfab;
-        auto *dx = &ParticleProperties::dx;
-        auto *plo = &ParticleProperties::plo;
+        auto dx = ParticleProperties::dx;
+        auto plo = ParticleProperties::plo;
         amrex::ParallelFor(bx, [=]
             AMREX_GPU_DEVICE(int i, int j, int k) noexcept
             {
-                Real Xn = i * (*dx)[0] + (*plo)[0];
-                Real Yn = j * (*dx)[1] + (*plo)[1];
-                Real Zn = k * (*dx)[2] + (*plo)[2];
+                Real Xn = i * dx[0] + plo[0];
+                Real Yn = j * dx[1] + plo[1];
+                Real Zn = k * dx[2] + plo[2];
 
-                (*pnfab_ptr)(i,j,k) = std::sqrt( (Xn - Xp)*(Xn - Xp)
+                pnfab(i,j,k) = std::sqrt( (Xn - Xp)*(Xn - Xp)
                         + (Yn - Yp)*(Yn - Yp)  + (Zn - Zp)*(Zn - Zp)) - Rp;
-                (*pnfab_ptr)(i,j,k) = (*pnfab_ptr)(i,j,k) / Rp;
+                pnfab(i,j,k) = pnfab(i,j,k) / Rp;
 
             }
         );
@@ -810,7 +811,7 @@ void mParticle::UpdateParticles(int iStep,
     // calculate the pvf based on the information of all particles
     MultiFab::Copy(pvf, AllParticlePVF, 0, 0, 1, pvf.nGrow());
 
-    int particle_write_freq = 1;
+    int particle_write_freq = ParticleProperties::write_freq;
     if (iStep % particle_write_freq == 0) {
         for(auto kernel: particle_kernels) 
             WriteIBForceAndMoment(iStep, time, dt, kernel);
@@ -1159,6 +1160,7 @@ void Particles::Initialize()
         p_file.query("start_step",  ParticleProperties::start_step);
         p_file.query("Uhlmann",     ParticleProperties::Uhlmann);
         p_file.query("collision_model", ParticleProperties::collision_model);
+        p_file.query("write_freq",  ParticleProperties::write_freq);
         
         ParmParse ns("ns");
         ns.get("fluid_rho",      ParticleProperties::euler_fluid_rho);
