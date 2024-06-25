@@ -131,13 +131,13 @@ public:
                        Real gravity,
                        int verbose = 0);
 
-    void InteractWithEuler(int iStep, amrex::Real time, MultiFab &EulerVel, MultiFab &EulerForce, Real dt = 0.1, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
+    void InteractWithEuler(MultiFab &EulerVel, MultiFab &EulerForce, Real dt = 0.1, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
 
     void WriteParticleFile(int index);
 
     void InitialWithLargrangianPoints(const kernel& current_kernel);
 
-    void ResetLargrangianPoints(Real dt);
+    void ResetLargrangianPoints();
 
     void VelocityInterpolation(amrex::MultiFab &Euler, DELTA_FUNCTION_TYPE type);
 

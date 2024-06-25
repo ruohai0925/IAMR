@@ -229,9 +229,7 @@ void deltaFunction(Real xf, Real xp, Real h, Real& value, DELTA_FUNCTION_TYPE ty
 /*                    mParticle member function                  */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 //loop all particels
-void mParticle::InteractWithEuler(int iStep, 
-                                  amrex::Real time, 
-                                  MultiFab &EulerVel, 
+void mParticle::InteractWithEuler(MultiFab &EulerVel, 
                                   MultiFab &EulerForce, 
                                   Real dt,
                                   DELTA_FUNCTION_TYPE type)
@@ -255,7 +253,7 @@ void mParticle::InteractWithEuler(int iStep,
 
         for(kernel& kernel : particle_kernels){
             InitialWithLargrangianPoints(kernel); // Initialize markers for a specific particle
-            ResetLargrangianPoints(dt);
+            ResetLargrangianPoints();
             EulerForceTmp.setVal(0.0);
             auto ib_force = kernel.ib_force;
             auto ib_moment = kernel.ib_moment;
@@ -551,7 +549,6 @@ void mParticle::ForceSpreading(MultiFab & EulerForce,
     const auto& gm = mContainer->GetParGDB()->Geom(LOCAL_LEVEL);
     auto plo = gm.ProbLoArray();
     auto dxi = gm.CellSizeArray();
-    int i = 0;
     for(mParIter pti(*mContainer, LOCAL_LEVEL); pti.isValid(); ++pti){
         const Long np = pti.numParticles();
         const auto& particles = pti.GetArrayOfStructs();
@@ -601,40 +598,40 @@ void mParticle::ForceSpreading(MultiFab & EulerForce,
 
     EulerForce.SumBoundary(ParticleProperties::euler_force_index, 3, gm.periodicity());
 
-    if (false) {
-        // Check the Multifab
-        // Open a file stream for output
-        std::ofstream outFile("EulerForce.txt");
+    // if (false) {
+    //     // Check the Multifab
+    //     // Open a file stream for output
+    //     std::ofstream outFile("EulerForce.txt");
 
-        // Check the Multifab
-        // for (MFIter mfi(EulerForce, TilingIfNotGPU()); mfi.isValid(); ++mfi)
-        for (MFIter mfi(EulerForce, TilingIfNotGPU()); mfi.isValid(); ++mfi)
-        {
-            const Box& bx = mfi.validbox();
-            outFile << "Box: " << bx << "\n"
-                    << "From: (" << bx.smallEnd(0) << ", " << bx.smallEnd(1) << ", " << bx.smallEnd(2) << ") "
-                    << "To: (" << bx.bigEnd(0) << ", " << bx.bigEnd(1) << ", " << bx.bigEnd(2) << ")\n";
+    //     // Check the Multifab
+    //     // for (MFIter mfi(EulerForce, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    //     for (MFIter mfi(EulerForce, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    //     {
+    //         const Box& bx = mfi.validbox();
+    //         outFile << "Box: " << bx << "\n"
+    //                 << "From: (" << bx.smallEnd(0) << ", " << bx.smallEnd(1) << ", " << bx.smallEnd(2) << ") "
+    //                 << "To: (" << bx.bigEnd(0) << ", " << bx.bigEnd(1) << ", " << bx.bigEnd(2) << ")\n";
 
-            Array4<Real> const& a = EulerForce[mfi].array();
+    //         Array4<Real> const& a = EulerForce[mfi].array();
 
-            // CPU context or illustrative purposes only
-            for (int k = bx.smallEnd(2); k <= bx.bigEnd(2); ++k) {
-                for (int j = bx.smallEnd(1); j <= bx.bigEnd(1); ++j) {
-                    for (int i = bx.smallEnd(0); i <= bx.bigEnd(0); ++i) {
-                        // This print statement is for demonstration and should not be used in actual GPU code.
-                        outFile << "Processing i: " << i << ", j: " << j << ", k: " << k << " " << a(i,j,k,0) << " " << a(i,j,k,1) << " " << a(i,j,k,2) << "\n";
-                    }
-                }
-            }
-        }
+    //         // CPU context or illustrative purposes only
+    //         for (int k = bx.smallEnd(2); k <= bx.bigEnd(2); ++k) {
+    //             for (int j = bx.smallEnd(1); j <= bx.bigEnd(1); ++j) {
+    //                 for (int i = bx.smallEnd(0); i <= bx.bigEnd(0); ++i) {
+    //                     // This print statement is for demonstration and should not be used in actual GPU code.
+    //                     outFile << "Processing i: " << i << ", j: " << j << ", k: " << k << " " << a(i,j,k,0) << " " << a(i,j,k,1) << " " << a(i,j,k,2) << "\n";
+    //                 }
+    //             }
+    //         }
+    //     }
 
-        // Close the file when done
-        outFile.close();
-    }
+    //     // Close the file when done
+    //     outFile.close();
+    // }
 
 }
 
-void mParticle::ResetLargrangianPoints(Real dt)
+void mParticle::ResetLargrangianPoints()
 {
     if (verbose) amrex::Print() << "\tmParticle::ResetLargrangianPoints\n";
 
@@ -955,7 +952,7 @@ void Particles::create_particles(const Geometry &gm,
     //insert markers
     if ( ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber() ) {
         //insert particle's markers
-        Real phiK = 0;
+        //Real phiK = 0;
         for(int marker_index = 0; marker_index < particle->particle_kernels[0].ml; marker_index++){
             //insert code
             mParticleContainer::ParticleType markerP;
