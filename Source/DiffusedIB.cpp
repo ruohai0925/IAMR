@@ -1064,29 +1064,13 @@ void Particles::Restart(Real gravity, Real h, int iStep)
             int line{0};
             while(std::getline(particle_data, lineData)){
                 line++;
+                particle_file << lineData << "\n";
                 if(line <= iStep) {
-                    particle_file << lineData << "\n";
                     continue;
                 }
                 //old location
                 //iStep,time,X,Y,Z,Vx,Vy,Vz,Rx,Ry,Rz,Fx,Fy,Fz,Mx,My,Mz,Fcpx,Fcpy,Fcpz,Tcpx,Tcpy,Tcpz
-                if(line == iStep + 1) {
-                    std::stringstream ss(lineData);
-                    std::string data;
-                    std::vector<amrex::Real> dataStruct;
-                    while(std::getline(ss, data, ',')){
-                        dataStruct.emplace_back(std::stod(data));
-                    }
-                    kernel.location_old[0] = dataStruct[2];
-                    kernel.location_old[1] = dataStruct[3];
-                    kernel.location_old[2] = dataStruct[4];
-                    kernel.velocity_old[0] = dataStruct[5];
-                    kernel.velocity_old[1] = dataStruct[6];
-                    kernel.velocity_old[2] = dataStruct[7];
-                    kernel.omega_old[0] = dataStruct[8];
-                    kernel.omega_old[1] = dataStruct[9];
-                    kernel.omega_old[2] = dataStruct[10];
-                }else if(line == iStep + 2){
+                if(line == iStep + 1){
                     std::stringstream ss(lineData);
                     std::string data;
                     std::vector<amrex::Real> dataStruct;
@@ -1102,6 +1086,10 @@ void Particles::Restart(Real gravity, Real h, int iStep)
                     kernel.omega[0] = dataStruct[8];
                     kernel.omega[1] = dataStruct[9];
                     kernel.omega[2] = dataStruct[10];
+
+                    kernel.location_old = kernel.location;
+                    kernel.velocity_old = kernel.velocity;
+                    kernel.omega_old    = kernel.omega;
                     break;
                 }
                 else
@@ -1113,10 +1101,11 @@ void Particles::Restart(Real gravity, Real h, int iStep)
             std::rename(tmpfile.c_str(), fileName.c_str());
         }
         ParallelDescriptor::Bcast(&kernel.location[0], 3, ParallelDescriptor::IOProcessorNumber());
-        ParallelDescriptor::Bcast(&kernel.location_old[0], 3,ParallelDescriptor::IOProcessorNumber());
         ParallelDescriptor::Bcast(&kernel.velocity[0], 3,ParallelDescriptor::IOProcessorNumber());
-        ParallelDescriptor::Bcast(&kernel.velocity_old[0], 3,ParallelDescriptor::IOProcessorNumber());
         ParallelDescriptor::Bcast(&kernel.omega[0], 3,ParallelDescriptor::IOProcessorNumber());
+
+        ParallelDescriptor::Bcast(&kernel.location_old[0], 3, ParallelDescriptor::IOProcessorNumber());
+        ParallelDescriptor::Bcast(&kernel.velocity_old[0], 3,ParallelDescriptor::IOProcessorNumber());
         ParallelDescriptor::Bcast(&kernel.omega_old[0], 3,ParallelDescriptor::IOProcessorNumber());
     }
 
