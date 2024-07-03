@@ -35,6 +35,9 @@ enum P_ATTR{
     Fx_Marker,
     Fy_Marker,
     Fz_Marker,
+    Mx_Marker,
+    My_Marker,
+    Mz_Marker,
     numAttri
 };
 
@@ -70,9 +73,9 @@ struct kernel{
     RealVect Fcp{0.0,0.0,0.0};
     RealVect Tcp{0.0,0.0,0.0};
 
-    Real *phiK;
-    Real *thetaK;
-
+    amrex::Gpu::DeviceVector<Real> phiK;
+    amrex::Gpu::DeviceVector<Real> thetaK;
+    
     IntVect TL{0, 0, 0}, RL{0, 0, 0};
 };
 
@@ -128,13 +131,13 @@ public:
                        Real gravity,
                        int verbose = 0);
 
-    void InteractWithEuler(int iStep, amrex::Real time, MultiFab &EulerVel, MultiFab &EulerForce, Real dt = 0.1, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
+    void InteractWithEuler(MultiFab &EulerVel, MultiFab &EulerForce, Real dt = 0.1, DELTA_FUNCTION_TYPE type = FOUR_POINT_IB);
 
     void WriteParticleFile(int index);
 
     void InitialWithLargrangianPoints(const kernel& current_kernel);
 
-    void ResetLargrangianPoints(Real dt);
+    void ResetLargrangianPoints();
 
     void VelocityInterpolation(amrex::MultiFab &Euler, DELTA_FUNCTION_TYPE type);
 
@@ -144,11 +147,11 @@ public:
 
     void VelocityCorrection(amrex::MultiFab &Euler, amrex::MultiFab &EulerForce, Real dt) const;
 
-    void UpdateParticles(int iStep, const MultiFab& Euler_old, const MultiFab& Euler, MultiFab& phi_nodal, MultiFab& pvf, Real dt);
+    void UpdateParticles(int iStep, Real time, const MultiFab& Euler_old, const MultiFab& Euler, MultiFab& phi_nodal, MultiFab& pvf, Real dt);
 
     void DoParticleCollision(int model);
 
-    static void WriteIBForceAndMoment(int step, amrex::Real time, kernel& current_kernel);
+    static void WriteIBForceAndMoment(int step, amrex::Real time, amrex::Real dt, kernel& current_kernel);
 
     void RecordOldValue(kernel& kernel);
 
