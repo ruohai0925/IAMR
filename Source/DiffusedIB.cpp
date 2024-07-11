@@ -47,6 +47,7 @@ namespace ParticleProperties{
     int collision_model{0};
 
     int write_freq{1};
+    bool init_particle{false};
 
     GpuArray<Real, 3> plo{0.0,0.0,0.0}, phi{0.0,0.0,0.0}, dx{0.0, 0.0, 0.0};
 }
@@ -58,7 +59,7 @@ namespace ParticleProperties{
 void nodal_phi_to_pvf(MultiFab& pvf, const MultiFab& phi_nodal)
 {
 
-    amrex::Print() << "In the nodal_phi_to_pvf\n";
+    // amrex::Print() << "In the nodal_phi_to_pvf\n";
 
     pvf.setVal(0.0);
 
@@ -235,7 +236,10 @@ void mParticle::InteractWithEuler(MultiFab &EulerVel,
                                   DELTA_FUNCTION_TYPE type)
 {
     if (verbose) amrex::Print() << "[Particle] mParticle::InteractWithEuler\n";
-    
+    // clear time , start record
+    spend_time = 0;
+    auto InteractWithEulerStart = ParallelDescriptor::second();
+
     MultiFab EulerForceTmp(EulerForce.boxArray(), EulerForce.DistributionMap(), 3, EulerForce.nGrow());
     //clean preStep's IB_porperties 
     for(auto& kernel : particle_kernels) {
@@ -271,6 +275,7 @@ void mParticle::InteractWithEuler(MultiFab &EulerVel,
         VelocityCorrection(EulerVel, EulerForce, dt);
         loop--;
     }
+    spend_time += ParallelDescriptor::second() - InteractWithEulerStart;
 }
 
 void mParticle::InitParticles(const Vector<Real>& x,
@@ -307,32 +312,40 @@ void mParticle::InitParticles(const Vector<Real>& x,
 
     //all the particles have different radius
     for(int index = 0; index < x.size(); index++){
+        int real_index;
+        // if initial with input file, initialized by [0] data
+        if(ParticleProperties::init_particle){
+            real_index = 0;
+        }else{
+            real_index = index;
+        }
+
         kernel mKernel;
         mKernel.id = index + 1;
         mKernel.location[0] = x[index];
         mKernel.location[1] = y[index];
         mKernel.location[2] = z[index];
-        mKernel.velocity[0] = Vx[index];
-        mKernel.velocity[1] = Vy[index];
-        mKernel.velocity[2] = Vz[index];
-        mKernel.omega[0] = Ox[index];
-        mKernel.omega[1] = Oy[index];
-        mKernel.omega[2] = Oz[index];
+        mKernel.velocity[0] = Vx[real_index];
+        mKernel.velocity[1] = Vy[real_index];
+        mKernel.velocity[2] = Vz[real_index];
+        mKernel.omega[0] = Ox[real_index];
+        mKernel.omega[1] = Oy[real_index];
+        mKernel.omega[2] = Oz[real_index];
 
         // use current state to initialize old state
         mKernel.location_old = mKernel.location;
         mKernel.velocity_old = mKernel.velocity;
         mKernel.omega_old = mKernel.omega;
 
-        mKernel.TL[0] = TLXt[index];
-        mKernel.TL[1] = TLYt[index];
-        mKernel.TL[2] = TLZt[index];
-        mKernel.RL[0] = RLXt[index];
-        mKernel.RL[1] = RLYt[index];
-        mKernel.RL[2] = RLZt[index];
-        mKernel.rho = rho_s[index];
-        mKernel.radius = radius[index];
-        mKernel.Vp = Math::pi<Real>() * 4 / 3 * Math::powi<3>(radius[index]);
+        mKernel.TL[0] = TLXt[real_index];
+        mKernel.TL[1] = TLYt[real_index];
+        mKernel.TL[2] = TLZt[real_index];
+        mKernel.RL[0] = RLXt[real_index];
+        mKernel.RL[1] = RLYt[real_index];
+        mKernel.RL[2] = RLZt[real_index];
+        mKernel.rho = rho_s[real_index];
+        mKernel.radius = radius[real_index];
+        mKernel.Vp = Math::pi<Real>() * 4 / 3 * Math::powi<3>(radius[real_index]);
 
         //int Ml = static_cast<int>( Math::pi<Real>() / 3 * (12 * Math::powi<2>(mKernel.radius / h)));
         //Real dv = Math::pi<Real>() * h / 3 / Ml * (12 * mKernel.radius * mKernel.radius + h * h);
@@ -392,8 +405,10 @@ void mParticle::InitialWithLargrangianPoints(const kernel& current_kernel){
     }
     // Redistribute the markers after updating their locations
     mContainer->Redistribute();
-    amrex::Print() << "[particle] : particle num :" << mContainer->TotalNumberOfParticles() << "\n";
-    if (verbose) mContainer->WriteAsciiFile(amrex::Concatenate("particle", 1));
+    if (verbose) {
+        amrex::Print() << "[particle] : particle num :" << mContainer->TotalNumberOfParticles() << "\n";
+        mContainer->WriteAsciiFile(amrex::Concatenate("particle", 1));
+    }
 }
 
 template <typename P = Particle<numAttri>>
@@ -672,7 +687,9 @@ void mParticle::UpdateParticles(int iStep,
                                 Real dt)
 {
     if (verbose) amrex::Print() << "mParticle::UpdateParticles\n";
-    
+    // start record
+    auto UpdateParticlesStart = ParallelDescriptor::second();
+
     //Particle Collision calculation
     DoParticleCollision(ParticleProperties::collision_model);
     
@@ -807,6 +824,10 @@ void mParticle::UpdateParticles(int iStep,
     }
     // calculate the pvf based on the information of all particles
     MultiFab::Copy(pvf, AllParticlePVF, 0, 0, 1, pvf.nGrow());
+
+    spend_time += ParallelDescriptor::second() - UpdateParticlesStart;
+    ParallelDescriptor::ReduceRealMax(spend_time);
+    amrex::Print() << "[DIBM] IB and update particle, time : " << spend_time << "\n";
 
     int particle_write_freq = ParticleProperties::write_freq;
     if (iStep % particle_write_freq == 0) {
@@ -1117,11 +1138,12 @@ void Particles::Initialize()
     ParmParse pp("particle");
 
     std::string particle_inputfile;
-
+    std::string particle_init_file;
     pp.get("input",particle_inputfile);
     
     if(!particle_inputfile.empty()){
         ParmParse p_file(particle_inputfile);
+        p_file.query("init", particle_init_file);
         p_file.getarr("x",          ParticleProperties::_x);
         p_file.getarr("y",          ParticleProperties::_y);
         p_file.getarr("z",          ParticleProperties::_z);
@@ -1159,6 +1181,36 @@ void Particles::Initialize()
         geometry_parse.getarr("prob_hi", ParticleProperties::GHI);
         amrex::Print() << "[Particle] : Reading partilces cfg file : " << particle_inputfile << "\n"
                        << "             Particle's level : " << ParticleProperties::euler_finest_level << "\n";
+
+        if(!particle_init_file.empty()){
+            ParticleProperties::init_particle = true;
+            //clear particle position container
+            ParticleProperties::_x.clear();
+            ParticleProperties::_y.clear();
+            ParticleProperties::_z.clear();
+            // parse particle's location data
+            std::ifstream init_particle(particle_init_file);
+            std::string line_data;
+            while(std::getline(init_particle, line_data)){
+                // id x_location y_location z_location
+                std::istringstream line(line_data);
+                std::vector<std::string> str_tokne;
+                std::string token;
+                while(line >> token){
+                    str_tokne.push_back(token);
+                }
+
+                ParticleProperties::_x.push_back(std::stod(str_tokne[0]));
+                ParticleProperties::_y.push_back(std::stod(str_tokne[1]));
+                ParticleProperties::_z.push_back(std::stod(str_tokne[2]));
+            }
+            ParticleProperties::_x.shrink_to_fit();
+            ParticleProperties::_y.shrink_to_fit();
+            ParticleProperties::_z.shrink_to_fit();
+            amrex::Print() << "             intial Particle by file : " << particle_init_file
+                           << "             particle's size : " << ParticleProperties::_x.size() << "\n";
+        }
+
     }else {
         amrex::Abort("[Particle] : can't read particles settings, pls check your config file \"particle.input\"");
     }
