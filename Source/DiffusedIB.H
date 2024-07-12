@@ -168,6 +168,8 @@ public:
     RealVect m_gravity{0.0,0.0,0.0};
 
     int verbose = 0;
+
+    Real spend_time;
 };
 
 class Particles{
