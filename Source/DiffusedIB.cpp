@@ -47,7 +47,7 @@ namespace ParticleProperties{
     int collision_model{0};
 
     int write_freq{1};
-    bool init_particle{false};
+    bool init_particle_from_file{false};
 
     GpuArray<Real, 3> plo{0.0,0.0,0.0}, phi{0.0,0.0,0.0}, dx{0.0, 0.0, 0.0};
 }
@@ -314,7 +314,7 @@ void mParticle::InitParticles(const Vector<Real>& x,
     for(int index = 0; index < x.size(); index++){
         int real_index;
         // if initial with input file, initialized by [0] data
-        if(ParticleProperties::init_particle){
+        if(ParticleProperties::init_particle_from_file){
             real_index = 0;
         }else{
             real_index = index;
@@ -827,7 +827,7 @@ void mParticle::UpdateParticles(int iStep,
 
     spend_time += ParallelDescriptor::second() - UpdateParticlesStart;
     ParallelDescriptor::ReduceRealMax(spend_time);
-    amrex::Print() << "[DIBM] IB and update particle, time : " << spend_time << "\n";
+    amrex::Print() << "[DIBM] IB and update particle, step : "<< iStep <<", time : " << spend_time << "\n";
 
     int particle_write_freq = ParticleProperties::write_freq;
     if (iStep % particle_write_freq == 0) {
@@ -1183,7 +1183,7 @@ void Particles::Initialize()
                        << "             Particle's level : " << ParticleProperties::euler_finest_level << "\n";
 
         if(!particle_init_file.empty()){
-            ParticleProperties::init_particle = true;
+            ParticleProperties::init_particle_from_file = true;
             //clear particle position container
             ParticleProperties::_x.clear();
             ParticleProperties::_y.clear();

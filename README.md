@@ -50,7 +50,6 @@ time model (ACTM). This code aims at simulating the multiphase flow and fluid st
     </div>
 </div>
 
-- [Breaking Wave](./Tutorials/BreakingWave_LS/)
 
 ## Install
 
@@ -108,6 +107,33 @@ mpirun -np how_many_threads amr3d.GNU.MPI.ex inputs.3d.flow_past_spher
 ```
 
 this code typically generates subfolders in the current folder that are named `plt00000`, `plt00010`, etc, and `chk00000`, `chk00010`, etc. These are called plotfiles and checkpoint files. The plotfiles are used for visualization of derived fields; the checkpoint files are used for restarting the code. 
+
+
+
+## Tools
+
+In the `Tools` folder, there are some post-processing script for DIBM. The `postProcess` submodule is used to process the generated particle data file. The specific usage can be seen in the `README`. 
+
+In addition, a Fortran code for generating a particle bed is provided, You can customize the domain size and particle size you want. 
+
+```fortran
+! Line 10 - 15
+! domain scheme
+LX_DOMAIN=3.0D0*Pi
+LY_DOMAIN=6.0D0*Pi
+LZ_DOMAIN=3.0D0*Pi
+! D
+SPD=1.D0
+```
+
+Compile the code and run it, and a file named `SPC.DAT` will be generated, in which each line represents the position of a particle.
+
+```shell
+gfortran -o fixBed DomainFill.F90
+./fixBed
+```
+
+
 
 ​    
 
