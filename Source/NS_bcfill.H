@@ -9,9 +9,9 @@
 using namespace amrex;
 
 //
-// Fill external Dirichlet boundary for State varibles.
+// Fill external Dirichlet boundary for State variables.
 // This simple version only makes use constant BC values set in the inputs file.
-// Create a stuct, then use it to build a function that then gets passed to
+// Create a struct, then use it to build a function that then gets passed to
 // the StateDescriptor in NavierStokes::variableSetUp() in NS_setup.cpp
 //
 struct stateFill
@@ -26,7 +26,7 @@ struct stateFill
     // iv                  : Cell index
     // dest, dcomp, numcomp: Fill numcomp components of dest starting from dcomp.
     // bcr, bcomp          : bcr[bcomp] specifies BC for component dcomp and so on.
-    // orig_comp           : component index for dcomp as in the desciptor set up in NS_setup.cpp
+    // orig_comp           : component index for dcomp as in the descriptor set up in NS_setup.cpp
     AMREX_GPU_DEVICE
     void operator() (const amrex::IntVect& iv, amrex::Array4<amrex::Real> const& dest,
                      const int dcomp, const int numcomp,
@@ -114,7 +114,7 @@ struct velFill
     // iv                  : Cell index
     // dest, dcomp, numcomp: Fill numcomp components of dest starting from dcomp.
     // bcr, bcomp          : bcr[bcomp] specifies BC for component dcomp and so on.
-    // orig_comp           : component index for dcomp as in the desciptor set up in NS_setup.cpp
+    // orig_comp           : component index for dcomp as in the descriptor set up in NS_setup.cpp
     
     // For X vel, dcomp = 0; numcomp = 1; bcomp = 0; orig_comp = 0;
     // For Y vel, dcomp = 1; numcomp = 1; bcomp = 0; orig_comp = 1;
