@@ -845,7 +845,7 @@ void mParticle::DoParticleCollision(int model)
     if (verbose) amrex::Print() << "\tmParticle::DoParticleCollision\n";
     
     if(ParallelDescriptor::MyProc() == ParallelDescriptor::IOProcessorNumber()){
-        for(auto kernel : particle_kernels){
+        for(const auto& kernel : particle_kernels){
             m_Collision.InsertParticle(kernel.location, kernel.velocity, kernel.radius, kernel.rho);
         }
         
