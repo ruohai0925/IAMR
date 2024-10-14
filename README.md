@@ -20,15 +20,15 @@
 
 ## Overview
 
-This repo builds upon [IAMR](https://amrex-fluids.github.io/IAMR/) code that solves the multiphase incompressible flows. The Navier-Stokes euqations are solved on a semi-staggered grid using the projection method. The gas-liquid interface is captured using either the level set (LS) method or the conservative level set (CLS) method. The fluid-solid interface is resolved using the diffused immersed boundary method (DIBM). The particle-wall as well as the particle-particle collisions are also captured by the adaptive collision time model (ACTM). This code aims at simulating the multiphase flow and fluid structure interaction (FSI) problems on both CPUs and GPUs with/without subcycling.
+This IAMReX repo builds upon [IAMR](https://amrex-fluids.github.io/IAMR/) code that solves the equations of multiphase incompressible flows. The Navier-Stokes euqations are solved on a semi-staggered grid using the projection method. The gas-liquid interface is captured using either the level set (LS) method or the conservative level set (CLS) method. The fluid-solid interface is resolved using the multidirect forcing immersed boundary method (IBM). The particle-wall as well as the particle-particle collisions are also captured by the adaptive collision time model (ACTM). This code aims at simulating the multiphase flow and fluid structure interaction (FSI) problems on both CPUs and GPUs with/without subcycling.
 
 
 
 ## Features
 
 - LS method and reinitialization schemes
-- Diffused Immersed Boundary Method
-- Particle Collision Algorithms
+- Multidirect forcing Immersed Boundary Method
+- Particle Collision Algorithms with Discrete Element Method
 
 
 
@@ -82,13 +82,13 @@ This repo builds upon [IAMR](https://amrex-fluids.github.io/IAMR/) code that sol
 
 ### Download
 
-Our code is rely on AMReX framework, you must download such repo as follow: 
+Our codes rely on the following packages: 
 
 1. AMReX:`git clone https://github.com/ruohai0925/amrex`
 2. AMReX-Hydro:`git clone https://github.com/ruohai0925/AMReX-Hydro`
-3. this repo:`git clone https://github.com/ruohai0925/IAMR/tree/development`
+3. This repo:`git clone https://github.com/ruohai0925/IAMR/tree/development`
 
-After that, you will find three folder in your current directory:`AMReX`,`AMReX-Hydro`,`IAMR`.
+After cloning, one will have three folder in your current directory:`AMReX`,`AMReX-Hydro`,`IAMR`.
 
 ### Compile
 
@@ -108,7 +108,7 @@ For example, if we want to compile in the `FlowPastSphere` , refer to the follow
    
 3. Compile
 
-   After preparing the above settings, you can compile the program:
+   With the above settings, you can compile the program:
 
    ```shell
    make
@@ -121,16 +121,16 @@ For example, if we want to compile in the `FlowPastSphere` , refer to the follow
 
 ### Usage
 
-You should takes an input file as its first command-line argument.  The file may contain a set of parameter definitions that will overrides defaults set in the code. In the `FlowPastSphere`, you can find a file named `inputs.3d.flow_past_spher`, run:
+You should takes an input file as its first command-line argument.  The file may contain a set of parameter definitions that will overrides defaults set in the code. In the `FlowPastSphere`, you can find a file named `inputs.3d.flow_past_sphere`, run:
 
 ```shell
-./amr3d.GNU.MPI.ex inputs.3d.flow_past_spher
+./amr3d.GNU.MPI.ex inputs.3d.flow_past_sphere
 ```
 
 If you use `MPI` to run your program, you can type:
 
 ```shell
-mpirun -np how_many_threads amr3d.GNU.MPI.ex inputs.3d.flow_past_spher
+mpirun -np how_many_threads amr3d.GNU.MPI.ex inputs.3d.flow_past_sphere
 ```
 
 This code typically generates subfolders in the current folder that are named `plt00000`, `plt00010`, etc, and `chk00000`, `chk00010`, etc. These are called plotfiles and checkpoint files. The plotfiles are used for visualization of derived fields; the checkpoint files are used for restarting the code. 
