@@ -21,7 +21,7 @@ void ParticleCollision::SetGeometry(amrex::RealVect gm_lo, amrex::RealVect gm_hi
     cell_size = size;
     //mesh size : euler mesh size
     mesh_size = l;
-    Cells = new std::vector<CollisionCell>(Nx * Ny * Nz);
+    // Cells = new std::vector<CollisionCell>(Nx * Ny * Nz);
 
     // amrex::Print() << "[Collision] : size (" << Nx << "," << Ny << "," << Nz << ")\n";   
 }
@@ -40,7 +40,7 @@ void ParticleCollision::InsertParticle(amrex::RealVect location, amrex::RealVect
     int k = (int)amrex::Math::floor(location[2] / cell_size) - 1;
 
     if ( i > Nx || j > Ny || k > Nz) {
-        amrex::Abort("[Collision Error] : this kernel not inside calculate domain");
+        // amrex::Abort("[Collision Error] : this kernel not inside calculate domain");
     }
 
     Particles.emplace_back(p);
