@@ -20,7 +20,7 @@
 
 ## Overview
 
-This IAMReX repo builds upon [IAMR](https://amrex-fluids.github.io/IAMR/) code that solves the equations of multiphase incompressible flows. The Navier-Stokes euqations are solved on a semi-staggered grid using the projection method. The gas-liquid interface is captured using either the level set (LS) method or the conservative level set (CLS) method. The fluid-solid interface is resolved using the multidirect forcing immersed boundary method (IBM). The particle-wall as well as the particle-particle collisions are also captured by the adaptive collision time model (ACTM). This code aims at simulating the multiphase flow and fluid structure interaction (FSI) problems on both CPUs and GPUs with/without subcycling.
+This IAMReX repo aims at simulating the multiphase incompressible flows. The Navier-Stokes euqations are solved on an adaptive semi-staggered grid using the projection method. The gas-liquid interface is captured using either the level set (LS) method or the conservative level set (CLS) method. The fluid-solid interface is resolved using the multidirect forcing immersed boundary method (IBM). The particle-wall as well as the particle-particle collisions are also captured by the adaptive collision time model (ACTM). This code aims at simulating the multiphase flow and fluid structure interaction (FSI) problems on both CPUs and GPUs with/without subcycling.
 
 
 
@@ -160,14 +160,33 @@ gfortran -o fixBed DomainFill.F90
 ./fixBed
 ```
 
+## Citation
 
+To cite IAMReX, please use
+
+```
+@article{10.1063/5.0236509,
+    author = {Li, Xuzhu (李虚竹) and Li, Chun (李春) and Li, Xiaokai (李晓凯) and Li, Wenzhuo (李文卓) and Tang, Mingze (唐铭泽) and Zeng, Yadong (曾亚东) and Zhu, Zhengping (朱正平)},
+    title = {An open-source, adaptive solver for particle-resolved simulations with both subcycling and non-subcycling methods},
+    journal = {Physics of Fluids},
+    volume = {36},
+    number = {11},
+    pages = {113335},
+    year = {2024},
+    month = {11},
+    issn = {1070-6631},
+    doi = {10.1063/5.0236509},
+    url = {https://doi.org/10.1063/5.0236509},
+    eprint = {https://pubs.aip.org/aip/pof/article-pdf/doi/10.1063/5.0236509/20247663/113335\_1\_5.0236509.pdf},
+}
+```
 
 ## Acknowledgements
 
-We are grateful to Ann Almgren, Andy Nonaka, Andrew Myers, Axel Huebl, and Weiqun Zhang in the Lawrence Berkeley National Laboratory (LBNL) for their discussions related to [AMReX](https://github.com/AMReX-Codes/amrex) and [IAMR](https://github.com/AMReX-Fluids/IAMR). Y.Z. and Z.Z. also thank Prof.Lian Shen, Prof.Ruifeng Hu, and Prof.Xiaojing Zheng during their Ph.D. studies.
+We are grateful to Ann Almgren, Andy Nonaka, Andrew Myers, Axel Huebl, and Weiqun Zhang in the Lawrence Berkeley National Laboratory (LBNL) for their discussions related to [AMReX](https://github.com/AMReX-Codes/amrex) and [IAMR](https://github.com/AMReX-Fluids/IAMR). Y.Z. and Z.Z. also thank Prof. Lian Shen, Prof. Ruifeng Hu, and Prof. Xiaojing Zheng during their Ph.D. studies.
 
 
 
 ## Contact
 
-If you have any question, or want to contribute to the code, please don't hesitate to contact us.
+If you have any question or wanna contribute to the code, please don't hesitate to contact us.
