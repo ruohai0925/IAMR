@@ -1,11 +1,11 @@
 ---
-title: 'IAMReX: A Multiphase Incompressible Flow Solver Based on the Immersed Boundary Method'
+title: 'IAMReX: an adaptive framework for the multiphase flow and fluid-particle interaction problems'
 tags:
   - C++
   - Computational Fluid Dynamics
+  - Adaptive Mesh Refinement
   - Immersed Boundary Method
   - Multiphase Flow
-  - Adaptive Mesh
 authors:
   - name: Adrian M. Price-Whelan
     orcid: 0000-0000-0000-0000
@@ -40,12 +40,14 @@ bibliography: paper.bib
 
 # Summary
 
-The IAMReX repository is constructed based on the IAMR code, dedicated to solving the equations of multiphase incompressible flows. It utilizes the projection method to solve the Navier-Stokes equations on a semi-staggered grid, an approach that effectively manages the dynamics of incompressible fluids. Regarding the capture of gas-liquid interfaces, IAMReX offers both the Level Set (LS) method and the Conservative Level Set (CLS) method; these two techniques can accurately capture the dynamic changes of gas-liquid interfaces, making them particularly suitable for problems involving free surface flows or multiphase flows. For fluid-solid interface issues, IAMReX employs the Multi-Direction Forcing Immersed Boundary Method (IBM), a powerful tool for simulating the interaction between fluids and complex solid boundaries without the need for grid matching on the solid boundaries, thereby reducing computational costs and increasing flexibility. Additionally, IAMReX captures collisions between particles and walls as well as between particles themselves through the Adaptive Collision Time Model (ACTM), which is crucial for the simulation of particulate flows, providing a more realistic representation of particulate dynamics. This code is designed to simulate multiphase flow and fluid-structure interaction (FSI) problems, capable of running on both CPUs and GPUs with or without subcycling, meaning it can operate efficiently on different hardware platforms, leveraging the parallel processing capabilities of modern computational architectures to accelerate simulation processes. Code-level optimizations, such as loop unrolling (pragma unroll), further enhance computational efficiency. IAMReX can handle complex multiphase flow physical models, including the behavior of ideal gases and non-ideal fluids, and employs models like the Wallis speed of sound to calculate the speed of sound in multiphase mixtures, which is crucial for simulating the propagation of pressure waves and similar issues. As a powerful tool, IAMReX is suitable for researchers and engineers who require high precision and efficiency in solving multiphase flow and fluid-structure interaction problems, and it is adaptable to the ever-changing computational demands and challenges.
-[@pyroI] [@castro] [@maestro].
+IAMReX is an adaptive C++ simulation framework designed for multiphase flow and fluid-particle interaction problems. It is built in a objected-oriented style, allowing for testing and simulating large-scale problems (e.g., gas-fluid interaction, cluster of particles) in parallel.
+
+The original goal of IAMReX is to extend the capability of IAMR code [@almgren1998conservative], which only uses a density-based solver to capture the diffused interface of the two-phase flow.  IAMReX offers the Level Set (LS) method and the reinitialization techniques for accurately capturing the two-phase interface [@zeng2022parallel], which increases the robustness of simulations with high Reynolds number [@zeng2023consistent]. For fluid-particle interaction problems, IAMReX employs the multidirect forcing immersed boundary method [@li2024open]. The associated Lagrangian markers used to resolve fluid-particle interface only exist on the finest-level grid, which greatly reduces memory usage. In addition, IAMReX is a publicly accessible platform designed specifically for developing massively parallel block-structured adaptive mesh refinement (BSAMR) applications. The code now supports hybrid parallelization using either pure MPI or MPI+OpenMP for multicore machines with the help of the AMReX framework [@zhang2019amrex].
+
+The IAMReX code has undergone considerable development since 2023 and gained a few new contributors in the past two years. Although the projection-based flow solver is inherited from IAMR, IAMReX has added over 3,000 lines of new code, introduced 10 more new test cases, and contributed approximately 60 new commits on GitHub. The versatility, accuracy, and efficiency of the present IAMReX framework are demonstrated by simulating two-phase flow and fluid-particle interaction problems with various types of kinematic constraints. We carefully designed the document such that users can easily compile and run cases. Input files, profiling scripts, and raw postprocessing data are also available for reproducing all results [@liu2024investigate].
 
 # Acknowledgements
 
-The work at Stony Brook was supported by DOE/Office of Nuclear Physics
-grant DE-FG02-87ER40317 and DOE grant DE-SC0017955.
+C.L., X.L., Y.Z., and Z.Z. are grateful to Ann Almgren, Andy Nonaka, Andrew Myers, Axel Huebl, and Weiqun Zhang in the Lawrence Berkeley National Laboratory (LBNL) for their discussions related to AMReX and IAMR.~Y.Z. and Z.Z. also thank Prof.~Lian Shen, Prof.~Ruifeng Hu, and Prof.~Xiaojing Zheng during their Ph.D. studies.
 
 # References
