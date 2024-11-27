@@ -48,6 +48,6 @@ The IAMReX code has undergone considerable development since 2023 and gained a f
 
 # Acknowledgements
 
-C.L., X.L., Y.Z., and Z.Z. are grateful to Ann Almgren, Andy Nonaka, Andrew Myers, Axel Huebl, and Weiqun Zhang in the Lawrence Berkeley National Laboratory (LBNL) for their discussions related to AMReX and IAMR. Y.Z. and Z.Z. also thank Prof. Lian Shen, Prof.~Ruifeng Hu, and Prof. Xiaojing Zheng during their Ph.D. studies.
+C.L., X.L., Y.Z., and Z.Z. are grateful to Ann Almgren, Andy Nonaka, Andrew Myers, Axel Huebl, and Weiqun Zhang in the Lawrence Berkeley National Laboratory (LBNL) for their discussions related to AMReX and IAMR. Y.Z. and Z.Z. also thank Prof. Lian Shen, Prof. Ruifeng Hu, and Prof. Xiaojing Zheng during their Ph.D. studies.
 
 # References
