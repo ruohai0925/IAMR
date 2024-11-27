@@ -34,7 +34,6 @@ authors:
 affiliations:
  - name: Research Center for Astronomical Computing, Zhejiang Laboratory, Hangzhou 311100, China
    index: 1
-   ror: 00hx57361
  - name: School of Energy and Power Engineering, Lanzhou University of Technology, Lanzhou, Gansu 730050, China
    index: 2
  - name: School of Mechanical Engineering, Hefei University of Technology, Hefei 230009, China
