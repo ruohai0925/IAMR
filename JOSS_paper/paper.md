@@ -15,7 +15,7 @@ authors:
     affiliation: "1, 3"
   - name: Yiliang Wang
     orcid: 0000-0002-0156-2203
-    affiliation: Independent Researcher
+    affiliation: 8
   - name: Xiaokai Li
     orcid:  0009-0001-6639-0473
     affiliation: 4
@@ -26,26 +26,31 @@ authors:
     orcid: 0009-0007-4194-9908
     affiliation: 6
   - name: Yadong Zeng
+    corresponding: true
     orcid: 0009-0001-7944-3597
     affiliation: 7
   - name: Zhengping Zhu
+    corresponding: true
     orcid: 0000-0002-1315-3554
     affiliation: 1
 affiliations:
- - name: Research Center for Astronomical Computing, Zhejiang Laboratory, Hangzhou 311100, China
+ - name: Research Center for Astronomical Computing, Zhejiang Laboratory, Hangzhou, 311100, China
    index: 1
- - name: School of Energy and Power Engineering, Lanzhou University of Technology, Lanzhou, Gansu 730050, China
+ - name: School of Energy and Power Engineering, Lanzhou University of Technology, Lanzhou, 730050, China
    index: 2
- - name: School of Mechanical Engineering, Hefei University of Technology, Hefei 230009, China
+ - name: School of Mechanical Engineering, Hefei University of Technology, Hefei, 230009, China
    index: 3
- - name: School of Physical Science and Technology, ShanghaiTech University, Shanghai 201210, China
+ - name: School of Physical Science and Technology, ShanghaiTech University, Shanghai, 201210, China
    index: 4
- - name: Advanced Propulsion Laboratory, Department of Modern Mechanics, University of Science and Technology of China, Hefei 230026, China
+ - name: Advanced Propulsion Laboratory, Department of Modern Mechanics, University of Science and Technology of China, Hefei, 230026, China
    index: 5
- - name: School of Aeronautics, Northwestern Polytechnical University, Xi'an 710072, China
+ - name: School of Aeronautics, Northwestern Polytechnical University, Xi'an, 710072, China
    index: 6
- - name: Department of Computer Science, University of Texas at Austin, Texas 78712, USA
+ - name: Department of Computer Science, University of Texas at Austin, Austin, 78712, USA
    index: 7
+ - name: Independent Researcher, Loveland, 45140, USA
+   index: 8
+
 
 date: 13 November 2024
 bibliography: paper.bib
