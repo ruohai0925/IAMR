@@ -9,7 +9,7 @@ tags:
 authors:
   - name: Chun Li
     orcid: 0009-0001-6081-5450
-    affiliation: 3
+    affiliation: "1, 3"
   - name: Xuzhu Li
     orcid: 0009-0007-5348-4159
     affiliation: "1, 4"
