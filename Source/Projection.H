@@ -34,6 +34,8 @@ public:
                 int    /*_finest_level*/,
                 int    _radius_grow );
 
+    // Default destructor is used
+
     //
     // Set a level in the projector.
     //
